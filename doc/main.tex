@@ -1,0 +1,54 @@
+\documentclass[twoside]{supsistudent}
+
+\setlength{\parindent}{0pt}
+
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\problemchapter}[1]{%
+  \chapter*{#1}%
+  \addcontentsline{toc}{chapter}{#1}%
+  \markboth{#1}{#1}
+}
+
+\addto\appendix{
+  \renewcommand{\thesection}{\Alph{chapter}.\arabic{section}}
+  \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+}
+
+\setcounter{secnumdepth}{5}
+\setcounter{tocdepth}{5}
+
+\graphicspath{{assets/}{figures/diagrams/}{figures/screenshots/}{figures/plots/}}
+
+\titolo{Rilevamento dati personali in documenti non strutturati aziendali}
+\studente{Algisi Gabriele}
+\relatore{Gay Mario}
+\correlatore{Consoli Angelo}
+\committente{Gay Mario}
+\corso{Ingegneria Informatica}
+\modulo{C11303}
+\anno{2025-2026}
+
+\begin{document}
+
+\pagenumbering{alph}
+\maketitle
+\onehalfspacing
+\frontmatter
+
+\pagenumbering{alph}
+\tableofcontents
+\listoffigures
+\listoftables
+
+\newpage
+\mainmatter
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{sections/intro}
+\input{sections/capitolo1}
+
+\bibliographystyle{unsrt}
+\bibliography{bibliografia}
+\end{document}
