@@ -9,57 +9,97 @@ DA CAPIRE CITAZIONE.
 \section{Requisiti funzionali}
 
 \subsection{Acquisizione dell'input}
-TODO: testo da scrivere.
+Il sistema deve poter analizzare come input un insieme di file selezionati, una cartella, oppure un intero file system. L'acquisizione deve avvenire senza presupporre una struttura predefinita dell'albero di directory, supportando l'elaborazione ricorsiva di sottocartelle.
+
+\medskip
+
+L'utente deve poter specificare percorsi multipli e/o pattern di esclusione (es. cartelle di sistema, file temporanei etc...) per limitare la scansione ai soli percorsi rilevanti.
 
 \subsection{Estrazione del testo}
-TODO: testo da scrivere.
+
+Il sistema deve estrarre il contenuto rtestuale dai documenti non strutturati (PDF, Word, Excel, immagini scansionate) indipendente dal formato di partenza.
+
+\medskip
+
+L'estrazione deve preservare, dove possibile, i metadati strutturali del documento (es. tabelle, intestazioni, numeri di pagina) necessari a contestualizzare le PII rilevate e a tracciarne la posizione nel report finale (cfr. [requisito RO7 - RACCIABILITÀ]).
 
 \subsection{Rilevamento delle PII}
-TODO: testo da scrivere.
+Il sistema deve identificare le occorrenze di dati perosnali nel testo estratto, tramite una combinazione di meccanismi (regex, ML, NLP) la cui composizione esatta è oggetto di definizione architetturale.
 
-\subsection{Aggregazione delle PII frammentate | DA VALUTARE}
-TODO: testo da scrivere.
+\medskip
 
-\subsection{Costruzione di una knowledge base delle entità | DA VALUTARE}
-TODO: testo da scrivere.
+Il rilevamento deve coprire, come minimo, le categorie di dati personali rilevanti ai sensi della nLPD e del GDPR (es. dati identificativi, dati di contatto, identificatori numerici nazionali, dati relativi alla salute, dati degni di particolare protezione secondo l'art. 5 lett. c nLPD CITA e l'art. 9 GDPR CITA).
+
+\subsection{\underline{Aggregazione delle PII frammentate | DA VALUTARE}}
+Il sistema deve essere in grado di ricondurre frammenti di informazione dispersi all'interno di uno o più documenti a un'unica entità coerente (es. bome, identificativo, indirizzo di una stessa persona riportati in punti diversi del testo o in documenti diversi).
+
+\medskip
+
+L'aggregazione deve basarsi su criteri verificabili (es. co-occorrenza, similarità semantica, identificatori univoci condivisi...) e deve essere documentata nel report ai fini di tracciabilità.
+
+\subsection{\underline{Costruzione di una knowledge base delle entità | DA VALUTARE}}
+A partire dalle PII estratte, il sistema deve costruire una rappresentazione strutturata delle entità rilevate nel sistema documentale (tramite NER), che costituisce la base per il confronto con il ROPA.
+
+\medskip
+
+La rappresentazione deve associare a ciascuna entità: le categorie di PII rilevate, i documenti di provenienza, e i riferimenti di posizione necessari per l'auditioning.
 
 \subsection{Ingestionde del/i ROPA}
-TODO: testo da scrivere.
+Il sistema deve accettare uno o più registri delle attività di trattamenti (ROPA) in formato strutturato come riferimento normativo per il confronto.
+
+\medskip
+
+Il formato di ingestione deve includere, per ogni attività di trattamento: categorie di dati personali previste, finalità del trattamento, periodo di conservazione dichiarato (o criteri per la sua determinazione), e categorie di interessati.
 
 \subsection{Confronto knowledge (o risultati di analisi) con ROPA}
-TODO: testo da scrivere.
+Il sistema deve confrontrare le entità e le categorie di dati personali effettivamente rilevate nei documenti con quanto dichiarata nel/i ROPA, verificando l'accuratezza e la coerenza tra dati trovati e dati dichiarati.
+
+\medskip
+Il confronto deve prdourre, per ciascuna entità/documento analizzato, un'associazione (anche parziale o nulla) con una o più attività di trattamento del ROPA, secondo criteri ed euristiche definiti in fase di progettazione architetturale.
 
 \subsection{Rilevamento delle anomalie di conformità}
-TODO: testo da scrivere.
+Il sistema deve identificare e classficare, sulla base del confronto di 2.1.7, le seguenti tipologie di anomalie:
+\begin{itemize}
+	\item categorie di PII rilevate ma non dichiarate nel ROPA per l'attività di trattamento associata;
+	\item dati personali privi di una base giuridica/attività di trattamento associabile ("PII orfane");
+	\item violazioni dei periodi di conservazione dichiarati nel ROPA (documenti contenenti PII oltre il termine di retention dichiarato).
+\end{itemize}
+
+\medskip
+
+Ogni anomalia rilevata deve essere classificata secondo una tipologia predefinita e associata a un livello di gravità/priorità.
 
 \subsection{Generazione report per DPO}
-TODO: testo da scrivere.
+Il sistema deve produrre, come output finale, un report strutturato e leggibile destinato al Data Protection Officer (DPO), contenente le anomalie di conformità rilevate.
+
+\medskip
+Il report deve includere, per ciascuna anomalia: tipologia, documento/i coinvolti, attività di trattamento di riferimemnto (se presente) e la motivazione/base del rilevammento.
 
 % -----------------------------------
 
 \section{Requisiti normativi}
 
 \subsection{Conformità ai principi di limitazione delle finalità e della conservazione}
-TODO: testo da scrivere.
+Il sistema deve supportare la verifica di conformità ai principi di limitazione della finalità (art. 5(1)(b) GDPR; art. 6 cpv. 3 nLPD) e di limitazione della conservazione (art. 5(1)(e) GDPR; art. 6 cpv. 4 nLPD), confrontando i dati personali rilevati con le finalità e i periodi di conservazione dichiarati nel ROPA.
 
 \subsection{Riferimento al registro delle attività di trattamento come fonte normativa}
-TODO: testo da scrivere.
+Il sistema deve trattare il/i ROPA forniti in input come riferimento normativo autoritativo, conformamente a quanto previsto dall'art. 30 GDPR e dall'art. 12 nLPD in merido al contenuto minimo del registro (categorie di interessati, categorie di dati personali, finalità, durata di conservazione, categorie di destinatari).
 
 \subsection{Copertura delle categorie di dati degni di particolare attenzione}
-TODO: testo da scrivere.
+Il sistema deve essere in grado di riconoscere le categorie di dati personali degni di particolare protezione secondo l'art. 5 lett.c nLPD e le categorie particolari di dati personali secondo l'art. 9(1) GDPR, segnalandone la presenza con priorità elevata nel report delle anomalie, in considerazione del regime di consenso espresso richiesto (art. 6 cpv.7 lett. a nLPD; art. 9(2) GDPR).
 
 \subsection{Posizionamento rispetto all'art.32(1)(d) GDPR}
-TODO: testo da scrivere.
+Il sistema deve costituire, nel suo \underline{funzionamento periodico}, un'implementazione tecnica della procedura di test, verifica e valutazione regolare dell'efficacia delle misure tecniche e organizzative di cui all'art. 32(1)(d) GDPR e all'art. 8 nLPD, senza tuttavia implementare funzioni di anonimizzazione o di gestionde degli incidenti, che restano fuori dal perimetro del progetto.
 
 \subsection{Esclusione delle basi giuridiche dal perimetro di analisi automatica}
-TODO: testo da scrivere.
+Il sistema non deve determinare autonomamente la base giurifica applicabile a un trattamento (art. 6 GDPR; art. 30-31 nLPD); tale valutazione resta di competenza del DPO. Il sistema si limita a segnalare l'assenza di un'attività di trattamento associabile ("PII orfane") come elemento informativo a supporto della valutazione umana.
 
 % -----------------------------------
 
 \section{Requisiti operativi}
 
-\subsection{Elaborazione locale dei dati}
-TODO: testo da scrivere.
+\subsection{\underline{Elaborazione locale dei dati}}
+Ogni dato analizzato deve rimanere nell'infrastruttura in cui si trova inizialmente. Essendo che si trattano dati particolarmente pericolosi per la libertà degli individui (citazione...), usufruire di servizi terzi per analizzare o elaborare i dati è fuori discussione.
 
 \subsection{Vincolo sui modelli AI impiegabili}
 TODO: testo da scrivere.
