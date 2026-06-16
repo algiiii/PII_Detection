@@ -34,21 +34,29 @@
 \pagenumbering{alph}
 \maketitle
 \onehalfspacing
+
+% Sezione con indice
 \frontmatter
-
-\pagenumbering{alph}
+\pagenumbering{roman}
 \tableofcontents
-\listoffigures
-\listoftables
 
-\newpage
+% Sezione con capitoli
 \mainmatter
 \pagenumbering{arabic}
 \setcounter{page}{1}
 
-\input{sections/intro}
-\input{sections/capitolo1}
+\input{sections/1_introduzione}
+\input{sections/2_requisiti}
+\input{sections/3_statoDellArte}
 
+% Sezione con tabelle e immagini
+\clearpage
+\pagenumbering{alph}
+\listoffigures
+\listoftables
+
+% Sezione con bibliografia
 \bibliographystyle{unsrt}
 \bibliography{bibliografia}
+
 \end{document}
