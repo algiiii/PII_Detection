@@ -219,6 +219,19 @@ __marimo__/
 
 # Latex
 latex_build/
+*.synctex.gz
+*.ind
+*.ilg
+*.idx
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.aux
+*.log
+!doc/DOC_Algisi.pdf
 
 # MacOS
 .DS_Store
