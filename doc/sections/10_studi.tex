@@ -1,2 +1,9 @@
 \chapter{Studi effettuati}
-Sezione specifica per incorporare studi effettuati che non sono strettamente legati alla realizzazione dell'applicazione in questione, ma che dal punto di vista accademico sono comunque interessanti.
+\label{cap:studi}
+
+\section{Uso AI in rapporto al suo impatto ambientale}
+Nella scelta della metodologia per la detection delle PII all'interno dei documenti, si è sollevato un problema non indifferente: che metodologia usare? I principali candidati (come espresso nella sezione [SEZIONE]) sono: rule-based, NLP / NER e generative AI. Come largamento approvato da innumerevoli studi, l'AI (specialmente usata in accoppiata con LLM) ottiene risultati praticamente perfetti, andando a scovare sfaccettature che alle altre metodologie sfuggono completamente. Specialmente, questa categorie di PII "perse per strada" sono quelle \textbf{legate al contesto, collegamenti multi-documenti e simili.} \medskip
+
+Tuttavia, c'è un importante obiezione da tenere a mente: seppur la detection è sicuramente migliore usando LLM, il consumo energetico per il loro impiego è astronomicamente più alto rispetto ad utilizzare algoritmi deterministici o NER. [SEZIONE DI CONFRONTO CON NUMERI DA PAPER] \medskip
+
+Alla luce di questi dati, è giusto fare un passo indietro e comprendere che
