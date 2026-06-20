@@ -1,32 +1,41 @@
 \chapter{Stato dell'arte}
-Scaffolding precoce della struttura che avrà questo capitolo.
+Sezione che discute lo stato del mercato, con soluzioni più o meno utili. [\textbf{CAMBIA}]
+
+\textbf{DA CAPIRE DOVE METTERE "SUL MERCATO C'È POCO NIENTE PER LA DETECTION, OGNI COSA SFOCIA NELL'ANONIMIZZAZIONE"}
 
 \section{Definizione e inquadramento del problema}
-\underline{da capire cosa mettere in questa sezione, per non essere ripetitivo con quella del contesto}
+\underline{da capire cosa mettere in questa sezione, per non essere ripetitivo con quella del contesto}\\
+Da definire il problema tecnico dell'astrazione. (pensiero grezzo)
+I documenti non strutturati soffrono del problema del "Domain-Silo" \cite{jhaPIIBenchUnifiedMultiSource2026}: i sistemi di detection falliscono perché addestrati su dati specifici e non riescono a generalizzare su testi eterogenei. Il problema centrale non è "leggere" il documento, ma togliere le ambiguità dalle informazioni in base al contesto in cui si trovano.
 
 \section{Approcci tecnici di PII detection}
-Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse in studi accademici. Ognuna di queste ha dei punti di forza e di debolezza, infatti esiste una area di problemi dove ogni singola opzione diventa la migliore, riducendo o addirittura annullando gli effetti negativi.
-
-\medskip
+Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse in studi accademici. Ognuna di queste ha dei punti di forza e di debolezza, infatti esiste una area di problemi dove ogni singola opzione diventa la migliore, riducendo o addirittura annullando gli effetti negativi. (Approfondimento al capitolo 10 [DA LINKARE NEL DOCUMENTO]) \medskip
 
 Le soluzioni in questione sono:
 \subsection{Recognition rule-based}
-Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...). [\textbf{CITA QUI STUDI SU REGEX}] Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: [da capire se mettere lista oppure lasciare testo] categorie nettamente più difficili da trovare (nomi propri per esempio, in quanto si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi (es. lettera maiuscola) [IDEA: libreria per checkare se una parola sia nel dizionario italiano/inglese. SE NO, ALLORA NOME PROPRIO])
-Vantaggio: più veloce in assoluto tra tutte le soluzioni.
+Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...). Non appena i testi diventano liberi e non strutturati, allora l'accuratezza crolla. \cite[Sezione 5.2]{jhaPIIBenchUnifiedMultiSource2026} Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: [da capire se mettere lista oppure lasciare testo] categorie nettamente più difficili da trovare (nomi propri per esempio, in quanto si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi (es. lettera maiuscola) [IDEA: libreria per checkare se una parola sia nel dizionario italiano/inglese. SE NO, ALLORA NOME PROPRIO])\\
+\textbf{Vantaggio}: più veloce in assoluto tra tutte le soluzioni.
 
 \subsection{Recognition con NLP - NER}
+I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognition (NER), classificano le entità testuali analizzando la struttura logica della frase. Architetture basate su Transformers (es. BERT) superando i limiti delle regole, comprendendo il contesto e raggiungendo accuratezze fino al 99.55\% \cite{PDFDetectingPersonally2026}. \medskip
 
+\textbf{Vantaggio}: eccellente bilanciamento tra comprensione del testo ed efficienza computazoinale.\\
+\textbf{Svantaggio}: Rischio di calo prestazionale su dati aziendali particolarmente specifici senza fare fine-tuning su dataset simili.
 
 \subsection{Recognition con AI generativa}
-Sezione di AI generativa
+Ultima soluzione "pura" è l'utilizzo di LLM con AI generativa per l'individuazione di PII. Questo approccio, fortemente documentato e discusso, è senza dubbio il migliore per quanto riguarda solamente le performance. Infatti, seppur riesce ad avere un F1-score e una recall senza precedenti, ha un costo computazionale e di risorse senza precedenti, spesso ingestibile per la maggior parte delle macchine. Gli unici modi per rendere accettabili tempi di esecuzione è di down-scalare i modelli utilizzati, riducendo contesto e "intelligenza" dello stesso. Seppur di aiuto, più si scende con la dimensione e il peso dei modelli, più il vantaggio di usare gli LLM si assottiglia, fino ad azzerarsi rispetto all'uso dell'NLP. \\
+Tuttavia, gli LLM hanno un vantaggio unico per quanto riguarda un aspetto fondamentale nel nostro problema: la presenza nativa del 'contesto'. Infatti gli LLM possiedono una comprensione semantica avanzata del linguaggio naturale. Tramite il paradigma Zero-Shot, identificano PII deducibili puramente dal contesto verbale (es. dedurre "minorenne" dalla frase "mio figlio, nato 3 anni fa") senza alcun addestramento. Inoltre, offrono intepretazioni del loro operato, agevolando gli audit di conformità \cite{yangExploringApplicationLarge2023}.
 
 \subsection{Limitazioni nella soluzione}
 Come visto nella sezione precedente, la soluzione parzialmente migliore sembrerebbe essere la detection con NLP. Questo perché riesce ad avere una percentuale di matching particolarmente alta, senza aver bisogno della quantità ingestibilmente alta di risorse dell'AI generativa.\medskip
 
-Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti [LINK AI REQUISITI], il nostro sistema di detection deve essere ready to use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
+Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti [LINK AI REQUISITI], il nostro sistema di detection deve essere ready-to-use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
+
+\subsection{Soluzioni ibride}
+Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesa di risorse del'AI generativa e la rigidità dei sistemi rule-basd, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
 
 \section{Compliance checking automatizzato}
-Proto
+Probo
 
 \section{Strumenti di supporto al document processing}
 Sezione con strumenti considerati per trasformare file non strutturati in formati facilmente leggibili da regex o, più importante, AI (NLP, generativa etc...)
