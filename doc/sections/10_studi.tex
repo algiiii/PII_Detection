@@ -6,4 +6,13 @@ Nella scelta della metodologia per la detection delle PII all'interno dei docume
 
 Tuttavia, c'è un importante obiezione da tenere a mente: seppur la detection è sicuramente migliore usando LLM, il consumo energetico per il loro impiego è astronomicamente più alto rispetto ad utilizzare algoritmi deterministici o NER. [SEZIONE DI CONFRONTO CON NUMERI DA PAPER] \medskip
 
-Alla luce di questi dati, è giusto fare un passo indietro e comprendere che
+Alla luce di questi dati, è giusto fare un passo indietro e comprendere che...
+
+\section{Considerazioni su training}
+\label{sec:considerazioni-training}
+
+% TODO: INSERIRE QUI "PRECISAZIONE IMPORTANTE SUL COSTO COMPUTAZIONALE"
+% Fare riferimento al file "Training_NER_confronto_strategie.md" (Sezione 4).
+% Differenziare nettamente:
+% - Il costo di INFERENZA RIPETUTA di un LLM (analizzato da Luccioni et al. 2024), che esclude gli LLM dall'analisi massiva dei documenti.
+% - Il costo di FINE-TUNING una tantum di un piccolo encoder NER, che è ordini di grandezza inferiore. Specificare che l'argomento "impatto ambientale" scarta l'inferenza LLM, non il fine-tuning di un encoder locale.
