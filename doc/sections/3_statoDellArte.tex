@@ -65,6 +65,14 @@ I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognit
 Ultima soluzione "pura" è l'utilizzo di LLM con AI generativa per l'individuazione di PII. Questo approccio, fortemente documentato e discusso, è senza dubbio il migliore per quanto riguarda solamente le performance. Infatti, seppur riesce ad avere un F1-score e una recall senza precedenti, ha un costo computazionale e di risorse senza precedenti, spesso ingestibile per la maggior parte delle macchine. Gli unici modi per rendere accettabili tempi di esecuzione è di down-scalare i modelli utilizzati, riducendo contesto e "intelligenza" dello stesso. Seppur di aiuto, più si scende con la dimensione e il peso dei modelli, più il vantaggio di usare gli LLM si assottiglia, fino ad azzerarsi rispetto all'uso dell'NLP. \\
 Tuttavia, gli LLM hanno un vantaggio unico per quanto riguarda un aspetto fondamentale nel nostro problema: la presenza nativa del 'contesto'. Infatti gli LLM possiedono una comprensione semantica avanzata del linguaggio naturale. Tramite il paradigma Zero-Shot, identificano PII deducibili puramente dal contesto verbale (es. dedurre "minorenne" dalla frase "mio figlio, nato 3 anni fa") senza alcun addestramento. Inoltre, offrono intepretazioni del loro operato, agevolando gli audit di conformità \cite{yangExploringApplicationLarge2023}.
 
+\subsection{Limitazioni nella soluzione}
+Come visto nella sezione precedente, la soluzione parzialmente migliore sembrerebbe essere la detection con NLP. Questo perché riesce ad avere una percentuale di matching particolarmente alta, senza aver bisogno della quantità ingestibilmente alta di risorse dell'AI generativa.\medskip
+
+Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti [LINK AI REQUISITI], il nostro sistema di detection deve essere ready-to-use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
+
+\subsection{Soluzioni ibride}
+Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesa di risorse del'AI generativa e la rigidità dei sistemi rule-basd, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
+
 \section{Analisi del training}
 \label{sec:analisi-training}
 Storicamente, i modelli utilizzati per l'estrazione di informazioni si dividono in due macrocategorie: supervised e unsupervised (cfr.~\ref{sub:supervised-unsupervised}). Ognuno dei due approcci presenta vantaggi e svantaggi in termini di scalabilità. Numerosi studi, come quello di Al Qahtani \cite{PDFComparativeStudy}, hanno dimostrato come i modelli supervisionati garantiscano performance superiori su pattern noti, ma richiedano onerose fasi di etichettatura manuale per adattarsi a nuovi scenari.
@@ -87,13 +95,6 @@ Per superare i colli di bottiglia del fine-tuning, la letteratura ha esplorato m
 Il modello calcola la similarità semantica tra le parole del testo e la descrizione dell'etichetta cercata, identificando il dato personale in tempo reale. Questo paradigma è perfettamente allineato alle necessità di flessibilità e privacy locale teorizzate da Zhang \cite{zhangPersonallyIdentifiableInformation2025}, eliminando il costo del fine-tuning e permettendo di estendere le categorie ricercate semplicemente aggiornando la lista di istruzioni testuali in input.
 
 
-\subsection{Limitazioni nella soluzione}
-Come visto nella sezione precedente, la soluzione parzialmente migliore sembrerebbe essere la detection con NLP. Questo perché riesce ad avere una percentuale di matching particolarmente alta, senza aver bisogno della quantità ingestibilmente alta di risorse dell'AI generativa.\medskip
-
-Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti [LINK AI REQUISITI], il nostro sistema di detection deve essere ready-to-use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
-
-\subsection{Soluzioni ibride}
-Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesa di risorse del'AI generativa e la rigidità dei sistemi rule-basd, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
 
 \section{Sfide nell'elaborazione documentale e vincoli di privacy} % 4
 \label{sec:elaborazione-parsing}
