@@ -41,7 +41,7 @@ I documenti non strutturati soffrono del problema del "Domain-Silo" \cite{jhaPII
 \textit{RIFORMULARE PER UNIRE TUTTO}
 
 \section{Compliance checking automatizzato} % 3
-\label{compliance-checking}
+\label{sec:compliance-checking}
 Sezione contenente metodi per confrontare il ROPA con i dati effettivamente all'interno dei dati.\cite{amaralNLPbasedAutomatedCompliance2023} \textbf{MAGARI DA SPOSTARE}
 
 \section{Approcci tecnici di PII detection}
@@ -80,7 +80,7 @@ Storicamente, i modelli utilizzati per l'estrazione di informazioni si dividono 
 Tuttavia, nel contesto specifico della Named Entity Recognition (NER) moderna, il dibattito si è spostato su due paradigmi di training più evoluti per i modelli Transformer:
 
 \subsection{Pre-training e fine-tuning (Paradigma classico)}
-\label{sec:apre-training-vs-fine-tuning}
+\label{sub:pre-training-vs-fine-tuning}
 Il paradigma tradizionale prevede l'utilizzo di un modello linguistico pre-addestrato su vasti corpus testuali, il quale viene poi adattato (\textit{fine-tuned}) tramite un dataset supervisionato specifico per il dominio di interesse (es. dati finanziari o medici). Sebbene garantisca accuratezza elevata, questo approccio introduce due criticità:
 \begin{itemize}
 	\item \textbf{Costi di annotazione}: l'adattamento richiede dataset etichettati massicci, che nel caso delle PII comporta spesso l'intervento manuale di esperti e solleva problematiche di privacy intrinseche alla manipolazione di dati reali.
@@ -96,7 +96,7 @@ Il modello calcola la similarità semantica tra le parole del testo e la descriz
 
 
 
-\section{Sfide nell'elaborazione documentale e vincoli di privacy} % 4
+\section{Sfide nell'elaborazione documentale} % 4
 \label{sec:elaborazione-parsing}
 Sezione con strumenti considerati per trasformare file non strutturati in formati facilmente leggibili da regex o, più importante, AI (NLP, generativa etc...)
 
@@ -107,6 +107,7 @@ Spiegone di Docling
 Spiegno di altre tecnolgie (che ora non ricordo)
 
 \section{Panoramica dei sistemi esistenti} % 5
+\label{sec:panoramica-sistemi}
 L'analisi dello stato dell'arte evidenzia una profonda spaccatura tra gli strumenti open-source, spesso focalizzati su un singolo task tecnici (anonimizzare o estrazione bruta), e le suite commerciali, ricche di feature ma close-source e inaccessibili.
 \subsection{Sistemi open-source}
 
