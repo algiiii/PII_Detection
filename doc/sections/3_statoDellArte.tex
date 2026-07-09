@@ -15,6 +15,8 @@ Come spiegato in uno dei testi cardine del machine learning, redatto da Goodfell
 	\item per \textbf{Unsupervised learning} si intende quel paradigma in cui l'algoritmo opera su un insieme di dati privo di etichette, con l'obiettivo di individuare autonomamente strutture, regolarità o proprietà latenti presenti nei dati stessi. Nel contesto del deep learning, questo si traduce spesso nel tentativo di apprendere — in modo esplicito (ad esempio tramite stima di densità) o implicito (ad esempio per compiti di generazione o denoising) — la distribuzione di probabilità sottostante ai dati. Altri algoritmi non supervisionati svolgono invece compiti diversi, come il clustering, che consiste nel raggruppare gli esempi del dataset in base alla loro similarità.
 \end{itemize}
 
+Nel contesto specifico della NER, l'approccio supervisionato mostra miglioramenti quantificabili rispetto alle alternative zero-shot. La curva di apprendimento dei modelli Transformer pre-addestrati è ripida: con soli $\sim$100 esempi annotati, l'F1-score aumenta di circa 5.6 punti rispetto alla baseline zero-shot, mentre con 500--1000 esempi si raggiunge tipicamente un F1 del 90--95\%. I rendimenti diventano decrescenti oltre i 2000 esempi, dove il modello raggiunge la saturazione dominio-specifica (F1\,$\approx$\,95--99\%). Fine-tunare su un dominio specifico comporta miglioramenti particolarmente netti per le categorie inizialmente mal coperte: le categorie con riconoscimento zero-shot scarso possono mostrare incrementi F1 fino al 57--80\%.
+
 \subsection{Pre-tuning vs fine-tuning}
 \label{sub:pretuning-finetuning}
 Il paradigma pre-training/fine-tuning è stato reso centrale nell'NLP moderno dal lavoro di Devlin \cite{devlinBERTPretrainingDeep2019}, che lo applicano al modello BERT (Bidirectional Encored Representations from Transformers). Le due fasi si articolano come segue:
@@ -73,6 +75,107 @@ Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in con
 \subsection{Soluzioni ibride}
 Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesa di risorse del'AI generativa e la rigidità dei sistemi rule-basd, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
 
+\subsection{Confronto empirico degli approcci}
+\label{sub:confronto-empirico}
+
+Le sezioni precedenti presentano ciascun approccio in termini qualitativi. Per motivare la scelta architetturale in modo rigoroso, è necessario un confronto quantitativo basato su evidenze empiriche dalla letteratura recente. Le metriche considerate sono precisione~(P), recall~(R), F1-score, costo energetico di inferencee necessità di dati annotati.
+
+\subsubsection{Prestazioni dei sistemi rule-based}
+
+Le espressioni regolari raggiungono alta precisione su pattern strutturati come email, numeri di telefono e indirizzi IP, specialmente se accompagnate da post-processing per eliminare falsi positivi sistematici (ad esempio ISBN confusi con numeri di telefono)
+\cite{elazarWhatsMyBigData2024}. % Zotero: arXiv:2310.20707 — Elazar et al. "What's in My Big Data?" 4.4
+Tuttavia, il limite strutturale è la \textit{brittleness}: i detectors rule-based non considerano il contesto del testo circostante e falliscono sistematicamente su PII contestuali
+\cite{jiangGenerativeDataRefinement2025}. % Zotero: arXiv:2509.08653 — Generative Data Refinement 4
+La letteratura di survey su NER conferma il pattern: per i metodi rule-based la precisione è tipicamente alta, mentre il recall tende a essere basso a causa di regole domain-specific; il processo di introduzione di nuove regole è costoso
+\cite{keraghelRecentAdvancesNamed2024}. % Zotero: arXiv:2401.10825 — Szabo et al. "Recent Advances in NER: A Comprehensive Survey" 5.1 
+
+\subsubsection{Prestazioni dei modelli NER supervisionati}
+
+Con corpus annotati adeguati, i modelli encoder fine-tuned raggiungono le prestazioni più elevate in assoluto tra tutti gli approcci considerati. In un benchmark comparativo su documenti clinici, BERT, ModernBERT e ClinicalBERT raggiungono tutti P\,=\,0.99 e R\,=\,0.99 (CIRE\,$\approx$\,0.99), con throughput di 1528--2446 token/secondo e costo energetico di inference nettamente inferiore ai modelli generativi
+\cite{zambareFairEfficientDeidentification2026}. % Zotero: arXiv:2602.15869 — Mayer et al. "Towards Fair and Efficient De-identification" 5 (Metrics)
+Un modello DeBERTa fine-tuned sul dataset \textit{ai4privacy} raggiunge F1\,=\,0.9757 su un benchmark PII multi-dominio
+\cite{DeBERTaai4privacy}. % https://grepture.com/blog/best-open-source-models-pii-redaction | Standout models
+
+Su documenti finanziari non strutturati (audit report, fatture), una pipeline ibrida NLP rule-based + ML + NER custom raggiunge P\,=\,94.7\%, R\,=\,89.4\%, F1\,=\,91.1\% su dataset sintetici, con il 93\% di accuratezza su documenti reali
+\cite{mishraHybridRulebasedNLP2025}. % Zotero: DOI:10.1038/s41598-025-04971-9 — Mazzarino et al. Scientific Reports | First section
+
+Il principale ostacolo non è il costo di inference(basso dopo il training) ma il costo di annotazione del corpus: le soluzioni supervisionate richiedono tipicamente un corpus annotato di grandi dimensioni
+\cite{africanoPIIDetectionLowResource2024}. % Zotero: DOI:10.1145/3675888.3676036 — Africano et al. ACM IC3 2024 | Introduction
+Questo costo è però da sostenersi una tantum (fine-tuning), non per ogni documento analizzato (distinzione fondamentale rispetto all'inference LLM, ricorrente).
+
+\subsubsection{Prestazioni dei modelli NER zero-shot}
+
+GLiNER (cfr.~\ref{sub:zero-shot}) usa un encoder bidirezionale (DeBERTa) con un meccanismo di span-extraction (individuare inizio e fine di una label, invece di processare parola per parola) prompt-style (inserire le etichette da estrarre come testo, senza averne di predefinite nell'architettura del modello): le label vengono fornite come input testuale e il modello identifica span corrispondenti nel documento senza retraining
+\cite{zaratianaGLiNER2PIIMultilingualModel2026}. % Zotero: arXiv:2311.08526 — Zaratiana et al. "GLiNER" NAACL 2024 | White paper di Gliner
+Test su dataset PII multi-domain mostrano GLiNER-base a circa l'81\% di F1, superiore ad approcci spaCy o regex standard, con recall particolarmente elevato su ID numerici e date
+\cite{ComparingBestNERProtecto2025}. % Zotero: Protecto AI 2026 | Articolo web, NON PEER REVIEWD | Gliner for PII
+Il modello \texttt{gliner-pii-base-v1.0} raggiunge F1\,=\,80.99\% ed è ottimizzato per applicazioni privacy-focused in cui i servizi NER cloud pongono rischi di conformità
+\cite{KnowledgatorGlinerpiibasev10HuggingFace2026}. % Zotero: HuggingFace model card — knowledgator/gliner-pii-large-v1.0 | Introduzione
+
+Tuttavia, la specificità di dominio rimane determinante anche per approcci zero-shot: su testo clinico, GLiNER scende a circa F1\,=\,0.41, perdendo oltre il 50\% delle entità PHI rispetto ai modelli domain-specific
+\cite{OpenSourcePHI}. % Zotero: IntuitionLabs 2026 | Emerging Large Language Model (LLM) Methods
+Questo impone una valutazione empirica obbligatoria sul corpus aziendale target prima di escludere il fine-tuning.
+
+\subsubsection{Prestazioni dell'AI generativa}
+
+GPT-4o, LLaMA~3.3 70B e LLaMA~3.1 8B raggiungono tutti recall medio superiore a 0.90, ma la precisione rimane un problema irrisolto: anche il top performer GPT-4o raggiunge soltanto P\,=\,0.579 su dataset educativi
+\cite{zambranoDeidentifyingStudentPersonally2025}. % Zotero: arXiv:2501.09765 — Shen et al. "Enhancing De-identification of PII in Educational Data" | Performance
+Su benchmark strutturati multi-task (PII-Bench), GPT-4o con metodi avanzati (Self-CoT, Self-Consistency) raggiunge F1\,$\approx$\,0.76--0.77, con Llama~3.1 e Qwen~2.5 in linea
+\cite{jhaPIIBenchUnifiedMultiSource2026}. % Zotero: arXiv:2502.18545 — PII-Bench
+
+Il problema principale per il contesto di questa tesi è il \textbf{costo energetico ricorrente}. Luccioni, Jernite e Strubell mostrano una distinzione netta tra modelli discriminativi task-specific --- con emissioni molto inferiori --- e modelli generativi decoder-only: la generazione di testo richiede circa 0.047\,kWh per 1000 query
+\cite{luccioniPowerHungryProcessing2024}. % Zotero: DOI:10.1145/3630106.3658542 — Luccioni et al. "Power Hungry Processing" FAccT 2024 | Task specific model analysis
+Questo costo si moltiplica per ogni documento analizzato nel filesystem aziendale ed è ricorrente (ogni nuova analisi, ogni re-scan), mentre il fine-tuning di un encoder è un costo one-shot. A parità di F1, RoBERTa costa circa \$0.044 per 1000 esempi contro \$13.50 di GPT-4 --- un rapporto di circa 300:1
+\cite{yuOpenClosedSmall2023}. % Zotero: arXiv:2308.10092 — Hu et al. "Open, Closed, or Small LMs for Text Classification?" | Observation 5
+
+\subsubsection{Convergenza verso la pipeline ibrida}
+
+La convergenza della letteratura recente indica la pipeline ibrida come soluzione ottimale per il rilevamento PII in contesti di compliance. Il sistema RECAP (NeurIPS 2025) combina regex deterministiche con LLM context-aware in un framework modulare a tre fasi: (1)~rilevamento regex, (2)~classificazione NER, (3)~risoluzione ambiguità via LLM. RECAP supera i modelli NER fine-tuned dell'82\% e i LLM zero-shot del 17\% in weighted F1-score su 13 lingue low-resource
+\cite{rajgarhiaEvaluationStudyHybrid2025}. % TODO Zotero: arXiv:2510.07551 — Rajgarhia et al. "RECAP" NeurIPS 2025
+
+Un sistema ibrido indipendente (CHPDA) documenta lo stesso principio: le regex eccellono su pattern chiaramente definiti ma mancano di flessibilità per gestire complessità contestuali; i modelli NER eccellono nell'identificare entità ambigue come nomi e indirizzi, difficili da catturare con regex, ma producono falsi positivi senza pattern guida. La combinazione risolve i limiti di entrambi
+\cite{koliDecodingComplexityIntelligent2025}. % Zotero: arXiv:2502.07815 — CHPDA
+
+La letteratura non esclude l'AI generativa in assoluto, ma ne circoscrive il ruolo: l'impiego su casi ambigui come supervisor di una pipeline ibrida è documentato come cost-effective
+\cite{rajgarhiaEvaluationStudyHybrid2025}. L'esclusione riguarda l'inferencesistematica su tutto il corpus, non l'impiego selettivo su un sottoinsieme di casi irrisolti.
+
+\subsubsection{Matrice di confronto sintetica}
+
+La Tabella~\ref{tab:confronto-approcci} riassume le evidenze empiriche discusse nelle sezioni precedenti.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Confronto empirico degli approcci di PII detection basato su evidenze dalla letteratura.}
+	\label{tab:confronto-approcci}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|c|c|c|c|}
+			\hline
+			\textbf{Approccio}      & \textbf{P} & \textbf{R}   & \textbf{F1 tipico} & \textbf{Costo inf.} & \textbf{Corpus ann.} & \textbf{Energia training}           & \textbf{Energia / 1k query}         \\
+			\hline
+			Regex / rule-based      & Alta       & Bassa--media & 0.60--0.75         & Minimo              & No                   & Nessuno                             & Trascurabile                        \\
+			\hline
+			NER supervised          & 0.95--0.99 & 0.89--0.99   & 0.94--0.99         & Basso               & Sì (grande)          & Basso (one-shot)\textsuperscript{a} & $\sim$0.002\,kWh\textsuperscript{b} \\
+			\hline
+			NER zero-shot (GLiNER)  & Media      & Media        & $\sim$0.81         & Basso               & No                   & Nessuno\textsuperscript{c}          & $\sim$0.002\,kWh\textsuperscript{b} \\
+			\hline
+			LLM generativo (GPT-4o) & 0.58       & $>$0.90      & 0.70--0.77         & Altissimo           & No                   & Altissimo\textsuperscript{d}        & $\sim$0.047\,kWh\textsuperscript{b} \\
+			\hline
+			Pipeline ibrida         & Alta       & Alta         & +82\% vs NER       & Medio               & Opzionale            & Basso (NER component)               & Basso--medio\textsuperscript{e}     \\
+			\hline
+		\end{tabular}%
+	}
+	\vspace{0.3em}
+
+	\raggedright\scriptsize
+	\textsuperscript{a}\,Il fine-tuning di un encoder richiede $\sim$44\,h GPU totali su A100; il costo è one-shot e non ricorrente~\cite{zambareFairEfficientDeidentification2026}.\quad
+	\textsuperscript{b}\,Dati misurati su A100: text classification $\sim$0.002\,kWh/1k inf., text generation $\sim$0.047\,kWh/1k inf.~\cite{luccioniPowerHungryProcessing2024}.\quad
+	\textsuperscript{c}\,GLiNER usa un encoder pre-addestrato senza fine-tuning task-specific~\cite{zaratianaGLiNER2PIIMultilingualModel2026}.\quad
+	\textsuperscript{d}\,Il pre-training di LLM generativi richiede ordini di grandezza più energia dell'inference; la parità training/inference si raggiunge dopo 200--590\,M query~\cite{luccioniPowerHungryProcessing2024}.\quad
+	\textsuperscript{e}\,Regex + NER encoder con LLM solo su casi ambigui: il costo è dominato dalla componente NER~\cite{rajgarhiaEvaluationStudyHybrid2025}.
+\end{table}
+
+
 \section{Analisi del training}
 \label{sec:analisi-training}
 Storicamente, i modelli utilizzati per l'estrazione di informazioni si dividono in due macrocategorie: supervised e unsupervised (cfr.~\ref{sub:supervised-unsupervised}). Ognuno dei due approcci presenta vantaggi e svantaggi in termini di scalabilità. Numerosi studi, come quello di Al Qahtani \cite{PDFComparativeStudy}, hanno dimostrato come i modelli supervisionati garantiscano performance superiori su pattern noti, ma richiedano onerose fasi di etichettatura manuale per adattarsi a nuovi scenari.
@@ -87,7 +190,7 @@ Il paradigma tradizionale prevede l'utilizzo di un modello linguistico pre-addes
 	\item \textbf{Perdita di generalizzazione (Catastrophic Forgetting)}: la specializzazione spinta su un singolo formato documentale può compromettere la capacità del modello di generalizzare su testi imprevisti.
 \end{itemize}
 
-Questi vincoli risultano particolarmente critici in ambienti operativi ristretti. Come evidenziato dallo studio di Zhang et al. \cite{zhangPersonallyIdentifiableInformation2025} sul rilevamento di PII in architetture \textit{smart edge computing}, l'esigenza di eseguire inferenza locale e decentralizzata richiede modelli estremamente robusti che non obblighino a continui cicli di riaddestramento per coprire nuove categorie di dati sensibili.
+Questi vincoli risultano particolarmente critici in ambienti operativi ristretti. Come evidenziato dallo studio di Zhang et al. \cite{zhangPersonallyIdentifiableInformation2025} sul rilevamento di PII in architetture \textit{smart edge computing}, l'esigenza di eseguire inferencelocale e decentralizzata richiede modelli estremamente robusti che non obblighino a continui cicli di riaddestramento per coprire nuove categorie di dati sensibili.
 
 \subsection{Span-matching e Zero-shot (Il paradigma GLiNER)}
 Per superare i colli di bottiglia del fine-tuning, la letteratura ha esplorato modelli capaci di identificare entità senza addestramento pregresso sulle etichette specifiche (Zero-shot). Architetture recenti, come GLiNER \cite{zaratianaGLiNER2PIIMultilingualModel2026}, sfruttano encoder bidirezionali leggeri per eseguire uno \textit{span-matching}. In questa modalità, al modello viene passato sia il documento da analizzare sia le descrizioni testuali delle PII da trovare (es. ``Numero di previdenza sociale'').

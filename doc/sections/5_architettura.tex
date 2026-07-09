@@ -189,3 +189,150 @@
 % B. Modello pre-fine-tunato da terzi (es. gliner-pii)
 % C. Fine-tuning leggero in proprio
 % Discutere perché, visti i vincoli e i requisiti del progetto (zero-training, no dati annotati, esecuzione locale), si scarta l'opzione C a favore delle opzioni A/B.
+
+% ============================================================================
+% Zotero — fonti da IMPORTARE prima della compilazione (NON editare il .bib a mano).
+% Le chiavi \cite qui sotto sono provvisorie: allinearle a quelle generate da Zotero.
+%   - overeemEmpiricalCharacterizationEvent2021  DOI:10.1016/j.jss.2021.110970 (preprint arXiv:2104.01146)
+%   - kleppmannDesigningDataIntensive2017        ISBN:978-1449373320 (cap. 11)
+%   - fowlerEventSourcing2005                     https://martinfowler.com/eaaDev/EventSourcing.html
+%   - youngCQRSDocuments                          Greg Young, "CQRS Documents" (PDF, practitioner)
+%   - microsoftAzureEventSourcing                 https://learn.microsoft.com/azure/architecture/patterns/event-sourcing
+%   - awsEventSourcingPattern                     https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html
+% ============================================================================
+
+\section{Persistenza del registro delle PII}
+\label{sec:persistenza-registro}
+
+Il blocco B5 della Figura~\ref{fig:architettura-macro-blocchi} --- il registro delle PII rilevate --- non è un semplice contenitore dell'ultimo stato osservato, ma l'elemento su cui poggia la capacità del sistema di ragionare sull'evoluzione dei dati personali nel tempo. La scelta del modello di persistenza che lo sostiene non è quindi un dettaglio realizzativo, ma una decisione architetturale che condiziona quali domande il sistema è in grado di rispondere. Questa sezione formalizza il requisito che la persistenza deve soddisfare, confronta gli approcci valutati e motiva quello adottato.
+
+Un vincolo di progetto attraversa tutta la discussione: \textbf{il registro non conserva i valori effettivi delle PII}, ma solo riferimenti a esse (tipo, posizione, documento di appartenenza). È una scelta di minimizzazione del dato --- un registro di conformità non deve a sua volta trasformarsi in un archivio di dati personali --- e ha una conseguenza diretta sul significato che possono assumere gli eventi di «modifica» (cfr. §\ref{sub:persistenza-punti-aperti}).
+
+\subsection{Il requisito di tracciamento temporale}
+\label{sub:persistenza-requisito}
+
+Le linee guida di progetto richiedono che il sistema mantenga una traccia tale per cui, se un utente in seguito modifica un file, sia possibile accorgersi che una determinata PII è stata cancellata o modificata rispetto a una rilevazione precedente. Il registro deve cioè poter rispondere non solo alla domanda «quali PII sono presenti ora?», ma anche «\textit{che cosa è cambiato} rispetto alla scansione precedente?».
+
+Questo è un requisito di \textbf{tracciamento temporale} e ha una conseguenza diretta sul modello dati: non basta uno stato corrente scollegato dal passato, serve un meccanismo che leghi esplicitamente le rilevazioni successive dello stesso documento. È il criterio rispetto al quale vengono valutate le opzioni che seguono.
+
+\subsection{Approcci valutati}
+\label{sub:persistenza-approcci}
+
+Il problema non si riduce a una scelta binaria tra snapshot ed event logger: esistono tre approcci distinti, con profili di complessità e garanzie molto diversi, riassunti nella Tabella~\ref{tab:persistenza-opzioni}.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Approcci valutati per la persistenza del registro delle PII.}
+	\label{tab:persistenza-opzioni}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|c|l|l|l|}
+			\hline
+			\textbf{\#} & \textbf{Approccio}                      & \textbf{Idea di fondo}                                                         & \textbf{Fonte di verità}              \\
+			\hline
+			A           & Snapshot completi                       & Ogni scansione salva l'intero stato rilevato, indipendente dalle altre         & Ultimo snapshot                       \\
+			\hline
+			B           & Event sourcing puro                     & Si salvano solo gli eventi; lo stato corrente è \textit{derivato} col replay   & Il log degli eventi                   \\
+			\hline
+			C           & \textbf{Changelog ibrido (delta-based)} & Stato corrente mutabile \textit{e} log append-only secondario delle variazioni & Lo stato corrente (log complementare) \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\subsubsection{Opzione A --- Snapshot completi}
+
+A ogni esecuzione della pipeline si salva un'istantanea completa di tutte le PII rilevate \texttt{(tipo\_PII, path\_documento, posizione, trattamento\_ROPA\_associato, data\_scansione)} autoconsistente e indipendente dalle altre. Il modello dati è minimale (una sola entità, nessuna logica di correlazione), non esiste rischio di derivare uno stato errato perché ogni snapshot \textit{è} lo stato, e la realizzazione è immediata.
+
+Il limite è però esattamente sul requisito del §\ref{sub:persistenza-requisito}: non esiste \textbf{alcuna relazione esplicita tra scansioni consecutive}. Con due snapshot presi a distanza di ore, ricostruire «che cosa è cambiato» richiede un confronto (diff) calcolato a posteriori, riga per riga, senza alcuna struttura che leghi le due fotografie. A ciò si aggiunge la ridondanza dei dati (le PII invariate vengono riscritte a ogni scansione) e il fatto che il tracciamento temporale non è una proprietà del modello ma un'operazione applicativa da implementare comunque. L'opzione non è scartata perché errata, ma perché sposta interamente sul livello applicativo il lavoro di correlazione che il requisito richiede, senza offrire una struttura dati che lo supporti.
+
+\subsubsection{Opzione B --- Event sourcing puro}
+
+Lo stato dell'applicazione non viene mai salvato direttamente: si registra ogni cambiamento come evento immutabile in un log append-only, e lo stato corrente si ottiene \textit{rigiocando} (replay) l'intera sequenza di eventi. Nella formulazione originale di Fowler, il log diventa la fonte di verità principale e lo stato è puramente derivato~\cite{fowlerEventSourcing2005}. Il pattern offre per costruzione una storia completa e immutabile --- si può ricostruire lo stato a qualsiasi istante passato --- con auditabilità nativa, proprietà interessante per un sistema di conformità; qui il tracciamento temporale non è un'aggiunta, ma il modello stesso.
+
+Su questo approccio la letteratura è però netta. Lo studio empirico di Overeem et al., basato su interviste con 25 ingegneri che hanno adottato il pattern in sistemi reali, identifica cinque sfide ricorrenti, tra cui una curva di apprendimento ripida e l'evoluzione dello schema (\textit{schema evolution}): non difficoltà percepite, ma \textit{liabilities} documentate del pattern~\cite{overeemEmpiricalCharacterizationEvent2021}. Inoltre, poiché lo stato corrente non è memorizzato ma va ricostruito, anche l'interrogazione più semplice («quali PII ci sono ora in questo documento?») richiede di rigiocare gli eventi; per rendere efficienti le letture, l'event sourcing viene quasi sempre affiancato al pattern CQRS (\textit{Command Query Responsibility Segregation}), che introduce un \textit{secondo} modello di lettura mantenuto in parallelo, cioè ulteriore complessità architetturale~\cite{youngCQRSDocuments, microsoftAzureEventSourcing, awsEventSourcingPattern}. A questo si sommano la crescita illimitata del log e la gestione di proiezioni, versioning degli eventi e consistenza eventuale. La stessa documentazione di riferimento raccomanda di adottare il pattern \textbf{solo} quando i benefici di auditabilità e ricostruzione storica giustificano la complessità introdotta, notando che per la maggior parte dei sistemi la gestione dati tradizionale è sufficiente~\cite{microsoftAzureEventSourcing}.
+
+\subsubsection{Opzione C --- Changelog ibrido delta-based}
+
+L'approccio adottato mantiene \textbf{due} strutture complementari:
+\begin{enumerate}
+	\item uno \textbf{stato corrente mutabile} --- la lista delle PII attualmente presenti, interrogabile direttamente senza alcuna ricostruzione;
+	\item un \textbf{log append-only delle variazioni} (\textit{changelog}), \textit{secondario}, che registra ogni delta tra una scansione e la successiva e lega esplicitamente ogni variazione alla scansione precedente dello stesso documento.
+\end{enumerate}
+
+La differenza cruciale rispetto all'opzione B è che il log \textbf{non è l'unica fonte di verità}: lo stato corrente esiste già come dato di prima classe, quindi nessun replay è necessario per le operazioni quotidiane. Il changelog serve a rispondere alla domanda «che cosa è cambiato», non a ricostruire lo stato. L'approccio combina due concetti presenti in letteratura: il \textbf{dataset delta-driven} proprio del \textit{Change Data Capture} (CDC), che cattura le variazioni tra uno stato e il successivo \textit{senza} fare del log la fonte di verità esclusiva, mantenendo lo stato corrente come dato normale e interrogabile~\cite{kleppmannDesigningDataIntensive2017} !!!!!!!; e l'idea di \textbf{log immutabile append-only} come traccia di audit, mutuata dall'event sourcing ma applicata in forma non esclusiva.
+
+\begin{quote}
+	\textit{Nota terminologica.} Il CDC descritto da Kleppmann cattura i cambiamenti leggendo il \textit{transaction log} di un database sorgente. Nel sistema qui proposto, invece, i cambiamenti vengono \textit{rilevati} confrontando i risultati di scansioni successive di documenti esterni: non esiste un database sorgente di cui intercettare le transazioni. Il modello è dunque \textit{ispirato} al paradigma delta-based del CDC, non un'implementazione di CDC in senso stretto.
+\end{quote}
+
+\subsection{Motivazione della scelta}
+\label{sub:persistenza-scelta}
+
+La scelta dell'opzione C è il risultato di un confronto esplicito di \textit{trade-off}, sintetizzato nella Tabella~\ref{tab:persistenza-confronto}, e si articola in quattro punti:
+
+\begin{enumerate}
+	\item \textbf{Risolve il difetto di A.} Il changelog lega ogni variazione alla scansione precedente dello stesso documento: le scansioni non sono più fotografie isolate e la domanda «che cosa è cambiato» ha una risposta strutturale, non un diff calcolato a posteriori.
+	\item \textbf{Evita il costo di B.} Lo stato corrente è memorizzato e interrogabile direttamente: niente replay, niente proiezioni, niente CQRS, niente consistenza eventuale da gestire. Le sfide di adozione documentate da Overeem et al.~\cite{overeemEmpiricalCharacterizationEvent2021} non si applicano, perché non si sta adottando event sourcing puro.
+	\item \textbf{Conserva l'auditabilità dove serve.} Se in futuro servisse la ricostruzione storica completa, resta possibile rigiocando il changelog --- ma è una \textit{possibilità}, non un requisito per il funzionamento quotidiano: si ottiene gran parte del beneficio di B senza pagarne il prezzo in anticipo.
+	\item \textbf{È coerente con la minimizzazione del dato.} Registrando solo riferimenti e non valori, sia lo stato corrente sia il changelog restano leggeri e privi di PII effettive.
+\end{enumerate}
+
+\begin{table}[htbp]
+	\centering
+	\caption{Sintesi comparativa dei tre approcci di persistenza.}
+	\label{tab:persistenza-confronto}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|}
+			\hline
+			\textbf{Criterio}                    & \textbf{A --- Snapshot} & \textbf{B --- Event sourcing}                      & \textbf{C --- Changelog ibrido} \\
+			\hline
+			Relazione esplicita tra scansioni    & \ding{55}               & \ding{51}                                          & \ding{51}                       \\
+			\hline
+			Interrogazione stato corrente        & immediata               & replay / CQRS                                      & immediata                       \\
+			\hline
+			Complessità realizzativa             & bassa                   & alta                                               & medio-bassa                     \\
+			\hline
+			Auditabilità / storia completa       & \ding{55}               & \ding{51}                                          & parziale (estendibile)          \\
+			\hline
+			Ridondanza dei dati                  & alta                    & nessuna                                            & bassa                           \\
+			\hline
+			Coerenza con minimizzazione del dato & \ding{51}               & \ding{51}                                          & \ding{51}                       \\
+			\hline
+			Rischio di stato derivato errato     & nullo                   & presente                                           & nullo                           \\
+			\hline
+			Sfide di adozione documentate        & ---                     & 5~\cite{overeemEmpiricalCharacterizationEvent2021} & non applicabili                 \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\subsection{Modello dati concettuale}
+\label{sub:persistenza-modello-dati}
+
+Il modello che segue è \textit{technology-agnostic}: la scelta della tecnologia di persistenza concreta è discussa nel Capitolo~\ref{cap:implementazione}. Oltre alle entità già definite nel modello (\texttt{Documento}, \texttt{Scansione}, \texttt{TrattamentoROPA}), la persistenza introduce due entità principali.
+
+\texttt{IstanzaPII} rappresenta lo stato corrente, mutabile: «questa PII, in questo documento, così com'è ora». Comprende un identificatore, il \texttt{tipo\_PII}, il riferimento al \texttt{Documento}, la \texttt{posizione\_attuale}, un riferimento opzionale (0..1) al \texttt{TrattamentoROPA} --- assente se la PII è \textit{orfana}, cioè non riconducibile ad alcun trattamento dichiarato --- e il riferimento all'ultima \texttt{Scansione} che l'ha osservata. È la tabella che il report per il DPO legge \textbf{direttamente}.
+
+\texttt{VariazionePII} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra». Comprende un identificatore, il riferimento all'\texttt{IstanzaPII}, il \texttt{tipo\_variazione} (vocabolario chiuso, cfr. §\ref{sub:persistenza-punti-aperti}), il riferimento alla \texttt{Scansione} che ha prodotto la variazione, il riferimento alla \texttt{scansione\_precedente} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}.
+
+Le relazioni tra le entità sono: \texttt{Documento}~(1)--(N)~\texttt{IstanzaPII} (\textit{contiene}); \texttt{IstanzaPII}~(1)--(N)~\texttt{VariazionePII} (\textit{ha storia}); \texttt{Scansione}~(1)--(N)~\texttt{VariazionePII} (\textit{genera}); \texttt{IstanzaPII}~(N)--(0..1)~\texttt{TrattamentoROPA} (\textit{corrisponde a}, con 0 = orfana).
+
+% TODO: inserire qui il diagramma ER in TikZ (entità IstanzaPII, VariazionePII,
+% Documento, Scansione, TrattamentoROPA e relative relazioni), coerente con lo
+% stile di fig:architettura-macro-blocchi. Da produrre quando i punti aperti del
+% modello (§\ref{sub:persistenza-punti-aperti}) saranno risolti.
+
+\subsection{Punti aperti di progettazione}
+\label{sub:persistenza-punti-aperti}
+
+Alcune decisioni sul modello restano deliberatamente aperte: vanno risolte prima di bloccarlo definitivamente e ciascuna ha un impatto concreto. Si riportano qui come lavoro in corso.
+
+\paragraph{Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova più un'istanza confermata in precedenza, sono possibili due strategie. Nella modalità \textbf{esplicita} il sistema scrive attivamente una \texttt{VariazionePII} di tipo \texttt{RIMOSSA}: è più corretta per un log autoesplicativo (l'assenza di un dato non dovrebbe richiedere conoscenza esterna per essere interpretata), ma impone a ogni scansione un confronto attivo con lo stato precedente del documento. Nella modalità \textbf{implicita} non si registra alcun evento di rimozione e lo stato «rimossa» si deduce confrontando l'ultima variazione dell'istanza con la data dell'ultima scansione del documento: più semplice, ma il changelog da solo non basta a spiegare l'accaduto. L'ipotesi preferita è quella esplicita, più solida e compatibile con l'opzione C (il confronto attivo fa comunque parte del meccanismo di rilevazione dei delta).
+
+\paragraph{Significato dell'evento «modifica».} Poiché il registro non salva i valori effettivi delle PII, un evento di «modifica» non può riferirsi al cambiamento del \textit{contenuto} della PII, mai memorizzato. Può riferirsi solo al cambio di \textbf{posizione} nel documento (evento \texttt{SPOSTATA}) o a una \textbf{riclassificazione} del tipo. L'ipotesi di lavoro è quindi di non prevedere un generico evento \texttt{MODIFICATA}, ma di scomporlo in variazioni dal significato preciso.
+
+\paragraph{Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{tipo\_variazione} come enumerazione chiusa: \texttt{NUOVA} (istanza rilevata per la prima volta), \texttt{CONFERMATA} (istanza già nota, ritrovata invariata), \texttt{SPOSTATA} (istanza già nota, ritrovata in posizione diversa) e \texttt{RIMOSSA} (istanza già nota, non più presente --- dipende dalla scelta sulla scomparsa). Un insieme chiuso elimina ambiguità nel modello e nel diagramma; resta da confermare se questo set è completo per tutti i casi d'uso previsti.
+
+\paragraph{Ambito dello snapshot iniziale.} Anche in un modello delta-based serve un punto di partenza: la prima scansione di un documento non ha una «scansione precedente». Va deciso come rappresentare il \textit{bootstrap} --- l'ipotesi è di registrare tutte le istanze della prima scansione come \texttt{NUOVA} con \texttt{scansione\_precedente} nullo. Ciò è coerente con quanto nota Kleppmann sul CDC, dove il processo parte comunque da uno snapshot iniziale che fa da riferimento per la successiva cattura dei delta~\cite{kleppmannDesigningDataIntensive2017}. !!!!!!!

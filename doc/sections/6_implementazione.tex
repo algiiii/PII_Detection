@@ -1,1 +1,22 @@
 \chapter{Implementazione}
+\label{cap:implementazione}
+
+% TODO: INSERIRE QUI "ROADMAP IMPLEMENTATIVA E DI VALIDAZIONE"
+% Fare riferimento al file "Training_NER_confronto_strategie.md" (Sezione 5).
+% Spiegare i passi dell'implementazione sperimentale:
+% 1. Implementazione della baseline con zero-shot GLiNER
+% 2. Integrazione e test di un modello pre-fine-tunato (gliner-pii)
+% 3. Eventuale esplorazione di fine-tuning solo a scopo esplorativo per il diario tecnico.
+
+\section{Tecnologia di persistenza del registro PII}
+\label{sec:implementazione-persistenza-tecnologia}
+
+Il modello di persistenza del registro delle PII e la sua motivazione architetturale sono discussi nel §\ref{sec:persistenza-registro}: la scelta è ricaduta su un \textit{changelog ibrido delta-based}, con uno stato corrente mutabile affiancato da un log append-only delle variazioni. Quel modello è \textit{technology-agnostic}; resta da fissare la tecnologia concreta con cui realizzarlo.
+
+La scelta è \textbf{deliberatamente rimandata} finché i requisiti non sono più stabili, per non vincolare l'implementazione a decisioni premature. I candidati principali sono due:
+\begin{itemize}
+	\item una base dati \textbf{relazionale} (ad esempio SQLite), che offre \textit{join} e interrogazioni relazionali «gratuite» ed è coerente con il vincolo di deployment locale in Docker senza servizi esterni;
+	\item una persistenza \textbf{su file semi-strutturati} (JSON/JSONL), più leggera ma meno strutturata e priva di garanzie relazionali native.
+\end{itemize}
+
+La decisione va motivata quando il modello concettuale sarà bloccato --- in particolare dopo aver risolto i punti aperti del §\ref{sub:persistenza-punti-aperti} --- e non prima, poiché la struttura definitiva delle entità e delle relazioni incide direttamente sui vantaggi relativi delle due opzioni.

@@ -1,9 +1,132 @@
 \chapter{Analisi dei rischi}
+\label{cap:analisi-rischi}
+
+% ===================================================================
+%  RISCHI DI PROGETTO (organizzativi, tecnici, di pianificazione)
+% ===================================================================
 
 \section{Rischi di progetto}
+\label{sec:rischi-progetto}
+
+\subsection{Disponibilità e qualità dei dataset di valutazione}
+\label{sub:rischio-dataset}
+% Lo stato dell'arte è orientato all'anonimizzazione: scarseggiano benchmark pubblici
+% pensati per la sola *detection* di PII. Rischio di non poter validare i risultati
+% in modo riproducibile (cfr. problema evidenziato nelle linee guida).
+
+\subsection{Complessità dell'integrazione multi-approccio}
+\label{sub:rischio-integrazione}
+% La pipeline prevede regex, NLP/NER (GLiNER, BERT) e potenzialmente AI generativa.
+% Far convivere output eterogenei in un'unica pipeline modulare introduce rischi
+% di incoerenza, duplicazione e complessità architetturale.
+
+\subsection{Costo computazionale e tempi di elaborazione}
+\label{sub:rischio-costo-computazionale}
+% Le linee guida evidenziano che l'AI generativa su un intero filesystem
+% richiederebbe "MESI di calcoli super computer-intensive". Necessario
+% documentare il trade-off risultati/consumo energetico con paper accademici.
+
+\subsection{Dipendenza da modelli e librerie di terze parti}
+\label{sub:rischio-dipendenze}
+% GLiNER, Hugging Face Transformers, librerie OCR, parser PDF/DOCX/XLSX.
+% Rischio di breaking changes, discontinuità del supporto o licenze incompatibili.
+
+\subsection{Carenza di competenze specialistiche}
+\label{sub:rischio-competenze}
+% Le linee guida sottolineano: "DEVO STUDIARE COSA SIGNIFICA TRAINING E COME
+% FARLO IN MANIERA CORRETTA ED EFFICACE". Rischio legato alla curva di
+% apprendimento su ML, fine-tuning e NLP nel contesto di un progetto di tesi.
+
+\subsection{Scope creep e requisiti in evoluzione}
+\label{sub:rischio-scope-creep}
+% Molti requisiti sono ancora marcati "DA VALUTARE" (aggregazione PII,
+% knowledge base, impieghi alternativi dell'AI). Rischio di continua
+% espansione del perimetro durante lo sviluppo.
+
+% ===================================================================
+%  RISCHI DI PRODOTTO (qualità, affidabilità, sicurezza del sistema)
+% ===================================================================
 
 \section{Rischi di prodotto}
+\label{sec:rischi-prodotto}
 
-\section{Valutazione}
+\subsection{Accuratezza insufficiente nella detection delle PII}
+\label{sub:rischio-accuratezza}
+% Il sistema non anonimizza, ma solo rileva: un'accuratezza bassa mina
+% direttamente il valore del report finale per il DPO. Discutere metriche
+% (precision, recall, F1) e soglie di accettabilità.
 
-\section{Mitigazione}
+\subsection{Falsi positivi e impatto sull'usabilità}
+\label{sub:rischio-falsi-positivi}
+% Troppi falsi positivi rendono il report inutilizzabile: il DPO perde
+% fiducia nel sistema e smette di consultarlo. Impatto diverso dai falsi
+% negativi, da trattare separatamente.
+
+\subsection{Falsi negativi e mancata rilevazione di PII critiche}
+\label{sub:rischio-falsi-negativi}
+% Un falso negativo su dati degni di particolare protezione (art. 5 nLPD,
+% art. 9 GDPR) può avere conseguenze legali gravi. Rischio asimmetrico
+% rispetto ai falsi positivi.
+
+\subsection{Generalizzazione cross-domain (domain-silo problem)}
+\label{sub:rischio-domain-silo}
+% Come evidenziato dallo stato dell'arte (PIIBench, Jha et al.), i sistemi
+% addestrati su un dominio falliscono su testi eterogenei. Il sistema deve
+% funzionare su documenti aziendali di natura molto diversa.
+
+\subsection{Supporto multilingue e multilocalizzazione}
+\label{sub:rischio-multilingue}
+% Il contesto nLPD + GDPR implica almeno IT, DE, FR, EN. Le regex sono
+% lingua-dipendenti, i modelli NER hanno performance disomogenee tra lingue.
+% Anche i formati delle PII cambiano (AVS vs CF vs SSN).
+
+\subsection{Scalabilità su filesystem di grandi dimensioni}
+\label{sub:rischio-scalabilita}
+% Il requisito prevede la scansione ricorsiva di interi filesystem.
+% Rischio di tempi proibitivi, consumo di memoria e gestione di formati
+% eterogenei (PDF, DOCX, XLSX, immagini con OCR).
+
+\subsection{Qualità e completezza dei ROPA in input}
+\label{sub:rischio-qualita-ropa}
+% Le linee guida notano che i ROPA aziendali possono essere "scritti in
+% maniera sbrigativa" (es. "dati anagrafici" invece di campi specifici).
+% Un ROPA povero degrada il confronto e il report di conformità.
+
+\subsection{Conformità normativa e aggiornamento dei framework legali}
+\label{sub:rischio-conformita-normativa}
+% Il sistema deve allinearsi a GDPR e nLPD, ma anche potenzialmente a
+% leggi americane e altri framework. Le normative evolvono: rischio che
+% le categorie di PII implementate diventino incomplete o obsolete.
+
+\subsection{Sicurezza e protezione dei dati durante l'analisi}
+\label{sub:rischio-sicurezza-dati}
+% Paradosso: per rilevare PII il sistema deve accedervi. Il registro
+% interno, il report e le strutture intermedie contengono essi stessi
+% dati personali. Rischio di data breach durante l'analisi stessa.
+
+% ===================================================================
+%  VALUTAZIONE DEI RISCHI
+% ===================================================================
+
+\section{Valutazione dei rischi}
+\label{sec:valutazione-rischi}
+
+\subsection{Criteri di classificazione}
+\label{sub:criteri-classificazione}
+% Definire le scale di probabilità e impatto utilizzate per classificare
+% ciascun rischio (es. scala 1-5, qualitativa, o basata su standard ISO 31000).
+
+\subsection{Matrice probabilità--impatto}
+\label{sub:matrice-probabilita-impatto}
+% Tabella/matrice che posiziona tutti i rischi identificati nelle sezioni
+% precedenti in base alla loro probabilità di occorrenza e gravità dell'impatto.
+
+% ===================================================================
+%  STRATEGIE DI MITIGAZIONE
+% ===================================================================
+
+\section{Strategie di mitigazione}
+\label{sec:mitigazione-rischi}
+% Per ciascun rischio ad alta/media priorità, descrivere le contromisure
+% adottate o pianificate (es. pipeline modulare, fallback regex, test
+% incrementali, dizionari ad-hoc, sandboxing dei dati durante l'analisi).
