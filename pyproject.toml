@@ -1,0 +1,48 @@
+[project]
+name = "pii-detection"
+version = "0.1.0"
+description = "Motore di rilevamento PII (blocco B4): regex + NER zero-shot + AI selettiva"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pyyaml>=6.0",
+    "pydantic>=2.6",
+]
+
+# Gruppi opzionali: gli step 1-4 non richiedono l'ecosistema ML pesante.
+[project.optional-dependencies]
+# Step 5 — GLiNER (trascina torch/transformers). Installare solo quando serve.
+ner = [
+    "gliner>=0.2.13",
+]
+# Step 6 — runtime LLM locale. Scelta rimandata (Ollama via HTTP client, oppure
+# llama-cpp-python in-process). Lasciato vuoto finché non si decide.
+llm = []
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+docs = [
+    "sphinx>=7.3",
+    "furo>=2024.5",
+    "sphinx-autodoc-typehints>=2.1",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pii_detection*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["pii_detection"]
+
+[tool.pytest.ini_options]
+testpaths = ["pii_detection/tests"]
