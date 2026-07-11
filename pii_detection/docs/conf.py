@@ -1,7 +1,7 @@
-"""Configurazione Sphinx per la reference API del motore di detection (B4).
+"""Sphinx configuration for the API reference of the detection engine (B4).
 
-Genera un sito HTML navigabile a partire dai docstring reST del package
-``pii_detection``. Build (dalla radice del repo):
+Generates a navigable HTML site from the reST docstrings of the
+``pii_detection`` package. Build (from the repo root):
 ``sphinx-build -b html pii_detection/docs pii_detection/docs/_build/html``.
 """
 
@@ -10,8 +10,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Risale a pii_detection/docs -> pii_detection -> radice del repo, così il
-# package è importabile anche fuori dal venv editable.
+# Walk up pii_detection/docs -> pii_detection -> repo root, so the package is
+# importable even outside the editable venv.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 project = "PII Detection (blocco B4)"
@@ -19,18 +19,18 @@ author = "Gabriele Algisi"
 release = "0.1.0"
 
 extensions = [
-    "sphinx.ext.autodoc",  # estrae i docstring dal codice
-    "sphinx.ext.viewcode",  # link "source" a fianco di ogni oggetto
-    "sphinx.ext.intersphinx",  # link alla stdlib Python
-    "sphinx_autodoc_typehints",  # type hint resi nella descrizione
+    "sphinx.ext.autodoc",  # extract docstrings from the code
+    "sphinx.ext.viewcode",  # "source" link next to every object
+    "sphinx.ext.intersphinx",  # link to the Python stdlib
+    "sphinx_autodoc_typehints",  # type hints rendered in the description
 ]
 
-language = "it"
+language = "en"
 
 # --- autodoc -------------------------------------------------------------
-autodoc_member_order = "bysource"  # stesso ordine del codice, non alfabetico
-autoclass_content = "both"  # unisce docstring di classe e __init__
-autodoc_typehints = "description"  # i tipi finiscono nel corpo, non nella firma
+autodoc_member_order = "bysource"  # same order as the code, not alphabetical
+autoclass_content = "both"  # merge class and __init__ docstrings
+autodoc_typehints = "description"  # types go in the body, not the signature
 autodoc_default_options = {
     "members": True,
     "show-inheritance": True,
@@ -39,5 +39,5 @@ autodoc_default_options = {
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 # --- HTML ----------------------------------------------------------------
-html_theme = "furo"  # tema con sidebar navigabile e ricerca client-side
-html_title = "PII Detection — reference API"
+html_theme = "furo"  # theme with navigable sidebar and client-side search
+html_title = "PII Detection — API reference"

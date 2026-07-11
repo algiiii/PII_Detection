@@ -1,16 +1,16 @@
-"""Modello dati condiviso del livello di detection (blocco B4).
+"""Shared data model of the detection layer (block B4).
 
-Fissato in ``doc/planning.md`` §"Modello dati comune". Il layer distingue tre
-livelli di dato:
+Defined in ``doc/planning.md`` §"Modello dati comune". The layer distinguishes
+three data levels:
 
-1. :class:`PIICandidate` — output grezzo di UN detector, pre-merge.
-2. :class:`PIIMatch` — output del merge (le "PII unificate" che alimentano B5).
-3. ``IstanzaPII`` / ``VariazionePII`` — persistenza (fuori scope, in B5/B6).
+1. :class:`PIICandidate` — raw output of ONE detector, pre-merge.
+2. :class:`PIIMatch` — output of the merge (the "unified PII" that feed B5).
+3. ``IstanzaPII`` / ``VariazionePII`` — persistence (out of scope, in B5/B6).
 
-**Minimizzazione (§2.3.11).** I DTO detection-time possono portare il campo
-``text`` (serve al merge e alla leggibilità del report) e vivono solo in memoria
-per la durata dell'elaborazione del singolo documento. L'entità persistente non
-contiene mai il valore della PII.
+**Minimization (§2.3.11).** The detection-time DTOs may carry the ``text``
+field (needed for the merge and for report readability) and live only in memory
+for the duration of the processing of a single document. The persistent entity
+never contains the PII value.
 """
 
 from __future__ import annotations
@@ -21,16 +21,16 @@ from enum import Enum
 
 
 class DetectorKind(str, Enum):
-    """Tecnica di rilevamento che ha prodotto un candidato.
+    """Detection technique that produced a candidate.
 
-    Vocabolario chiuso *architetturale* (tre tecniche), da non confondere con le
-    categorie PII: ``pii_type`` è una stringa dichiarata in config e liberamente
-    estensibile (§2.3.10), mentre l'insieme delle tecniche è fissato
-    dall'architettura e aggiungerne una è attività da sviluppatore.
+    Closed *architectural* vocabulary (three techniques), not to be confused
+    with the PII categories: ``pii_type`` is a string declared in config and
+    freely extensible (§2.3.10), whereas the set of techniques is fixed by the
+    architecture and adding one is a developer-level activity.
 
-    :cvar REGEX: detector a espressioni regolari, config-driven.
-    :cvar NER: detector NER zero-shot (GLiNER).
-    :cvar AI: detector AI generativa selettiva (passata campionata).
+    :cvar REGEX: regular-expression detector, config-driven.
+    :cvar NER: zero-shot NER detector (GLiNER).
+    :cvar AI: selective generative-AI detector (sampled pass).
     """
 
     REGEX = "regex"
@@ -39,16 +39,16 @@ class DetectorKind(str, Enum):
 
 
 class ConfirmationLevel(str, Enum):
-    """Esito del merge per uno span. Vocabolario chiuso architetturale.
+    """Outcome of the merge for a span. Closed architectural vocabulary.
 
-    :cvar SINGLE_SOURCE: rilevato da una sola fonte, senza overlap; mai scartato
-        (recall-first, §2.5.2).
-    :cvar DOUBLE_CONFIRMED: stesso ``pii_type`` confermato da regex e NER su span
-        sovrapposti.
-    :cvar CONFLICTING: span sovrapposti ma ``pii_type`` discordante; nessun
-        arbitraggio automatico, la risoluzione è demandata a B5.
-    :cvar AI_DISCOVERED: trovato dalla passata AI campionata, assente dalle altre
-        fonti.
+    :cvar SINGLE_SOURCE: detected by a single source, without overlap; never
+        discarded (recall-first, §2.5.2).
+    :cvar DOUBLE_CONFIRMED: same ``pii_type`` confirmed by regex and NER on
+        overlapping spans.
+    :cvar CONFLICTING: overlapping spans but disagreeing ``pii_type``; no
+        automatic arbitration, resolution is deferred to B5.
+    :cvar AI_DISCOVERED: found by the sampled AI pass, absent from the other
+        sources.
     """
 
     SINGLE_SOURCE = "single_source"
@@ -59,52 +59,52 @@ class ConfirmationLevel(str, Enum):
 
 @dataclass(frozen=True)
 class TextSpan:
-    """Intervallo di caratteri nel testo normalizzato del documento.
+    """Character interval in the normalized text of the document.
 
-    Immutabile. Gli offset sono half-open ``[start, end)`` sul testo
-    normalizzato prodotto da B3.
+    Immutable. Offsets are half-open ``[start, end)`` over the normalized text
+    produced by B3.
 
-    :ivar start: offset carattere iniziale, inclusivo (``>= 0``).
-    :ivar end: offset carattere finale, esclusivo (``> start``).
+    :ivar start: starting character offset, inclusive (``>= 0``).
+    :ivar end: ending character offset, exclusive (``> start``).
     """
 
     start: int
     end: int
 
     def __post_init__(self) -> None:
-        """Valida l'invariante dello span.
+        """Validate the span invariant.
 
-        :raises ValueError: se ``start`` è negativo, oppure se lo span è vuoto o
-            invertito (``end <= start``).
+        :raises ValueError: if ``start`` is negative, or if the span is empty or
+            inverted (``end <= start``).
         """
         if self.start < 0:
-            raise ValueError(f"start negativo: {self.start}")
+            raise ValueError(f"negative start: {self.start}")
         if self.end <= self.start:
-            raise ValueError(f"span vuoto o invertito: [{self.start}, {self.end})")
+            raise ValueError(f"empty or inverted span: [{self.start}, {self.end})")
 
     def __len__(self) -> int:
-        """:returns: numero di caratteri coperti dallo span."""
+        """:returns: number of characters covered by the span."""
         return self.end - self.start
 
     def overlaps(self, other: TextSpan) -> bool:
-        """Indica se i due span condividono almeno un carattere.
+        """Tell whether the two spans share at least one character.
 
-        Due span adiacenti (``self.end == other.start``) NON si sovrappongono.
+        Two adjacent spans (``self.end == other.start``) do NOT overlap.
 
-        :param other: span con cui confrontarsi.
-        :returns: ``True`` se l'intersezione è non vuota.
+        :param other: span to compare against.
+        :returns: ``True`` if the intersection is non-empty.
         """
         return self.start < other.end and other.start < self.end
 
     def overlap_ratio(self, other: TextSpan) -> float:
-        """Intersection over Union (IoU) tra i due span.
+        """Intersection over Union (IoU) between the two spans.
 
-        Metrica usata dal :class:`~pii_detection.detection.pipeline.MergeEngine`
-        (Step 7) per decidere se due candidati si riferiscono allo stesso match.
+        Metric used by the :class:`~pii_detection.detection.pipeline.MergeEngine`
+        (Step 7) to decide whether two candidates refer to the same match.
 
-        :param other: span con cui confrontarsi.
-        :returns: rapporto in ``[0.0, 1.0]``; ``0.0`` se disgiunti, ``1.0`` se
-            coincidono.
+        :param other: span to compare against.
+        :returns: ratio in ``[0.0, 1.0]``; ``0.0`` if disjoint, ``1.0`` if they
+            coincide.
         """
         inter = max(0, min(self.end, other.end) - max(self.start, other.start))
         if inter == 0:
@@ -115,15 +115,15 @@ class TextSpan:
 
 @dataclass(frozen=True)
 class DocumentLocation:
-    """Posizione umana della PII, dalla mappa posizione fornita da B3.
+    """Human-facing position of the PII, from the position map provided by B3.
 
-    Tutti i campi sono opzionali perché dipendono dal formato sorgente: un PDF ha
-    ``page``, un foglio di calcolo ha ``cell``, un testo semplice può non averne.
+    All fields are optional because they depend on the source format: a PDF has
+    a ``page``, a spreadsheet has a ``cell``, plain text may have none.
 
-    :ivar page: numero di pagina (1-based), se applicabile.
-    :ivar paragraph: indice di paragrafo, se applicabile.
-    :ivar line: numero di riga, se applicabile.
-    :ivar cell: riferimento di cella (es. ``"B4"``) per formati tabellari.
+    :ivar page: page number (1-based), if applicable.
+    :ivar paragraph: paragraph index, if applicable.
+    :ivar line: line number, if applicable.
+    :ivar cell: cell reference (e.g. ``"B4"``) for tabular formats.
     """
 
     page: int | None = None
@@ -134,49 +134,49 @@ class DocumentLocation:
 
 @dataclass(frozen=True)
 class NormalizedDocument:
-    """Input del livello B4: testo normalizzato più identificativo del documento.
+    """Input of the B4 layer: normalized text plus the document identifier.
 
-    La mappatura ``TextSpan -> DocumentLocation`` è responsabilità di B3 (fuori
-    scope qui): finché non è disponibile, :meth:`location_for` restituisce
-    ``None`` e la pipeline usa il valore ricevuto senza assumerne la presenza.
+    The ``TextSpan -> DocumentLocation`` mapping is B3's responsibility (out of
+    scope here): until it is available, :meth:`location_for` returns ``None`` and
+    the pipeline uses the received value without assuming its presence.
 
-    :ivar document_id: identificativo stabile del documento sorgente.
-    :ivar text: testo normalizzato su cui operano i detector.
+    :ivar document_id: stable identifier of the source document.
+    :ivar text: normalized text the detectors operate on.
     """
 
     document_id: str
     text: str
 
     def location_for(self, span: TextSpan) -> DocumentLocation | None:
-        """Risolve la posizione umana di uno span.
+        """Resolve the human-facing position of a span.
 
-        Placeholder in attesa di B3: la mappa di posizione la fornisce il layer
-        di estrazione, non questo.
+        Placeholder awaiting B3: the position map is provided by the extraction
+        layer, not by this one.
 
-        :param span: intervallo di caratteri da localizzare.
-        :returns: la :class:`DocumentLocation` corrispondente, o ``None`` finché
-            B3 non fornisce la mappa.
+        :param span: character interval to locate.
+        :returns: the corresponding :class:`DocumentLocation`, or ``None`` until
+            B3 provides the map.
         """
         return None
 
 
 @dataclass(frozen=True)
 class DetectionProvenance:
-    """Provenienza di un singolo rilevamento — risponde alla tracciabilità (§2.7.3).
+    """Provenance of a single detection — answers traceability (§2.7.3).
 
-    Immutabile. I campi opzionali sono specifici della tecnica: ``raw_label`` per
-    NER, ``checksum_validated`` per regex, ``rationale`` per AI. Mantenerli in un
-    unico DTO permette a :class:`PIIMatch` di conservare provenienze eterogenee
-    in un'unica lista ``sources``.
+    Immutable. The optional fields are technique-specific: ``raw_label`` for
+    NER, ``checksum_validated`` for regex, ``rationale`` for AI. Keeping them in
+    a single DTO lets :class:`PIIMatch` retain heterogeneous provenances in one
+    ``sources`` list.
 
-    :ivar detector_id: id dell'istanza di detector, es. ``"regex.iban_v1"``.
-    :ivar detector_kind: tecnica che ha prodotto il rilevamento.
-    :ivar pii_type: categoria PII dichiarata in config, es. ``"iban"``.
-    :ivar confidence: confidenza del rilevamento in ``[0.0, 1.0]``.
-    :ivar raw_label: solo NER — label testuale passata al modello.
-    :ivar checksum_validated: solo regex — esito del validatore; ``None`` se
-        nessun validatore è configurato per la regola.
-    :ivar rationale: solo AI — motivazione testuale prodotta dal modello.
+    :ivar detector_id: id of the detector instance, e.g. ``"regex.iban_v1"``.
+    :ivar detector_kind: technique that produced the detection.
+    :ivar pii_type: PII category declared in config, e.g. ``"iban"``.
+    :ivar confidence: detection confidence in ``[0.0, 1.0]``.
+    :ivar raw_label: NER only — textual label passed to the model.
+    :ivar checksum_validated: regex only — validator outcome; ``None`` if no
+        validator is configured for the rule.
+    :ivar rationale: AI only — textual rationale produced by the model.
     """
 
     detector_id: str
@@ -188,24 +188,24 @@ class DetectionProvenance:
     rationale: str | None = None
 
     def __post_init__(self) -> None:
-        """Valida il range di confidenza.
+        """Validate the confidence range.
 
-        :raises ValueError: se ``confidence`` è fuori da ``[0.0, 1.0]``.
+        :raises ValueError: if ``confidence`` is outside ``[0.0, 1.0]``.
         """
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(f"confidence fuori range [0,1]: {self.confidence}")
+            raise ValueError(f"confidence out of range [0,1]: {self.confidence}")
 
 
 @dataclass
 class PIICandidate:
-    """Output di UN detector, pre-merge.
+    """Output of ONE detector, pre-merge.
 
-    Mutabile per comodità dei detector in fase di costruzione. Il campo ``text``
-    vive solo in-memory (§2.3.11) e non deve mai raggiungere la persistenza.
+    Mutable for the detectors' convenience during construction. The ``text``
+    field lives only in-memory (§2.3.11) and must never reach persistence.
 
-    :ivar span: posizione del candidato nel testo normalizzato.
-    :ivar text: sottostringa effettivamente rilevata (solo in-memory).
-    :ivar provenance: da quale detector e con quale confidenza proviene.
+    :ivar span: position of the candidate in the normalized text.
+    :ivar text: substring actually detected (in-memory only).
+    :ivar provenance: which detector it comes from and with what confidence.
     """
 
     span: TextSpan
@@ -215,23 +215,22 @@ class PIICandidate:
 
 @dataclass
 class PIIMatch:
-    """PII unificata prodotta dal merge — output del layer B4 verso B5.
+    """Unified PII produced by the merge — output of the B4 layer toward B5.
 
-    Aggrega uno o più :class:`PIICandidate` che insistono sullo stesso span. La
-    lista ``sources`` (non un singolo id) conserva tutte le provenienze: è ciò
-    che alimenta :attr:`ConfirmationLevel.DOUBLE_CONFIRMED` e che il DPO può
-    ispezionare (§2.7.3).
+    Aggregates one or more :class:`PIICandidate` insisting on the same span. The
+    ``sources`` list (not a single id) retains all the provenances: it is what
+    feeds :attr:`ConfirmationLevel.DOUBLE_CONFIRMED` and what the DPO can inspect
+    (§2.7.3).
 
-    :ivar span: posizione della PII nel testo normalizzato.
-    :ivar text: valore rilevato (solo in-memory, §2.3.11).
-    :ivar pii_type: categoria PII risultante dal merge.
-    :ivar confidence: confidenza aggregata in ``[0.0, 1.0]``.
-    :ivar confirmation_level: esito del merge per questo span.
-    :ivar sources: provenienze che concorrono al match (almeno una).
-    :ivar document_id: documento a cui la PII appartiene.
-    :ivar location: posizione umana da B3, o ``None`` se non disponibile.
-    :ivar match_id: identificativo detection-time (uuid4); non è una chiave
-        persistente.
+    :ivar span: position of the PII in the normalized text.
+    :ivar text: detected value (in-memory only, §2.3.11).
+    :ivar pii_type: PII category resulting from the merge.
+    :ivar confidence: aggregated confidence in ``[0.0, 1.0]``.
+    :ivar confirmation_level: outcome of the merge for this span.
+    :ivar sources: provenances contributing to the match (at least one).
+    :ivar document_id: document the PII belongs to.
+    :ivar location: human-facing position from B3, or ``None`` if unavailable.
+    :ivar match_id: detection-time identifier (uuid4); not a persistent key.
     """
 
     span: TextSpan
@@ -245,15 +244,15 @@ class PIIMatch:
     match_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     def __post_init__(self) -> None:
-        """Valida confidenza e presenza di almeno una provenienza.
+        """Validate confidence and the presence of at least one provenance.
 
-        :raises ValueError: se ``confidence`` è fuori da ``[0.0, 1.0]`` o se
-            ``sources`` è vuota (violerebbe la tracciabilità, §2.7.3).
+        :raises ValueError: if ``confidence`` is outside ``[0.0, 1.0]`` or if
+            ``sources`` is empty (it would violate traceability, §2.7.3).
         """
         if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError(f"confidence fuori range [0,1]: {self.confidence}")
+            raise ValueError(f"confidence out of range [0,1]: {self.confidence}")
         if not self.sources:
-            raise ValueError("un PIIMatch deve avere almeno una provenienza (§2.7.3)")
+            raise ValueError("a PIIMatch must have at least one provenance (§2.7.3)")
 
 
 __all__ = [

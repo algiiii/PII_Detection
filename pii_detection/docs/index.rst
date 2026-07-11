@@ -1,22 +1,22 @@
-PII Detection — reference API
+PII Detection — API reference
 =============================
 
-Documentazione tecnica navigabile del **motore di rilevamento PII** (blocco B4
-dell'architettura). Generata automaticamente dai docstring del codice: ogni
-classe e ogni metodo è descritto alla pagina corrispondente, con firma, tipi e
-comportamento.
+Navigable technical documentation of the **PII detection engine** (block B4 of
+the architecture). Generated automatically from the code docstrings: every
+class and every method is described on the corresponding page, with signature,
+types and behaviour.
 
-Il design di riferimento è fissato in ``doc/planning.md``; il piano di
-realizzazione a step in ``doc/scaffolding-plan.md``.
+The reference design is defined in ``doc/planning.md``; the step-by-step
+implementation plan in ``doc/scaffolding-plan.md``.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Moduli
+   :caption: Modules
 
    api/detection
 
-Indici
-------
+Indices
+-------
 
-* :ref:`genindex` — indice alfabetico di classi e metodi
-* :ref:`search` — ricerca full-text
+* :ref:`genindex` — alphabetical index of classes and methods
+* :ref:`search` — full-text search

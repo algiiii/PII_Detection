@@ -1,4 +1,4 @@
-"""Test del modello dati condiviso (Step 1)."""
+"""Tests for the shared data model (Step 1)."""
 
 from __future__ import annotations
 
@@ -44,9 +44,9 @@ class TestTextSpan:
     @pytest.mark.parametrize(
         ("a", "b", "expected"),
         [
-            ((0, 10), (5, 15), True),  # sovrapposti
-            ((0, 5), (5, 10), False),  # adiacenti, non sovrapposti
-            ((0, 5), (6, 10), False),  # disgiunti
+            ((0, 10), (5, 15), True),  # overlapping
+            ((0, 5), (5, 10), False),  # adjacent, not overlapping
+            ((0, 5), (6, 10), False),  # disjoint
         ],
     )
     def test_overlaps(self, a: tuple[int, int], b: tuple[int, int], expected: bool) -> None:

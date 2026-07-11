@@ -1,12 +1,19 @@
-Modulo ``detection``
+``detection`` module
 ====================
 
-Componenti del livello di rilevamento (blocco B4). Man mano che gli step del
-piano vengono implementati, le rispettive pagine si aggiungono qui.
+Components of the detection layer (block B4). As the plan's steps get
+implemented, their respective pages are added here.
 
-Modello dati condiviso (``detection.types``)
---------------------------------------------
+Shared data model (``detection.types``)
+---------------------------------------
 
 .. automodule:: pii_detection.detection.types
+   :members:
+   :member-order: bysource
+
+Detector contract (``detection.protocol``)
+------------------------------------------
+
+.. automodule:: pii_detection.detection.protocol
    :members:
    :member-order: bysource
