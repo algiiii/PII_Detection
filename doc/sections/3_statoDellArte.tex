@@ -32,7 +32,7 @@ Il paradigma pre-training/fine-tuning è stato reso centrale nell'NLP moderno da
 \label{sub:zero-shot}
 Il concetto di zero-shot learning è stato formalizzato in modo sistematico da Xian et al. \cite{xianZeroShotLearningComprehensive2020}, che lo definiscono come quel paradigma di apprendimento in cui un modello viene valutato su classi (o, nel caso della Named Entity Recognition, su tipologie di entità) che non erano presenti nel suo insieme di addestramento.
 
-A differenza dei paradigmi supervised e unsupervised descritti in \ref{sec:supervised-unsupervised}, lo zero-shot learning non riguarda la presenza o assenza di etichette nei dati di training, bensì la capacità del modello di generalizzare a categorie mai osservate, sfruttando informazioni semantiche ausiliarie (ad esempio descrizioni testuali delle classi target) anziché esempi annotati specifici per quelle categorie. Tale capacità si distingue dal \textit{one-shot} e dal \textit{few-shot learning}, in cui il modello dispone rispettivamente di uno o di un numero ridotto di esempi annotati per le classi target \cite{brownLanguageModelsAre2020}.
+A differenza dei paradigmi supervised e unsupervised descritti in \ref{sub:supervised-unsupervised}, lo zero-shot learning non riguarda la presenza o assenza di etichette nei dati di training, bensì la capacità del modello di generalizzare a categorie mai osservate, sfruttando informazioni semantiche ausiliarie (ad esempio descrizioni testuali delle classi target) anziché esempi annotati specifici per quelle categorie. Tale capacità si distingue dal \textit{one-shot} e dal \textit{few-shot learning}, in cui il modello dispone rispettivamente di uno o di un numero ridotto di esempi annotati per le classi target \cite{brownLanguageModelsAre2020}.
 
 
 \section{Definizione e inquadramento del problema: Dalla Data Anonymization alla Data Governance} % 2
@@ -245,7 +245,7 @@ Alla luce di questa panoramica, il \textbf{gap nel mercato} risulta evidente. Le
 \end{enumerate}
 
 \phantomsection{Posizionamneto del progetto}: il software proposto si inserisce al centro di questo divario. L'obiettivo è fornire uno strumento open-source ed eseguibile \textbf{esclusivamente in locale} (on-premise), rispondendo all'esigenza di confidenzialità totale. Abbandonando il paradigma dell'anonimizzazione dei tool, il \dots \\
-Sfruttando parser moderni (cfr.\ref{sec:elaborazione-parsing}) per affrontare dati strutturati e motori NLP Zero-Shot (cfr.\ref{sec:zero-shot}) per eliminare i costri di training descritti precedentemente. Il sistema non si limiterà a scoprire le PII, ma fungerà da ponte tra il dato reale e le policy aziendali (ROPA), fornendo un quadro clinico dell'aderenza normativa aziendale.
+Sfruttando parser moderni (cfr.\ref{sec:elaborazione-parsing}) per affrontare dati strutturati e motori NLP Zero-Shot (cfr.\ref{sub:zero-shot}) per eliminare i costri di training descritti precedentemente. Il sistema non si limiterà a scoprire le PII, ma fungerà da ponte tra il dato reale e le policy aziendali (ROPA), fornendo un quadro clinico dell'aderenza normativa aziendale.
 
 
 da inserire tabella riassuntiva (o paragrafo comparativo) che fa capire cosa "fanno gli altri" e "cosa manca".
