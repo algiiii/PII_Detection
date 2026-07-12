@@ -19,7 +19,7 @@ import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 
-
+# Closed ENUM with all possible detection systems
 class DetectorKind(str, Enum):
     """Detection technique that produced a candidate.
 
@@ -37,7 +37,7 @@ class DetectorKind(str, Enum):
     NER = "ner"
     AI = "ai"
 
-
+# "How many of the same opinion exist for the same PII?"
 class ConfirmationLevel(str, Enum):
     """Outcome of the merge for a span. Closed architectural vocabulary.
 
@@ -56,7 +56,7 @@ class ConfirmationLevel(str, Enum):
     CONFLICTING = "conflicting"
     AI_DISCOVERED = "ai_discovered"
 
-
+# String that rapresents a portion of the normalized text
 @dataclass(frozen=True)
 class TextSpan:
     """Character interval in the normalized text of the document.
@@ -112,7 +112,7 @@ class TextSpan:
         union = max(self.end, other.end) - min(self.start, other.start)
         return inter / union
 
-
+# Where a cerain PII lays in the FS
 @dataclass(frozen=True)
 class DocumentLocation:
     """Human-facing position of the PII, from the position map provided by B3.
@@ -159,23 +159,20 @@ class NormalizedDocument:
         """
         return None
 
-
+# For traceability, can tell which detector found which PII
 @dataclass(frozen=True)
 class DetectionProvenance:
     """Provenance of a single detection — answers traceability (§2.7.3).
 
     Immutable. The optional fields are technique-specific: ``raw_label`` for
-    NER, ``checksum_validated`` for regex, ``rationale`` for AI. Keeping them in
-    a single DTO lets :class:`PIIMatch` retain heterogeneous provenances in one
-    ``sources`` list.
+    NER, ``rationale`` for AI. Keeping them in a single DTO lets
+    :class:`PIIMatch` retain heterogeneous provenances in one ``sources`` list.
 
     :ivar detector_id: id of the detector instance, e.g. ``"regex.iban_v1"``.
     :ivar detector_kind: technique that produced the detection.
     :ivar pii_type: PII category declared in config, e.g. ``"iban"``.
     :ivar confidence: detection confidence in ``[0.0, 1.0]``.
     :ivar raw_label: NER only — textual label passed to the model.
-    :ivar checksum_validated: regex only — validator outcome; ``None`` if no
-        validator is configured for the rule.
     :ivar rationale: AI only — textual rationale produced by the model.
     """
 
@@ -184,7 +181,6 @@ class DetectionProvenance:
     pii_type: str
     confidence: float
     raw_label: str | None = None
-    checksum_validated: bool | None = None
     rationale: str | None = None
 
     def __post_init__(self) -> None:
@@ -195,7 +191,7 @@ class DetectionProvenance:
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError(f"confidence out of range [0,1]: {self.confidence}")
 
-
+# Raw output of ONE detector, PRE MERGE
 @dataclass
 class PIICandidate:
     """Output of ONE detector, pre-merge.
@@ -212,7 +208,7 @@ class PIICandidate:
     text: str
     provenance: DetectionProvenance
 
-
+# Merge OUTPUT, with multiple provenance if possible
 @dataclass
 class PIIMatch:
     """Unified PII produced by the merge — output of the B4 layer toward B5.

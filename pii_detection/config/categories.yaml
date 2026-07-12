@@ -1,0 +1,41 @@
+# Catalogo canonico delle categorie di PII (Step 3).
+#
+# Ogni `pii_type` referenziato da regex_rules.yaml e ner_labels.yaml DEVE
+# esistere qui: aggiungere una categoria = aggiungere una voce, zero codice
+# (§2.3.10). `id` è un identificatore piatto e stabile; il framework normativo
+# resta un metadato separato (`frameworks`).
+categories:
+  - id: email
+    label: "Email address"
+    frameworks: [gdpr, nlpd]
+  - id: phone
+    label: "Phone number"
+    frameworks: [gdpr, nlpd]
+  - id: iban
+    label: "IBAN"
+    frameworks: [gdpr, nlpd]
+  - id: credit_card
+    label: "Credit card number"
+    frameworks: [gdpr, nlpd, pci_dss]
+  - id: swiss_avs
+    label: "Swiss AVS"
+    frameworks: [nlpd]
+  - id: ip_address
+    label: "IP address"
+    frameworks: [gdpr, nlpd]
+  - id: person_name
+    label: "Person's name"
+    frameworks: [gdpr, nlpd]
+  - id: address
+    label: "Address"
+    frameworks: [gdpr, nlpd]
+  - id: date_of_birth
+    label: "Date of birth"
+    frameworks: [gdpr, nlpd]
+  - id: italian_id
+    label: "Italian tax code (codice fiscale)"
+    frameworks: [gdpr]
+  - id: health_data
+    label: "Health related data"
+    frameworks: [gdpr, nlpd]
+    special_category: true

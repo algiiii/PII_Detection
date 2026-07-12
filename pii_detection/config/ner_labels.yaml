@@ -1,0 +1,21 @@
+# Mappatura label GLiNER -> pii_type del catalogo (Step 3).
+#
+# Lo Step 3 valida che ogni `label` sia unica e ogni `pii_type` esista nel
+# catalogo. L'ESECUZIONE (chunking, inferenza, soglie) è dello Step 5
+# (GLiNERDetector). `threshold` è lo score minimo del modello per tenere lo span.
+labels:
+  - label: "person"
+    pii_type: person_name
+    threshold: 0.5
+
+  - label: "full address"
+    pii_type: address
+    threshold: 0.5
+
+  - label: "date of birth"
+    pii_type: date_of_birth
+    threshold: 0.6
+
+  - label: "phone number"
+    pii_type: phone
+    threshold: 0.5

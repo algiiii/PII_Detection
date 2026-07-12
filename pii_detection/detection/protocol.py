@@ -82,7 +82,6 @@ class BaseDetector:
         confidence: float,
         *,
         raw_label: str | None = None,
-        checksum_validated: bool | None = None,
         rationale: str | None = None,
     ) -> PIICandidate:
         """Build a candidate stamping it with the detector's provenance.
@@ -98,7 +97,6 @@ class BaseDetector:
         :param pii_type: PII category declared in config, e.g. ``"iban"``.
         :param confidence: detection confidence in ``[0.0, 1.0]``.
         :param raw_label: NER only — textual label passed to the model.
-        :param checksum_validated: regex only — validator outcome, or ``None``.
         :param rationale: AI only — textual rationale from the model.
         :returns: the candidate ready for the merge phase.
         :raises ValueError: if ``span`` exceeds the length of ``text`` or if
@@ -113,7 +111,6 @@ class BaseDetector:
             pii_type=pii_type,
             confidence=confidence,
             raw_label=raw_label,
-            checksum_validated=checksum_validated,
             rationale=rationale,
         )
         return PIICandidate(

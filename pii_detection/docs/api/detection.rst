@@ -17,3 +17,10 @@ Detector contract (``detection.protocol``)
 .. automodule:: pii_detection.detection.protocol
    :members:
    :member-order: bysource
+
+Configuration (``detection.config``)
+------------------------------------
+
+.. automodule:: pii_detection.detection.config
+   :members:
+   :member-order: bysource

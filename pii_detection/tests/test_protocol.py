@@ -55,9 +55,9 @@ class TestBuildCandidate:
 
     def test_optional_provenance_fields(self) -> None:
         cand = self._detector().build_candidate(
-            "aaaa", TextSpan(0, 4), "x", 0.5, checksum_validated=True
+            "aaaa", TextSpan(0, 4), "x", 0.5, raw_label="PERSON"
         )
-        assert cand.provenance.checksum_validated is True
+        assert cand.provenance.raw_label == "PERSON"
 
     def test_span_beyond_text_raises(self) -> None:
         with pytest.raises(ValueError):
