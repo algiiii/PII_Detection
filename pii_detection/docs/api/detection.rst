@@ -24,3 +24,10 @@ Configuration (``detection.config``)
 .. automodule:: pii_detection.detection.config
    :members:
    :member-order: bysource
+
+Regex detector (``detection.regex_detector``)
+---------------------------------------------
+
+.. automodule:: pii_detection.detection.regex_detector
+   :members:
+   :member-order: bysource

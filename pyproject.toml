@@ -47,3 +47,8 @@ files = ["pii_detection"]
 
 [tool.pytest.ini_options]
 testpaths = ["pii_detection/tests"]
+# Deselect manual/visual tests by default; run them with: pytest -m manual -s
+addopts = "-m 'not manual'"
+markers = [
+    "manual: visual/interactive checks, not part of the automated suite",
+]

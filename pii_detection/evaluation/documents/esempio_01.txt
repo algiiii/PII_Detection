@@ -1,0 +1,10 @@
+Gentile cliente,
+
+la contattiamo all'indirizzo {{email:mario.rossi@example.com}} per confermare
+che il bonifico sull'IBAN {{iban:IT60X0542811101000000123456}} è stato eseguito.
+
+Per la fatturazione risulta registrato il codice fiscale
+{{italian_id:RSSMRA85T10A562S}}. In caso di problemi con il portale, l'accesso
+è avvenuto dall'indirizzo IP {{ip_address:192.168.1.42}}.
+
+Cordiali saluti.

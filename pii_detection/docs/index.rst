@@ -14,6 +14,7 @@ implementation plan in ``doc/scaffolding-plan.md``.
    :caption: Modules
 
    api/detection
+   api/evaluation
 
 Indices
 -------

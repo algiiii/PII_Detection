@@ -1,0 +1,29 @@
+Buongiorno sig {{person_name:Algisi}},
+
+A seguito della sua segnalazione per spam dell'indirizzo {{email:ciao@yahoo.com}}, le informiamo che è stato ricondotto all'ip {{ip_address:10.246.50.204}}.
+
+È previsto un risarcimento all'indirizzo {{iban:IT60X0542811101000000123456}}. Cordiali saluti
+
+testing puro
+
+{{email:email.testing@gmail.com}}
+
+{{phone:+41 79 123 45 67}}
+
+{{iban:CH93 0076 2011 6238 5295 7}}
+
+{{credit_card:4111 1111 1111 1111}}
+
+{{swiss_avs:756.1234.5678.97}}
+
+{{ip_address:172.16.254.1}}
+
+{{person_name:Mario Rossi}}
+
+{{address:Via Roma 12, 6900 Lugano}}
+
+{{date_of_birth:10/12/1985}}
+
+{{italian_id:MRORSS80A01H501U}}
+
+{{health_data:diagnosi di diabete di tipo 2}}
