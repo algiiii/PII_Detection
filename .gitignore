@@ -69,7 +69,7 @@ instance/
 .scrapy
 
 # Sphinx documentation
-docs/_build/
+pii_detection/docs/_build/
 
 # PyBuilder
 .pybuilder/
@@ -239,3 +239,7 @@ doc/latex_build/
 
 # Vari
 *.md
+
+# LaTeX build artifacts (il PDF resta tracciato di proposito)
+*.fdb_latexmk
+*.fls
