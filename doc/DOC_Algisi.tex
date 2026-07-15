@@ -14,6 +14,9 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, backgrounds}
 
+% Barriera ai float: \FloatBarrier impedisce alle figure di scivolare oltre un punto
+\usepackage{placeins}
+
 \newcommand{\problemchapter}[1]{%
   \chapter*{#1}%
   \addcontentsline{toc}{chapter}{#1}%

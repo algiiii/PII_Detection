@@ -1,4 +1,5 @@
 \chapter{Architettura del sistema}
+\label{cap:architettura}
 
 \begin{figure}[htbp]
 	\centering
@@ -182,6 +183,9 @@
 	\label{fig:b4-detection-pipeline}
 \end{figure}
 
+% Le figure d'apertura del capitolo restano confinate qui, prima delle sezioni.
+\FloatBarrier
+
 % TODO: INSERIRE QUI "CONFRONTO STRUTTURATO E SCELTA DEL MODELLO NER"
 % Fare riferimento al file "Training_NER_confronto_strategie.md" (Sezione 3).
 % Inserire la discussione e la tabella di confronto dei 3 approcci:
@@ -189,6 +193,75 @@
 % B. Modello pre-fine-tunato da terzi (es. gliner-pii)
 % C. Fine-tuning leggero in proprio
 % Discutere perché, visti i vincoli e i requisiti del progetto (zero-training, no dati annotati, esecuzione locale), si scarta l'opzione C a favore delle opzioni A/B.
+
+% ============================================================================
+% Zotero — fonti ROPA da IMPORTARE prima della compilazione (NON editare il .bib a mano).
+% Chiavi \cite provvisorie: allinearle a quelle generate da Zotero (se GDPR/nLPD
+% sono già presenti nel .bib, riusare le chiavi esistenti).
+%   - cnilRegistreTraitement      https://www.cnil.fr/fr/definition/registre-des-activites-de-traitement
+%   - cnilRegistreModeleBasique   https://www.cnil.fr/sites/cnil/files/atoms/files/registre_rgpd_basique.pdf
+%   - gdprArt30                   Reg. (UE) 2016/679, art. 30 --- https://eur-lex.europa.eu/eli/reg/2016/679/oj
+%   - nlpdArt12                   LPD (RS 235.1), art. 12 --- https://www.fedlex.admin.ch/eli/cc/2022/491/it
+% ============================================================================
+
+\section{Ingestione e modello dati del ROPA}
+\label{sec:modello-ropa}
+
+Il blocco B1 della Figura~\ref{fig:architettura-macro-blocchi} acquisisce il ROPA (\textit{Record of Processing Activities}, il registro delle attività di trattamento) e lo trasforma in una rappresentazione interna. Non è una fase accessoria: il ROPA è il termine di paragone \textit{atteso} rispetto al quale la verifica di conformità (B7) confronta le PII effettivamente rilevate nei documenti. La sua struttura dati condiziona quindi ciò che il sistema è in grado di verificare. Questa sezione motiva l'approccio scelto per modellarlo.
+
+\subsection{Strutturazione a monte o delega all'AI}
+\label{sub:ropa-approccio}
+
+L'ingestione del ROPA ammette due strategie agli estremi opposti. Nella prima la \textbf{struttura dati è definita a monte}: il sistema impone uno schema noto e l'ingestione lo popola in modo deterministico a partire da un ROPA già compilato. Nella seconda, \textbf{totalmente agentica}, i documenti del ROPA vengono forniti così come sono a un modello generativo, delegando a esso l'individuazione della struttura --- l'approccio «si immettono i documenti e si osserva cosa emerge».
+
+Si adotta la prima. Un registro dei trattamenti è un \textit{artefatto di conformità}: la sua affidabilità e la sua auditabilità non possono dipendere da una strutturazione inferita, potenzialmente allucinata e non riproducibile. Uno schema esplicito garantisce inoltre che il modello sia interrogabile in modo prevedibile dal blocco di confronto (B7) e mantenibile nel tempo. L'AI non viene esclusa, ma \textbf{circoscritta} a un ruolo di arricchimento su un singolo campo (§\ref{sub:ropa-ai}); ciò è coerente con l'uso selettivo dell'AI già previsto per il blocco B1 nella Figura~\ref{fig:archite ttura-macro-blocchi}.
+
+\subsection{Il registro-tipo CNIL come schema di riferimento}
+\label{sub:ropa-cnil}
+
+Il contenuto obbligatorio del registro è fissato dall'art.~30 del Regolamento (UE) 2016/679~\cite{gdprArt30} e, per il contesto svizzero, dall'art.~12 della LPD~\cite{nlpdArt12}; i due elenchi sono ampiamente sovrapponibili. In assenza di una pluralità di modelli operativi consolidati, il riferimento pratico più diffuso è il registro-tipo pubblicato dalla \textit{Commission Nationale de l'Informatique et des Libertés} (CNIL), l'autorità di controllo francese, derivato direttamente dall'art.~30~\cite{cnilRegistreTraitement, cnilRegistreModeleBasique}. Adottarlo come base evita di progettare uno schema dal principio e lega il modello ad una fonte ampiamente autorevole e condivisa.
+
+Il modello CNIL è organizzato per \textit{attività di trattamento}: una scheda per ciascun trattamento, con i campi seguenti.
+\begin{itemize}
+	\item identificazione del trattamento (nome, date di creazione e aggiornamento, base giuridica);
+	\item attori: titolare del trattamento, eventuali co-titolari, responsabile della protezione dei dati (DPO), responsabili del trattamento esterni (\textit{processors});
+	\item finalità del trattamento;
+	\item categorie di persone interessate;
+	\item categorie di dati personali, con evidenziazione delle categorie particolari (dati sensibili);
+	\item categorie di destinatari (interni, esterni, responsabili esterni);
+	\item trasferimenti verso Paesi terzi (destinazione e garanzie);
+	\item durate di conservazione;
+	\item misure di sicurezza tecniche e organizzative.
+\end{itemize}
+
+\subsection{Normalizzazione in un modello relazionale}
+\label{sub:ropa-modello}
+
+La scheda CNIL è \textit{denormalizzata} --- un foglio piatto per trattamento. Il modello interno la normalizza attorno all'entità \texttt{ProcessingActivity}, già introdotta nel §\ref{sub:persistenza-modello-dati}, con i suoi campi scalari (nome, finalità, base giuridica, titolare, DPO) e un insieme di entità collegate in relazione 1--N: \texttt{DataSubjectCategory}, \texttt{DataCategory}, \texttt{Recipient}, \texttt{ThirdCountryTransfer}, \texttt{Retention} (tipicamente per categoria di dato) e \texttt{SecurityMeasure}. Si aggiunge un'entità non prevista esplicitamente dalla scheda CNIL ma necessaria al sistema, \texttt{InformationSystem}, che collega ogni trattamento ai sistemi e ai repository in cui i dati risiedono.
+
+Due collegamenti fanno del ROPA non un semplice archivio, ma il riferimento operativo del sistema.
+\begin{enumerate}
+	\item \texttt{DataCategory} è messa in corrispondenza con il \textbf{catalogo delle categorie di PII} usato dal motore di rilevamento (blocco B4). Il ROPA dichiara così quali categorie un trattamento \textit{dovrebbe} contenere; il blocco B4 rileva quelle \textit{effettivamente} presenti nei documenti. Il confronto tra i due insiemi è ciò che alimenta la verifica di conformità (B7): da un lato le PII rilevate ma non dichiarate (\textit{orfane}, cfr. §\ref{sub:persistenza-modello-dati}), dall'altro le categorie dichiarate ma mai riscontrate.
+	\item \texttt{InformationSystem} lega il trattamento ai documenti da analizzare, indicando al sistema \textit{dove} cercare e \textit{che cosa} attendersi.
+\end{enumerate}
+
+\subsection{Ruolo circoscritto dell'AI: normalizzazione, non strutturazione}
+\label{sub:ropa-ai}
+
+La struttura viene popolata in modo \textbf{deterministico}: poiché un ROPA compilato secondo il modello CNIL ha colonne note, l'ingestione dei campi strutturati è un'operazione di parsing, senza AI. L'unico punto che richiede interpretazione è il campo \textbf{categorie di dati}, che nei registri reali è spesso redatto in linguaggio naturale e in modo sbrigativo (ad esempio «dati anagrafici, coordinate bancarie, contatti»). Qui l'AI interviene \textbf{una tantum e a livello di singolo campo}, per normalizzare ed espandere quel testo libero nelle categorie canoniche del catalogo di PII (ad esempio «coordinate bancarie» $\rightarrow$ \texttt{iban}; «dati anagrafici» $\rightarrow$ \texttt{person\_name}, \texttt{date\_of\_birth}, \texttt{italian\_id}). La mappatura proposta è sottoposta a \textbf{conferma del DPO} (\textit{human-in-the-loop}) prima di essere fissata.
+
+Questo confina l'AI a un compito circoscritto, verificabile e reversibile, coerente con la strategia di uso selettivo dell'AI adottata altrove nel sistema, senza cedere alla strutturazione agentica dell'intero documento.
+
+\subsection{Punti aperti di progettazione}
+\label{sub:ropa-punti-aperti}
+
+Come per la persistenza, alcune decisioni restano aperte e si riportano come lavoro in corso.
+
+\paragraph{Granularità della corrispondenza categorie--PII.} Va fissato se una categoria di dati del ROPA mappi su un singolo \texttt{pii\_type} o su un insieme: nella pratica una voce sbrigativa («dati anagrafici») corrisponde quasi sempre a più categorie canoniche, il che suggerisce una relazione 1--N da formalizzare.
+
+\paragraph{Allineamento nLPD--GDPR.} Il modello parte dai campi CNIL (impianto GDPR); vanno annotate le differenze rilevanti dell'art.~12 LPD, in particolare le soglie e le eccezioni previste per le piccole e medie imprese, che incidono su quali trattamenti debbano comparire nel registro.
+
+\paragraph{ROPA non strutturato.} Il modello assume un registro già compilato in forma tabellare. Il caso di un ROPA fornito come testo libero (non nel formato CNIL) richiederebbe un passo di strutturazione più invasivo: va deciso se supportarlo e in che misura, restando entro il vincolo di non delegare all'AI la strutturazione complessiva.
 
 % ============================================================================
 % Zotero — fonti da IMPORTARE prima della compilazione (NON editare il .bib a mano).
@@ -242,7 +315,7 @@ Il problema non si riduce a una scelta binaria tra snapshot ed event logger: esi
 
 \subsubsection{Opzione A --- Snapshot completi}
 
-A ogni esecuzione della pipeline si salva un'istantanea completa di tutte le PII rilevate \texttt{(tipo\_PII, path\_documento, posizione, trattamento\_ROPA\_associato, data\_scansione)} autoconsistente e indipendente dalle altre. Il modello dati è minimale (una sola entità, nessuna logica di correlazione), non esiste rischio di derivare uno stato errato perché ogni snapshot \textit{è} lo stato, e la realizzazione è immediata.
+A ogni esecuzione della pipeline si salva un'istantanea completa di tutte le PII rilevate \texttt{(pii\_type, document\_path, position, associated\_processing, scan\_date)} autoconsistente e indipendente dalle altre. Il modello dati è minimale (una sola entità, nessuna logica di correlazione), non esiste rischio di derivare uno stato errato perché ogni snapshot \textit{è} lo stato, e la realizzazione è immediata.
 
 Il limite è però esattamente sul requisito del §\ref{sub:persistenza-requisito}: non esiste \textbf{alcuna relazione esplicita tra scansioni consecutive}. Con due snapshot presi a distanza di ore, ricostruire «che cosa è cambiato» richiede un confronto (diff) calcolato a posteriori, riga per riga, senza alcuna struttura che leghi le due fotografie. A ciò si aggiunge la ridondanza dei dati (le PII invariate vengono riscritte a ogni scansione) e il fatto che il tracciamento temporale non è una proprietà del modello ma un'operazione applicativa da implementare comunque. L'opzione non è scartata perché errata, ma perché sposta interamente sul livello applicativo il lavoro di correlazione che il requisito richiede, senza offrire una struttura dati che lo supporti.
 
@@ -311,16 +384,16 @@ La scelta dell'opzione C è il risultato di un confronto esplicito di \textit{tr
 \subsection{Modello dati concettuale}
 \label{sub:persistenza-modello-dati}
 
-Il modello che segue è \textit{technology-agnostic}: la scelta della tecnologia di persistenza concreta è discussa nel Capitolo~\ref{cap:implementazione}. Oltre alle entità già definite nel modello (\texttt{Documento}, \texttt{Scansione}, \texttt{TrattamentoROPA}), la persistenza introduce due entità principali.
+Il modello che segue è \textit{technology-agnostic}: la scelta della tecnologia di persistenza concreta è discussa nel Capitolo~\ref{cap:implementazione}. Oltre alle entità già definite nel modello (\texttt{Document}, \texttt{Scan}, \texttt{ProcessingActivity}), la persistenza introduce due entità principali.
 
-\texttt{IstanzaPII} rappresenta lo stato corrente, mutabile: «questa PII, in questo documento, così com'è ora». Comprende un identificatore, il \texttt{tipo\_PII}, il riferimento al \texttt{Documento}, la \texttt{posizione\_attuale}, un riferimento opzionale (0..1) al \texttt{TrattamentoROPA} --- assente se la PII è \textit{orfana}, cioè non riconducibile ad alcun trattamento dichiarato --- e il riferimento all'ultima \texttt{Scansione} che l'ha osservata. È la tabella che il report per il DPO legge \textbf{direttamente}.
+\texttt{PIIInstance} rappresenta lo stato corrente, mutabile: «questa PII, in questo documento, così com'è ora». Comprende un identificatore, il \texttt{pii\_type}, il riferimento al \texttt{Document}, la \texttt{current\_position}, un riferimento opzionale (0..1) al \texttt{ProcessingActivity} --- assente se la PII è \textit{orfana}, cioè non riconducibile ad alcun trattamento dichiarato --- e il riferimento all'ultima \texttt{Scan} che l'ha osservata. È la tabella che il report per il DPO legge \textbf{direttamente}.
 
-\texttt{VariazionePII} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra». Comprende un identificatore, il riferimento all'\texttt{IstanzaPII}, il \texttt{tipo\_variazione} (vocabolario chiuso, cfr. §\ref{sub:persistenza-punti-aperti}), il riferimento alla \texttt{Scansione} che ha prodotto la variazione, il riferimento alla \texttt{scansione\_precedente} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}.
+\texttt{PIIChange} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra». Comprende un identificatore, il riferimento all'\texttt{PIIInstance}, il \texttt{change\_type} (vocabolario chiuso, cfr. §\ref{sub:persistenza-punti-aperti}), il riferimento alla \texttt{Scan} che ha prodotto la variazione, il riferimento alla \texttt{previous\_scan} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}.
 
-Le relazioni tra le entità sono: \texttt{Documento}~(1)--(N)~\texttt{IstanzaPII} (\textit{contiene}); \texttt{IstanzaPII}~(1)--(N)~\texttt{VariazionePII} (\textit{ha storia}); \texttt{Scansione}~(1)--(N)~\texttt{VariazionePII} (\textit{genera}); \texttt{IstanzaPII}~(N)--(0..1)~\texttt{TrattamentoROPA} (\textit{corrisponde a}, con 0 = orfana).
+Le relazioni tra le entità sono: \texttt{Document}~(1)--(N)~\texttt{PIIInstance} (\textit{contiene}); \texttt{PIIInstance}~(1)--(N)~\texttt{PIIChange} (\textit{ha storia}); \texttt{Scan}~(1)--(N)~\texttt{PIIChange} (\textit{genera}); \texttt{PIIInstance}~(N)--(0..1)~\texttt{ProcessingActivity} (\textit{corrisponde a}, con 0 = orfana).
 
-% TODO: inserire qui il diagramma ER in TikZ (entità IstanzaPII, VariazionePII,
-% Documento, Scansione, TrattamentoROPA e relative relazioni), coerente con lo
+% TODO: inserire qui il diagramma ER in TikZ (entità PIIInstance, PIIChange,
+% Document, Scan, ProcessingActivity e relative relazioni), coerente con lo
 % stile di fig:architettura-macro-blocchi. Da produrre quando i punti aperti del
 % modello (§\ref{sub:persistenza-punti-aperti}) saranno risolti.
 
@@ -329,10 +402,10 @@ Le relazioni tra le entità sono: \texttt{Documento}~(1)--(N)~\texttt{IstanzaPII
 
 Alcune decisioni sul modello restano deliberatamente aperte: vanno risolte prima di bloccarlo definitivamente e ciascuna ha un impatto concreto. Si riportano qui come lavoro in corso.
 
-\paragraph{Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova più un'istanza confermata in precedenza, sono possibili due strategie. Nella modalità \textbf{esplicita} il sistema scrive attivamente una \texttt{VariazionePII} di tipo \texttt{RIMOSSA}: è più corretta per un log autoesplicativo (l'assenza di un dato non dovrebbe richiedere conoscenza esterna per essere interpretata), ma impone a ogni scansione un confronto attivo con lo stato precedente del documento. Nella modalità \textbf{implicita} non si registra alcun evento di rimozione e lo stato «rimossa» si deduce confrontando l'ultima variazione dell'istanza con la data dell'ultima scansione del documento: più semplice, ma il changelog da solo non basta a spiegare l'accaduto. L'ipotesi preferita è quella esplicita, più solida e compatibile con l'opzione C (il confronto attivo fa comunque parte del meccanismo di rilevazione dei delta).
+\paragraph{Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova più un'istanza confermata in precedenza, sono possibili due strategie. Nella modalità \textbf{esplicita} il sistema scrive attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED}: è più corretta per un log autoesplicativo (l'assenza di un dato non dovrebbe richiedere conoscenza esterna per essere interpretata), ma impone a ogni scansione un confronto attivo con lo stato precedente del documento. Nella modalità \textbf{implicita} non si registra alcun evento di rimozione e lo stato «rimossa» si deduce confrontando l'ultima variazione dell'istanza con la data dell'ultima scansione del documento: più semplice, ma il changelog da solo non basta a spiegare l'accaduto. L'ipotesi preferita è quella esplicita, più solida e compatibile con l'opzione C (il confronto attivo fa comunque parte del meccanismo di rilevazione dei delta).
 
-\paragraph{Significato dell'evento «modifica».} Poiché il registro non salva i valori effettivi delle PII, un evento di «modifica» non può riferirsi al cambiamento del \textit{contenuto} della PII, mai memorizzato. Può riferirsi solo al cambio di \textbf{posizione} nel documento (evento \texttt{SPOSTATA}) o a una \textbf{riclassificazione} del tipo. L'ipotesi di lavoro è quindi di non prevedere un generico evento \texttt{MODIFICATA}, ma di scomporlo in variazioni dal significato preciso.
+\paragraph{Significato dell'evento «modifica».} Poiché il registro non salva i valori effettivi delle PII, un evento di «modifica» non può riferirsi al cambiamento del \textit{contenuto} della PII, mai memorizzato. Può riferirsi solo al cambio di \textbf{posizione} nel documento (evento \texttt{MOVED}) o a una \textbf{riclassificazione} del tipo. L'ipotesi di lavoro è quindi di non prevedere un generico evento \texttt{MODIFIED}, ma di scomporlo in variazioni dal significato preciso.
 
-\paragraph{Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{tipo\_variazione} come enumerazione chiusa: \texttt{NUOVA} (istanza rilevata per la prima volta), \texttt{CONFERMATA} (istanza già nota, ritrovata invariata), \texttt{SPOSTATA} (istanza già nota, ritrovata in posizione diversa) e \texttt{RIMOSSA} (istanza già nota, non più presente --- dipende dalla scelta sulla scomparsa). Un insieme chiuso elimina ambiguità nel modello e nel diagramma; resta da confermare se questo set è completo per tutti i casi d'uso previsti.
+\paragraph{Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{change\_type} come enumerazione chiusa: \texttt{NEW} (istanza rilevata per la prima volta), \texttt{CONFIRMED} (istanza già nota, ritrovata invariata), \texttt{MOVED} (istanza già nota, ritrovata in posizione diversa) e \texttt{REMOVED} (istanza già nota, non più presente --- dipende dalla scelta sulla scomparsa). Un insieme chiuso elimina ambiguità nel modello e nel diagramma; resta da confermare se questo set è completo per tutti i casi d'uso previsti.
 
-\paragraph{Ambito dello snapshot iniziale.} Anche in un modello delta-based serve un punto di partenza: la prima scansione di un documento non ha una «scansione precedente». Va deciso come rappresentare il \textit{bootstrap} --- l'ipotesi è di registrare tutte le istanze della prima scansione come \texttt{NUOVA} con \texttt{scansione\_precedente} nullo. Ciò è coerente con quanto nota Kleppmann sul CDC, dove il processo parte comunque da uno snapshot iniziale che fa da riferimento per la successiva cattura dei delta~\cite{kleppmannDesigningDataIntensive2017}. !!!!!!!
+\paragraph{Ambito dello snapshot iniziale.} Anche in un modello delta-based serve un punto di partenza: la prima scansione di un documento non ha una «scansione precedente». Va deciso come rappresentare il \textit{bootstrap} --- l'ipotesi è di registrare tutte le istanze della prima scansione come \texttt{NEW} con \texttt{previous\_scan} nullo. Ciò è coerente con quanto nota Kleppmann sul CDC, dove il processo parte comunque da uno snapshot iniziale che fa da riferimento per la successiva cattura dei delta~\cite{kleppmannDesigningDataIntensive2017}. !!!!!!!

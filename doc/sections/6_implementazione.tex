@@ -20,3 +20,27 @@ La scelta è \textbf{deliberatamente rimandata} finché i requisiti non sono pi�
 \end{itemize}
 
 La decisione va motivata quando il modello concettuale sarà bloccato --- in particolare dopo aver risolto i punti aperti del §\ref{sub:persistenza-punti-aperti} --- e non prima, poiché la struttura definitiva delle entità e delle relazioni incide direttamente sui vantaggi relativi delle due opzioni.
+
+\section{Riuso di un motore di detection esistente: valutazione di Microsoft Presidio}
+\label{sec:valutazione-presidio}
+
+Come emerso dallo stato dell'arte (§\ref{sec:sintesi-gap}), Microsoft Presidio non risolve il problema di governance affrontato dal progetto; il suo \textit{motore di rilevamento}, però, copre gran parte del livello regex e NER che il sistema deve comunque realizzare. Si valuta quindi se \textbf{costruire tale livello sopra Presidio} anziché scriverlo da zero. La decisione è \textbf{in corso} e sarà chiusa su base empirica; questa sezione ne fissa i termini.
+
+Due modelli di integrazione sono possibili, con implicazioni opposte sull'architettura:
+\begin{itemize}
+	\item usare l'\textit{AnalyzerEngine} di Presidio come \textbf{orchestratore} dell'intera detection: massimizza il riuso, ma sostituirebbe la pipeline ibrida e la logica di merge proprietarie descritte nel Capitolo~\ref{cap:architettura}, che costituiscono il contributo del progetto;
+	\item incapsulare Presidio \textbf{dietro il contratto} \texttt{PIIDetector} come un singolo detector che ne mappa i risultati in \texttt{PIICandidate}: la pipeline, il \texttt{MergeEngine} e il detector AI selettivo restano invariati, e Presidio diventa solo il fornitore di regex, checksum e NER.
+\end{itemize}
+Il secondo modello è preferito, perché preserva l'architettura e rende la scelta reversibile: l'astrazione \texttt{PIIDetector} consente di sostituire il fornitore senza toccare il resto del sistema.
+
+I criteri di valutazione sono:
+\begin{itemize}
+	\item \textbf{copertura} delle categorie del catalogo: Presidio fornisce riconoscitori pre-costruiti per gran parte di esse (email, IBAN, carta di credito, indirizzo IP, codice fiscale italiano), diversi con \textbf{validazione a checksum} già inclusa --- proprio ciò che il progetto aveva rimandato;
+	\item \textbf{estensibilità} sugli identificatori mancanti: il numero AVS svizzero richiederebbe comunque un riconoscitore su misura, come nell'implementazione attuale;
+	\item \textbf{integrazione del livello NER}: Presidio supporta ufficialmente modelli esterni, incluso GLiNER, coerente con la scelta zero-shot (§\ref{sub:zero-shot});
+	\item \textbf{vincoli di progetto}: esecuzione interamente on-premise e configurabilità da file, coerente con l'estensibilità config-driven richiesta.
+\end{itemize}
+
+Restano in ogni caso a carico del progetto, indipendentemente dall'esito: il riconoscitore per il numero AVS, il \texttt{MergeEngine} con i livelli di conferma, il detector AI selettivo e l'intero blocco di ingestione ROPA e verifica di conformità.
+
+Il giudizio è affidato a una \textbf{misurazione diretta}: Presidio viene incapsulato come detector e valutato sullo stesso corpus annotato e con la stessa procedura di scoring (precision, recall, F1) impiegati per la baseline regex, così da confrontare i due approcci sullo stesso metro prima di decidere.
