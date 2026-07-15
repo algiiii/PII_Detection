@@ -1,9 +1,9 @@
-# Catalogo canonico delle categorie di PII (Step 3).
+# Canonical catalog of PII categories (Step 3).
 #
-# Ogni `pii_type` referenziato da regex_rules.yaml e ner_labels.yaml DEVE
-# esistere qui: aggiungere una categoria = aggiungere una voce, zero codice
-# (§2.3.10). `id` è un identificatore piatto e stabile; il framework normativo
-# resta un metadato separato (`frameworks`).
+# Every `pii_type` referenced by regex_rules.yaml and ner_labels.yaml MUST exist
+# here: adding a category = adding an entry, zero code (§2.3.10). `id` is a flat,
+# stable identifier; the regulatory framework stays a separate piece of metadata
+# (`frameworks`).
 categories:
   - id: email
     label: "Email address"
