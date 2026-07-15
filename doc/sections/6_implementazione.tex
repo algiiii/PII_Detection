@@ -41,6 +41,8 @@ I criteri di valutazione sono:
 	\item \textbf{vincoli di progetto}: esecuzione interamente on-premise e configurabilità da file, coerente con l'estensibilità config-driven richiesta.
 \end{itemize}
 
+\paragraph{Profilo hardware.} Un ulteriore elemento a favore riguarda i requisiti di calcolo. Il motore di Presidio e il livello di rilevamento basato su spaCy operano interamente su \textbf{CPU}, senza richiedere una GPU dedicata; l'accelerazione a GPU è soltanto opzionale ed è riservata ai modelli NER più onerosi (transformers, GLiNER), verso i quali il sistema ripiega comunque in automatico sulla CPU qualora la GPU non sia presente. Questo profilo è coerente con il vincolo di esecuzione on-premise su infrastruttura di PMI, dove hardware accelerato è raramente disponibile, e costituisce quindi un rafforzamento del posizionamento del progetto più che una limitazione.
+
 Restano in ogni caso a carico del progetto, indipendentemente dall'esito: il riconoscitore per il numero AVS, il \texttt{MergeEngine} con i livelli di conferma, il detector AI selettivo e l'intero blocco di ingestione ROPA e verifica di conformità.
 
 Il giudizio è affidato a una \textbf{misurazione diretta}: Presidio viene incapsulato come detector e valutato sullo stesso corpus annotato e con la stessa procedura di scoring (precision, recall, F1) impiegati per la baseline regex, così da confrontare i due approcci sullo stesso metro prima di decidere.
