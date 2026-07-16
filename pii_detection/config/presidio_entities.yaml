@@ -1,0 +1,24 @@
+# Mapping Presidio entity_type -> pii_type of the catalog.
+
+entities:
+  - entity: EMAIL_ADDRESS
+    pii_type: email
+  - entity: PHONE_NUMBER
+    pii_type: phone
+  - entity: IBAN_CODE
+    pii_type: iban
+  - entity: CREDIT_CARD
+    pii_type: credit_card
+  - entity: IP_ADDRESS
+    pii_type: ip_address
+  - entity: IT_FISCAL_CODE
+    pii_type: italian_id
+  - entity: PERSON
+    pii_type: person_name
+  - entity: LOCATION
+    pii_type: address
+  - entity: DATE_TIME
+    pii_type: date_of_birth
+  # Not covered by Presidio out of the box: produced by a custom recognizer.
+  - entity: SWISS_AVS
+    pii_type: swiss_avs
