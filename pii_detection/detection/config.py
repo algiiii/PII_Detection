@@ -7,13 +7,15 @@ categories, regex rules and NER labels are declared in YAML and validated at
 startup, so a non-developer operator adds a category by editing a file, without
 touching Python.
 
-Three declarative files feed the layer:
+Four declarative files feed the layer:
 
 - ``categories.yaml`` — the canonical catalog of ``pii_type`` ids
   (:class:`PIICategoryCatalog`).
 - ``regex_rules.yaml`` — rules for the ``RegexDetector`` (Step 4).
 - ``ner_labels.yaml`` — label→``pii_type`` mapping for the ``GLiNERDetector``
   (Step 5).
+- ``presidio_entities.yaml`` — Presidio ``entity_type``→``pii_type`` mapping for
+  the Presidio detector.
 
 The models here validate **structure and self-consistency** only (well-formed
 YAML, value ranges, compilable patterns, and every referenced ``pii_type``
@@ -205,6 +207,31 @@ class NerLabelsFile(BaseModel):
     labels: list[NerLabelModel]
 
 
+class PresidioEntityModel(BaseModel):
+    """One Presidio ``entity_type``- category mapping (``presidio_entities.yaml``).
+
+    :ivar entity: Presidio ``entity_type`` produced by a recognizer, e.g.
+        ``"IT_FISCAL_CODE"``; unique within the file.
+    :ivar pii_type: category the entity maps to; must exist in the catalog.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    entity: str
+    pii_type: str
+
+
+class PresidioEntitiesFile(BaseModel):
+    """Top-level schema of ``presidio_entities.yaml``.
+
+    :ivar entities: declared entity→category mappings.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    entities: list[PresidioEntityModel]
+
+
 class PIICategoryCatalog:
     """In-memory catalog of the declared PII categories, indexed by id.
 
@@ -381,6 +408,23 @@ def load_ner_labels(path: Path, catalog: PIICategoryCatalog) -> tuple[NerLabelMo
     return tuple(parsed.labels)
 
 
+def load_presidio_entities(
+    path: Path, catalog: PIICategoryCatalog
+) -> tuple[PresidioEntityModel, ...]:
+    """Load ``presidio_entities.yaml`` and cross-validate it against the catalog.
+
+    :param path: path to the Presidio entities file.
+    :param catalog: catalog every ``pii_type`` must belong to.
+    :returns: the validated entity mappings, in declaration order.
+    :raises ConfigError: on a missing/malformed file, a duplicate ``entity`` or a
+        ``pii_type`` absent from the catalog.
+    """
+    parsed = _parse_file(path, PresidioEntitiesFile)
+    _require_unique((e.entity for e in parsed.entities), path, "entity")
+    _require_types_in_catalog((e.pii_type for e in parsed.entities), catalog, path)
+    return tuple(parsed.entities)
+
+
 def default_config_dir() -> Path:
     """Locate the ``config`` directory shipped with the package.
 
@@ -416,11 +460,14 @@ __all__ = [
     "RegexRulesFile",
     "NerLabelModel",
     "NerLabelsFile",
+    "PresidioEntityModel",
+    "PresidioEntitiesFile",
     "PIICategoryCatalog",
     "DetectionConfig",
     "load_category_catalog",
     "load_regex_rules",
     "load_ner_labels",
+    "load_presidio_entities",
     "load_detection_config",
     "default_config_dir",
 ]
