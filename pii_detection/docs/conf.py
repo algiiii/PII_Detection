@@ -35,6 +35,10 @@ autodoc_default_options = {
     "members": True,
     "show-inheritance": True,
 }
+# Heavy optional deps (the [presidio] extra): mock them so autodoc can read the
+# docstrings without importing spaCy/Presidio, which need not be present to build
+# the docs.
+autodoc_mock_imports = ["presidio_analyzer", "spacy"]
 
 intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 

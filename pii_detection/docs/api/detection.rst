@@ -31,3 +31,10 @@ Regex detector (``detection.regex_detector``)
 .. automodule:: pii_detection.detection.regex_detector
    :members:
    :member-order: bysource
+
+Presidio detector (``detection.presidio_detector``)
+---------------------------------------------------
+
+.. automodule:: pii_detection.detection.presidio_detector
+   :members:
+   :member-order: bysource
