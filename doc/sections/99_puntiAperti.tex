@@ -1,0 +1,75 @@
+% ============================================================================
+% CAPITOLO TEMPORANEO — REGISTRO DEI PUNTI APERTI
+% ----------------------------------------------------------------------------
+% Raccoglie in un unico luogo TUTTE le decisioni progettuali ancora aperte e i
+% contenuti da completare disseminati nel documento, così da poterli discutere
+% e chiudere in blocco. È TEMPORANEO: a chiusura di ciascuna voce la soluzione
+% va riportata nella sezione d'origine (indicata dal rimando) e la voce va
+% rimossa da qui. Quando il registro è vuoto, eliminare questo file e il
+% relativo \input in DOC_Algisi.tex.
+% Ogni voce ha un codice (PA-n / TB-n) per riferirsi ad essa in discussione.
+% ============================================================================
+
+\chapter{Punti aperti (\emph{work in progress})}
+\label{cap:punti-aperti}
+
+\textit{Nota.} Capitolo temporaneo di servizio. Riunisce, per comodità di discussione, le decisioni ancora da prendere sparse nel documento; ciascuna rimanda alla sezione in cui vive e dove andrà riportata la soluzione una volta chiusa. Va rimosso a lavoro concluso.
+
+\section{Decisioni progettuali aperte}
+\label{sec:pa-decisioni}
+
+\subsection{Requisiti da confermare}
+\label{sub:pa-requisiti}
+
+\paragraph{PA-1 — Aggregazione delle PII frammentate.} Va deciso se e in che misura il sistema debba ricondurre frammenti dispersi (in uno o più documenti) a un'unica entità coerente, e con quali criteri verificabili (co-occorrenza, similarità semantica, identificatori condivisi). Requisito attualmente marcato \textsc{da valutare} (cfr.~§\ref{sub:aggregazione-pii}).
+
+\paragraph{PA-2 — Costruzione di una knowledge base delle entità.} Va deciso se il sistema debba costruire, a partire dalle PII estratte, una rappresentazione strutturata delle entità (via NER) come base per il confronto col ROPA, e con quale livello di dettaglio. Requisito attualmente marcato \textsc{da valutare} (cfr.~§\ref{sub:knowledge-base}). Impatta direttamente su PA-1 e sullo \emph{scope} complessivo (cfr. rischio di \emph{scope creep}, §\ref{sub:rischio-scope-creep}).
+
+\subsection{Modello dati del ROPA}
+\label{sub:pa-ropa}
+
+Voci già isolate come «punti aperti di progettazione» in §\ref{sub:ropa-punti-aperti}, qui riunite.
+
+\paragraph{PA-3 — Granularità della corrispondenza categorie\,--\,PII.} Va fissato se una categoria di dati del ROPA mappi su un singolo \texttt{pii\_type} o su un insieme. Una voce sbrigativa («dati anagrafici») corrisponde di norma a più categorie canoniche, il che suggerisce una relazione 1\,--\,N da formalizzare.
+
+\paragraph{PA-4 — Allineamento nLPD\,--\,GDPR.} Il modello parte dai campi CNIL (impianto GDPR); vanno annotate le differenze rilevanti dell'art.~12 LPD, in particolare soglie ed eccezioni per le PMI, che incidono su quali trattamenti debbano comparire nel registro.
+
+\paragraph{PA-5 — ROPA non strutturato.} Il modello assume un registro già compilato in forma tabellare. Va deciso se (e quanto) supportare un ROPA fornito come testo libero, restando entro il vincolo di non delegare all'AI la strutturazione complessiva del documento.
+
+\subsection{Persistenza del registro PII}
+\label{sub:pa-persistenza}
+
+\paragraph{Snapshot o event-logger} Da decidere se il metodo per salvare le differenze tra versioni del FS analizzato seguano il paradigma degli snapshot o del'event-logger.
+
+\paragraph{PA-6 — Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova un'istanza confermata in precedenza, va deciso se scrivere attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED} (esplicita, log autoesplicativo ma con confronto attivo a ogni scansione) o dedurre lo stato «rimossa» a posteriori (implicita, più semplice ma non autosufficiente). Ipotesi preferita: esplicita.
+
+\paragraph{PA-7 — Significato dell'evento «modifica».} Poiché il registro non salva i valori delle PII, un evento di «modifica» può riferirsi solo al cambio di \textbf{posizione} (\texttt{MOVED}) o a una \textbf{riclassificazione} del tipo. Va confermata l'ipotesi di non prevedere un generico \texttt{MODIFIED}, ma di scomporlo in variazioni dal significato preciso.
+
+\paragraph{PA-8 — Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{change\_type} come enumerazione chiusa (\texttt{NEW}, \texttt{CONFIRMED}, \texttt{MOVED}, \texttt{REMOVED}). Resta da confermare se il set è completo per tutti i casi d'uso previsti (dipende anche da PA-6).
+
+\subsection{Scelte implementative}
+\label{sub:pa-implementazione}
+
+\paragraph{PA-9 — Tecnologia di persistenza.} Il modello concettuale è \emph{technology-agnostic}; va scelta la tecnologia concreta tra base dati relazionale (es. SQLite, con \emph{join} nativi) e persistenza su file semi-strutturati (JSON/JSONL, più leggera ma senza garanzie relazionali). La decisione è deliberatamente rimandata a valle della chiusura del modello dati (in particolare di PA-6, PA-7, PA-8) (cfr.~§\ref{sec:implementazione-persistenza-tecnologia}).
+
+\paragraph{PA-10 — Riuso di Microsoft Presidio come livello di detection.} Va deciso, su base empirica, se costruire il livello regex/NER sopra Presidio (incapsulato dietro il contratto \texttt{PIIDetector}) anziché scriverlo da zero. Il giudizio è affidato a una misurazione diretta (precision/recall/F1) sullo stesso corpus della baseline (cfr.~§\ref{sec:valutazione-presidio}).
+
+\subsection{Metodologia di detection}
+\label{sub:pa-metodologia}
+
+\paragraph{PA-11 — Strategia per il modello NER.} Va scelto e motivato l'approccio tra: (A)~zero-shot puro (GLiNER base), (B)~modello pre-fine-tunato da terzi (es. \texttt{gliner-pii}), (C)~fine-tuning leggero in proprio. Dai vincoli di progetto (\emph{zero-training}, assenza di dati annotati, esecuzione locale) l'opzione~C è da scartare a favore di A/B; manca la discussione strutturata con tabella di confronto nel Capitolo~\ref{cap:architettura}.
+
+\section{Contenuti ancora da redigere}
+\label{sec:pa-contenuti}
+
+Non decisioni, ma segnaposto e sezioni incomplete sparse nel testo, raccolti qui per non perderli.
+
+\begin{itemize}
+	\item \textbf{TB-1} — Stato dell'arte: sezione «Definizione e inquadramento del problema» da riempire senza ripetere il contesto; definizione del problema tecnico dell'astrazione ancora allo stato di appunto (cfr.~§\ref{sec:definizione}).
+	\item \textbf{TB-2} — Stato dell'arte: la sezione sul \emph{compliance checking} automatizzato è forse da ricollocare (cfr.~§\ref{sec:sintesi-gap} e dintorni).
+	\item \textbf{TB-3} — Architettura: confronto strutturato e scelta del modello NER (tabella dei tre approcci di PA-11) da inserire nel Capitolo~\ref{cap:architettura}.
+	\item \textbf{TB-4} — Architettura: diagramma ER in TikZ del modello di persistenza (\texttt{PIIInstance}, \texttt{PIIChange}, \texttt{Document}, \texttt{Scan}, \texttt{ProcessingActivity}), da produrre dopo la chiusura di PA-6/7/8 (cfr.~§\ref{sub:persistenza-modello-dati}).
+	\item \textbf{TB-5} — Implementazione: roadmap implementativa e di validazione (baseline zero-shot GLiNER, integrazione modello pre-fine-tunato, eventuale esplorazione di fine-tuning) nel Capitolo~\ref{cap:implementazione}.
+	\item \textbf{TB-6} — Studi: sezione sull'impatto ambientale dell'AI da completare con i numeri dai paper di confronto e la conclusione (cfr.~§\ref{cap:studi}).
+	\item \textbf{TB-7} — Studi: precisazione sul costo computazionale, distinguendo l'inferenza LLM ripetuta (esclusa per l'analisi massiva) dal fine-tuning \emph{una tantum} di un encoder locale (cfr.~§\ref{sec:considerazioni-training}).
+\end{itemize}
