@@ -147,12 +147,20 @@
 
 		% --- Nodi ---
 		\node (input)   [io]       at (0,    0)    {Testo normalizzato (da B3)};
-		\node (regex)   [block]    at (-3.5, -2.5) {Regex\\(IBAN, CF, \ldots)};
+		\node (regex)   [block]    at (-3.5, -2.5) {Regex + checksum\\(IBAN, CF, \ldots)};
 		\node (ner)     [block]    at ( 3.5, -2.5) {NER\\(nomi, indirizzi, \ldots)};
 		\node (merge)   [block]    at (0,    -5.2) {Merge risultati\\(overlap: sorgente doppia)};
 		\node (counter) [decision] at (0,    -7.8) {ogni\\1000° doc?};
 		\node (ai)      [ai]       at (6,    -7.8) {Passata AI\\(analisi contestuale)};
 		\node (output)  [io]       at (0,   -10.5) {PII unificate $\rightarrow$ B5};
+
+		% --- Motore Presidio: fornisce i detector regex e NER (merge/AI restano proprietari) ---
+		\begin{scope}[on background layer]
+			\node (presidio) [draw, dashed, rounded corners, fill=purple!5,
+					inner sep=5mm, fit=(regex)(ner)] {};
+		\end{scope}
+		\node [font=\footnotesize\itshape, anchor=north west, inner sep=3pt]
+			at (presidio.north west) {Presidio};
 
 		% --- Fork: input -> regex + ner (parallelo) ---
 		\coordinate (fk) at (0, -1.2);
@@ -179,8 +187,61 @@
 		\draw [arrow] (ai.south) |- (output.east);
 
 	\end{tikzpicture}
-	\caption{Dettaglio del blocco B4: pipeline ibrida di rilevamento PII}
+	\caption[Dettaglio del blocco B4: pipeline ibrida di rilevamento PII]{Dettaglio del blocco B4: pipeline ibrida di rilevamento PII. I detector regex e NER sono forniti da Presidio (\texttt{AnalyzerEngine}) dietro il contratto \texttt{PIIDetector}; il merge e la passata AI selettiva restano proprietari.}
 	\label{fig:b4-detection-pipeline}
+\end{figure}
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			sysnode/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=blue!8, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1.1cm, align=center, fill=purple!8, font=\small},
+			store/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+					minimum height=1.5cm, minimum width=2.6cm, align=center, fill=gray!10, font=\small},
+			param/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Nodi ---
+		% I documenti sono l'artefatto condiviso: analizzati dal sistema e, in
+		% parallelo, consultati dai dipendenti nel loro lavoro ordinario. I
+		% dipendenti restano ignari del rilevamento: per loro sono solo documenti.
+		\node (docs)  [io]      at (3,    1.4)  {Documenti aziendali};
+		\node (sys)   [sysnode] at (-0.5, -1.4) {Sistema di rilevamento\\PII};
+		\node (emp)   [human]   at (6.5,  -1.4) {Dipendenti\\dell'azienda};
+		\node (dpo)   [human]   at (6.5,  -4.2) {DPO\\(analisi segnalazioni)};
+		\node (ropa)  [store]   at (-0.5, -3.8) {ROPA\\(trattamenti,\\categorie)};
+		\node (param) [param]   at (-0.5, -6.0) {Parametri del sistema\\(catalogo PII, regole)};
+
+		% --- I documenti: analizzati dal sistema, consultati dai dipendenti ---
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize]{analizza} (sys.north);
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize, align=center]{consultati nel\\lavoro quotidiano} (emp.north);
+
+		% --- Segnalazione: dipendenti -> DPO ---
+		\draw [arrow] (emp) -- node[right, font=\footnotesize, align=left]{segnalano le PII\\in cui si imbattono} (dpo);
+
+		% --- Fork: il DPO valuta e arricchisce ROPA e parametri ---
+		\coordinate (fk) at (3, -4.2);
+		\draw [thick] (dpo.west) -- node[above, font=\footnotesize]{valuta e arricchisce} (fk);
+		\draw [arrow] (fk) |- (ropa.east);
+		\draw [arrow] (fk) |- (param.east);
+
+		% --- Gli aggiornamenti rientrano nel sistema, che analizza meglio i documenti ---
+		\draw [arrow] (ropa) -- (sys);
+		\draw [arrow] (param.west) -- ++(-1.3,0) |- (sys.west);
+
+	\end{tikzpicture}
+	\caption{Meccanismo di \emph{human-in-the-loop}: nel normale lavoro con i
+		documenti aziendali i dipendenti segnalano al DPO le PII in cui si imbattono;
+		il DPO analizza le segnalazioni e arricchisce il ROPA o i parametri del
+		sistema, migliorando il rilevamento. Il processo di analisi resta trasparente
+		ai dipendenti, per i quali i file sono semplici documenti.}
+	\label{fig:human-in-the-loop}
 \end{figure}
 
 % Le figure d'apertura del capitolo restano confinate qui, prima delle sezioni.
