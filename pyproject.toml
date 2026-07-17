@@ -8,29 +8,17 @@ dependencies = [
     "pydantic>=2.6",
 ]
 
-# Gruppi opzionali: gli step 1-4 non richiedono l'ecosistema ML pesante.
+# Gruppi opzionali
 [project.optional-dependencies]
-# Step 5 — GLiNER (trascina torch/transformers). Installare solo quando serve.
-ner = [
-    "gliner>=0.2.13",
-]
-# Valutazione (in corso) del riuso del motore Presidio dietro il PIIDetector
-# Protocol — cfr. tesi §sec:valutazione-presidio. Pesante (trascina spaCy). Il
-# modello linguistico va scaricato a parte, es.:
+ner = ["gliner>=0.2.13",]
+ropa = ["openpyxml>=3.1"]
+
 #   python -m spacy download it_core_news_lg
 presidio = [
     "presidio-analyzer>=2.2",
     "spacy>=3.7",
 ]
-# Step 6 — runtime LLM locale. Scelta rimandata (Ollama via HTTP client, oppure
-# llama-cpp-python in-process). Lasciato vuoto finché non si decide.
-llm = []
-dev = [
-    "pytest>=8.0",
-    "ruff>=0.4",
-    "mypy>=1.10",
-    "types-PyYAML>=6.0",
-]
+
 docs = [
     "sphinx>=7.3",
     "furo>=2024.5",
@@ -66,3 +54,5 @@ addopts = "-m 'not manual'"
 markers = [
     "manual: visual/interactive checks, not part of the automated suite",
 ]
+
+[ropa]
