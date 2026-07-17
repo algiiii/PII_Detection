@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Trattamenti{% endblock %}
+{% block content %}
+  <h1>Trattamenti</h1>
+  <p class="muted">{{ activities|length }} attività nel registro</p>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Nome</th>
+        <th>Titolare</th>
+        <th>Categorie PII</th>
+        <th>Da confermare</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in activities %}
+        {% set pending = a.data_categories | selectattr("mapping_state.value", "equalto", "proposed") | list | length %}
+        <tr>
+          <td><a href="/activity/{{ a.activity_id }}">{{ a.activity_id }}</a></td>
+          <td>{{ a.name }}</td>
+          <td>{{ a.controller }}</td>
+          <td>{{ a.declared_pii_types() | length }}</td>
+          <td>
+            {% if pending %}<span class="badge warn">{{ pending }}</span>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
