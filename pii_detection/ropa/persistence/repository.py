@@ -1,0 +1,82 @@
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from pii_detection.ropa.types import ROPA, ProcessingActivity, DeclaredDataCategory, Retention, MappingState
+from pii_detection.ropa.persistence.models import ProcessingActivityRow, DeclaredDataCategoryRow, RetentionRow
+
+class ROPARepository: 
+    def __init__(self, url: str = "sqlite:///ropa.db"):
+        self.engine = create_engine(url)
+        SQLModel.metadata.create_all(self.engine)
+
+    # Per scrivere in DB con una sola transazione
+    def save_ropa(self, ropa:ROPA) -> None:
+        with Session(self.engine) as session:
+            for a in ropa.activities:
+                session.add(_activity_to_row(a))
+                for c in a.data_categories:
+                    session.add(_category_to_row(a.activity_id, c))
+                for r in a.retentions:
+                    session.add(_retention_to_row(a.activity_id, r))
+            session.commit()
+
+    # Legge e ricostruisce per types.py
+    def load_ropa(self) -> ROPA:
+        with Session(self.engine) as session:
+            activities = []
+            for row in session.exec(select(ProcessingActivityRow)).all():
+
+                # Categories
+                cats = session.exec(
+                    select(DeclaredDataCategoryRow).where(DeclaredDataCategoryRow.activity_id == row.activity_id)
+                ).all()
+
+                # Retentions
+                rets = session.exec(
+                        select(RetentionRow)
+                        .where(RetentionRow.activity_id == row.activity_id)
+                ).all()
+                
+                activities.append(ProcessingActivity(
+                    activity_id = row.activity_id, 
+                    name = row.name, 
+                    purpose=row.purpose, 
+                    legal_basis = row.legal_basis,
+                    controller = row.controller,
+                    dpo = row.dpo,
+                    data_categories = [DeclaredDataCategory(
+                        raw_text = c.raw_text,
+                        pii_types = tuple(c.pii_types),
+                        mapping_state = MappingState(c.mapping_state),
+                    ) for c in cats],
+                    retentions = [Retention(
+                        raw_text = r.raw_text,
+                        duration_months = r.duration_months
+                    ) for r in rets],
+
+                    data_subjects = row.data_subjects,
+                    recipients = row.recipients,
+                    third_country_transfers = row.third_country_transfers,
+                    security_measures = row.security_measures,
+                    information_systems = row.information_systems,
+                ))
+
+        return ROPA(activities = activities)
+
+# Funzioni di traduzione effettiva
+def _activity_to_row(a: ProcessingActivity) -> ProcessingActivityRow:
+    return ProcessingActivityRow(
+        activity_id=a.activity_id, name=a.name, purpose=a.purpose,
+        legal_basis=a.legal_basis, controller=a.controller, dpo=a.dpo,
+        data_subjects=a.data_subjects, recipients=a.recipients,
+        third_country_transfers=a.third_country_transfers,
+        security_measures=a.security_measures, information_systems=a.information_systems,
+    )
+
+def _category_to_row(activity_id: str, c: DeclaredDataCategory) -> DeclaredDataCategoryRow:
+    return DeclaredDataCategoryRow(
+        activity_id = activity_id, raw_text = c.raw_text, pii_types = list(c.pii_types), mapping_state=c.mapping_state.value,
+    )
+
+def _retention_to_row(activity_id: str, r:Retention) -> RetentionRow:
+    return RetentionRow(activity_id=activity_id, raw_text=r.raw_text, duration_months=r.duration_months)
+
