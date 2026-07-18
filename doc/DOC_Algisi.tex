@@ -17,6 +17,13 @@
 % Barriera ai float: \FloatBarrier impedisce alle figure di scivolare oltre un punto
 \usepackage{placeins}
 
+% Bibliografia: biblatex + biber. Stile numerico in ordine di citazione
+% (equivalente a \bibliographystyle{unsrt}); backend biber per supportare nomi
+% con particella (de/von) e tipi @online/@dataset esportati da Zotero.
+\usepackage{csquotes}
+\usepackage[backend=biber, style=numeric, sorting=none]{biblatex}
+\addbibresource{bibliografia.bib}
+
 \newcommand{\problemchapter}[1]{%
   \chapter*{#1}%
   \addcontentsline{toc}{chapter}{#1}%
@@ -79,7 +86,6 @@
 \listoftables
 
 % Sezione con bibliografia
-\bibliographystyle{unsrt}
-\bibliography{bibliografia}
+\printbibliography
 
 \end{document}
