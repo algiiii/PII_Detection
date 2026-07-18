@@ -1,13 +1,14 @@
 # Responsible for associating excel data with normalized table in py
 
+from pii_detection.ropa.ingestion.excel_reader import RawTable
 from pii_detection.ropa.types import ProcessingActivity, ROPA, DeclaredDataCategory, Retention, MappingState
 
-def split_multi(value):
+def split_multi(value: str | None) -> list[str]:
     if value is None:
         return []
     return [piece.strip() for piece in value.split(";") if piece.strip()]
 
-def normalize(table) -> ROPA:
+def normalize(table: RawTable) -> ROPA:
     activities = []
     for i, record in enumerate(table.records):
         category = DeclaredDataCategory(
