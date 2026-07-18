@@ -3,10 +3,16 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from pii_detection.ropa.types import ROPA, ProcessingActivity, DeclaredDataCategory, Retention, MappingState
 from pii_detection.ropa.persistence.models import ProcessingActivityRow, DeclaredDataCategoryRow, RetentionRow
 
+from uuid import uuid4
+from pii_detection.detection.config import load_category_catalog, default_config_dir
+
 class ROPARepository: 
     def __init__(self, url: str = "sqlite:///ropa.db"):
         self.engine = create_engine(url)
         SQLModel.metadata.create_all(self.engine)
+
+        # Carica catalogo
+        self._catalog = load_category_catalog(default_config_dir() / "categories.yaml")
 
     # Per scrivere in DB con una sola transazione
     def save_ropa(self, ropa:ROPA) -> None:
@@ -61,6 +67,36 @@ class ROPARepository:
                 ))
 
         return ROPA(activities = activities)
+    
+    def get_activity_row(self, activity_id: str) -> ProcessingActivityRow | None:
+        with Session(self.engine) as session:
+            return session.get(ProcessingActivityRow, activity_id)
+        
+    def list_category_rows(self, activity_id: str) -> list[DeclaredDataCategoryRow]:
+        with Session(self.engine) as session:
+            return list(session.exec(
+                select(DeclaredDataCategoryRow).where(
+                    DeclaredDataCategoryRow.activity_id == activity_id)
+            ).all())
+        
+    def list_activity_rows(self) -> list[ProcessingActivityRow]:
+        with Session(self.engine) as session:
+            return list(session.exec(
+                select(ProcessingActivityRow)
+            ).all())
+        
+    def list_retention_rows(self, activity_id: str) -> list[RetentionRow]:
+        with Session(self.engine) as session:
+            return list(session.exec(
+                select(RetentionRow).where(RetentionRow.activity_id == activity_id)
+            ).all())
+    
+    def _require_pii_types(self, pii_types: list[str]) -> None:
+        unknown = [t for t in pii_types if t not in self._catalog]
+        if unknown:
+            raise ValueError(f"unknown pii_type(s): {unknown}")
+
+# ----- SUPPORT METHODS -----
 
 # Funzioni di traduzione effettiva
 def _activity_to_row(a: ProcessingActivity) -> ProcessingActivityRow:
