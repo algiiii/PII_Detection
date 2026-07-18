@@ -33,6 +33,25 @@
     .badge { display: inline-block; border-radius: 999px; padding: .1rem .6rem; font-size: .75rem; font-weight: 600; }
     .badge.ok { background: #dcfce7; color: #166534; }
     .badge.warn { background: #fef9c3; color: #854d0e; }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .actions { display: flex; align-items: center; gap: .5rem; }
+    .stack { display: flex; flex-direction: column; gap: .6rem; }
+    .stack label { display: flex; flex-direction: column; gap: .2rem; font-weight: 600; color: #374151; font-size: .85rem; }
+    .field-label { font-weight: 600; color: #374151; font-size: .85rem; }
+    input, textarea, select { font: inherit; padding: .4rem .5rem; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
+    textarea { resize: vertical; }
+    /* PII checkboxes: horizontal, wrapping — override the .stack column layout */
+    .checks { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin-top: .3rem; }
+    .stack .checks label, .checks label { display: inline-flex; flex-direction: row; align-items: center; gap: .35rem; font-weight: 400; color: #1a1a1a; margin: 0; }
+    .checks input { padding: 0; margin: 0; }
+    button, .btn { font: inherit; cursor: pointer; border: 1px solid #2563eb; background: #2563eb; color: #fff; padding: .4rem .8rem; border-radius: 6px; text-decoration: none; display: inline-block; }
+    .btn { font-weight: 600; }
+    button.danger, .btn.danger { background: #fff; color: #b91c1c; border-color: #fca5a5; }
+    details { margin-top: .5rem; }
+    summary { cursor: pointer; color: #2563eb; font-weight: 600; font-size: .9rem; }
+    details.add { background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; padding: .7rem .9rem; margin-bottom: .6rem; }
+    details.add > summary { list-style: none; }
+    details[open].add { padding-bottom: .9rem; }
   </style>
 </head>
 <body>

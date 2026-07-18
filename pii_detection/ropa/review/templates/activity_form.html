@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if a %}Modifica trattamento{% else %}Nuovo trattamento{% endif %}{% endblock %}
+{% block content %}
+  <p><a href="{% if a %}/activity/{{ a.activity_id }}{% else %}/{% endif %}">← Indietro</a></p>
+  <h1>{% if a %}Modifica trattamento{% else %}Nuovo trattamento{% endif %}</h1>
+
+  <form method="post" action="{% if a %}/activity/{{ a.activity_id }}{% else %}/activity{% endif %}" class="stack">
+    <label>Nome
+      <input name="name" value="{{ a.name if a else '' }}" required>
+    </label>
+    <label>Finalità
+      <textarea name="purpose" rows="2" required>{{ a.purpose if a else '' }}</textarea>
+    </label>
+    <label>Base giuridica
+      <input name="legal_basis" value="{{ a.legal_basis if a else '' }}" required>
+    </label>
+    <label>Titolare
+      <input name="controller" value="{{ a.controller if a else '' }}" required>
+    </label>
+    <label>DPO
+      <input name="dpo" value="{{ a.dpo if a and a.dpo else '' }}">
+    </label>
+
+    <p class="muted">Campi multipli: un valore per riga.</p>
+    <label>Categorie di interessati
+      <textarea name="data_subjects" rows="3">{{ a.data_subjects | join("\n") if a else '' }}</textarea>
+    </label>
+    <label>Destinatari
+      <textarea name="recipients" rows="3">{{ a.recipients | join("\n") if a else '' }}</textarea>
+    </label>
+    <label>Trasferimenti extra-UE/SEE
+      <textarea name="third_country_transfers" rows="3">{{ a.third_country_transfers | join("\n") if a else '' }}</textarea>
+    </label>
+    <label>Misure di sicurezza
+      <textarea name="security_measures" rows="3">{{ a.security_measures | join("\n") if a else '' }}</textarea>
+    </label>
+    <label>Sistemi informativi
+      <textarea name="information_systems" rows="3">{{ a.information_systems | join("\n") if a else '' }}</textarea>
+    </label>
+
+    <div><button type="submit">Salva</button></div>
+  </form>
+{% endblock %}
