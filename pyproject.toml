@@ -11,7 +11,13 @@ dependencies = [
 # Gruppi opzionali
 [project.optional-dependencies]
 ner = ["gliner>=0.2.13",]
-ropa = ["openpyxml>=3.1"]
+ropa = ["openpyxl>=3.1"]
+review = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
 
 #   python -m spacy download it_core_news_lg
 presidio = [
@@ -41,10 +47,10 @@ python_version = "3.12"
 strict = true
 files = ["pii_detection"]
 
-# Presidio and spaCy ship no type stubs; silence missing-import errors for them
-# under --strict. Cfr. tesi §sec:valutazione-presidio.
+# Presidio, spaCy and openpyxl ship no type stubs; silence missing-import errors
+# for them under --strict. Cfr. tesi §sec:valutazione-presidio.
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer.*", "spacy.*"]
+module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
@@ -54,5 +60,3 @@ addopts = "-m 'not manual'"
 markers = [
     "manual: visual/interactive checks, not part of the automated suite",
 ]
-
-[ropa]
