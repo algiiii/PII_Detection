@@ -6,6 +6,23 @@ from pii_detection.ropa.persistence.models import ProcessingActivityRow, Declare
 from uuid import uuid4
 from pii_detection.detection.config import load_category_catalog, default_config_dir
 
+#: Fields of a :class:`ProcessingActivity` a caller may update through
+#: :meth:`ROPARepository.update_activity`. The primary key ``activity_id`` is
+#: intentionally excluded: it identifies the row and must stay stable.
+EDITABLE_ACTIVITY_FIELDS: frozenset[str] = frozenset({
+    "name",
+    "purpose",
+    "legal_basis",
+    "controller",
+    "dpo",
+    "data_subjects",
+    "recipients",
+    "third_country_transfers",
+    "security_measures",
+    "information_systems",
+})
+
+
 class ROPARepository: 
     def __init__(self, url: str = "sqlite:///ropa.db"):
         self.engine = create_engine(url)
