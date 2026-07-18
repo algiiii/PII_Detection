@@ -95,6 +95,60 @@ class ROPARepository:
         unknown = [t for t in pii_types if t not in self._catalog]
         if unknown:
             raise ValueError(f"unknown pii_type(s): {unknown}")
+        
+    # MODIFICA
+
+    def create_activity(self, *, name, purpose, legal_basis, controller, dpo = None, data_subjects = None, recipients = None, third_country_transfers = None, security_measures = None, information_systems = None) -> str:
+        activity_id = uuid4().hex
+        with Session(self.engine) as session:
+            session.add(ProcessingActivityRow(
+                activity_id = activity_id,
+                name = name,
+                purpose = purpose,
+                legal_basis = legal_basis,
+                controller = controller,
+                dpo = dpo,
+                data_subjects = data_subjects or [],
+                recipients = recipients or [],
+                third_country_transfers = third_country_transfers or [],
+                security_measures = security_measures or [],
+                information_systems = information_systems or [],
+            ))
+            session.commit()
+        return activity_id
+    
+    def update_acitivty(self, activity_id: str, fields: dict) -> None:
+        allowed = 0 # FARSI RETURNARE LA LISTA DEI CAMPI POSSIBILI, NON HARD-CODATA
+
+        if set(fields) - allowed:
+            raise ValueError(f"not editable: {sorted(set(fields) - allowed)}")
+        
+        with Session(self.engine) as session:
+            row = session.get(ProcessingActivityRow, activity_id)
+            if row is None:
+                raise KeyError(activity_id)
+            for k,v in fields.items():
+                setattr(row, k, v)
+            session.add(row); session.commit()
+
+    def delete_activity(self, activity_id: str) -> None:
+        with Session(self.engine) as session:
+            row = session.get(ProcessingActivityRow, activity_id)
+
+            if row is None:
+                raise KeyError(activity_id)
+            
+            # Prima vanno eliminate le figlie (Retention & declared data
+            # Declared data
+            for c in session.exec(select(DeclaredDataCategoryRow.where(DeclaredDataCategoryRow.activity_id == activity_id)).all()):
+                session.delete(c)
+
+            # Retention
+            for r in session.exec(select(RetentionRow.where(RetentionRow.activity_id == activity_id)).all()):
+                session.delete(r)
+            
+            session.delete(row); session.commit()
+
 
 # ----- SUPPORT METHODS -----
 
