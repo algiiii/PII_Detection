@@ -233,6 +233,8 @@ doc/latex_build/
 *.log
 !doc/DOC_Algisi.pdf
 .latexmkrc
+*.bcf
+*.run.xml
 
 # MacOS
 .DS_Store
