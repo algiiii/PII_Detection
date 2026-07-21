@@ -40,137 +40,34 @@ class MappingState(str, Enum):
     CONFIRMED = "confirmed"
 
 
-@dataclass(frozen=True)
-class DeclaredDataCategory:
-    """A ROPA data category resolved onto the shared ``pii_type`` catalog.
-
-    The bridge to the detection layer: the free-text register entry is mapped
-    onto zero or more catalog ids. Empty ``pii_types`` means "not mapped yet".
-
-    :ivar raw_text: original free-text category, kept for audit (``"dati anagrafici"``).
-    :ivar pii_types: catalog ids it resolves to, one-to-many (``("person_name", ...)``).
-    :ivar mapping_state: whether the mapping is AI-proposed or DPO-confirmed.
+# ----------------- Parte nuova -------------------
+@dataclass
+class DeclaredCategory:
+    """Atomic category directly found in ROPA or singularly splitted or expanded by rules / AI
     """
-
     raw_text: str
     pii_types: tuple[str, ...] = ()
-    mapping_state: MappingState = MappingState.PROPOSED
+    mapping_state: MappingState = MappingState.PROPOSED # viene affidato ad automatismi e AI, ma il DPO controlla sempre
 
-
-@dataclass(frozen=True)
-class Retention:
-    """A retention rule attached to a processing activity.
-
-    :ivar raw_text: original retention wording, kept for audit.
-    :ivar duration_months: retention length in months; ``None`` when the register
-        states a criterion rather than a fixed duration.
+@dataclass
+class DeclaredMacroCategory:
+    """Container for different DeclaredCategory s with common retention policy
     """
-
     raw_text: str
-    duration_months: int | None = None
-
-    def __post_init__(self) -> None:
-        """:raises ValueError: if ``duration_months`` is negative."""
-        if self.duration_months is not None and self.duration_months < 0:
-            raise ValueError(f"negative duration_months: {self.duration_months}")
-
+    retention_text: str
+    retention_date: int | None # DA METTERE DATETIME
 
 @dataclass
 class ProcessingActivity:
-    """A single processing activity — the central entity of the ROPA.
-
-    Mirrors one CNIL sheet. Mutable so the ingestion (B1) can fill the lists
-    incrementally. The plain-string lists hold CNIL fields not yet modeled as
-    entities.
-
-    :ivar activity_id: stable identifier of the activity.
-    :ivar name: name of the processing activity.
-    :ivar purpose: declared purpose.
-    :ivar legal_basis: legal basis.
-    :ivar controller: data controller.
-    :ivar dpo: data protection officer, if designated.
-    :ivar data_categories: declared data categories, resolved onto ``pii_type``.
-    :ivar retentions: retention rules.
-    :ivar data_subjects: categories of data subjects.
-    :ivar recipients: recipients of the data.
-    :ivar third_country_transfers: transfers outside the EU/EEA.
-    :ivar security_measures: technical/organizational measures.
-    :ivar information_systems: systems/repositories the data resides in.
+    """General container of different MacroCategories
     """
-
-    activity_id: str # Simple String
-    name: str # Simple String
-    purpose: str # Simple String
-    legal_basis: str # Simple String
-    controller: str # Simple String
-    dpo: str | None = None  # Optional Simple String
-    data_categories: list[DeclaredDataCategory] = field(default_factory=list) # List of `DeclaredDataCategory` instances, initialized as an empty list by default
-    retentions: list[Retention] = field(default_factory=list) # "" Retention "" 
-    data_subjects: list[str] = field(default_factory=list) # "" str ""
-    recipients: list[str] = field(default_factory=list) # "" str ""
-    third_country_transfers: list[str] = field(default_factory=list) # "" str ""
-    security_measures: list[str] = field(default_factory=list) # "" str ""
-    information_systems: list[str] = field(default_factory=list) # "" str ""
-
-    def declared_pii_types(self, *, confirmed_only: bool = False) -> set[str]:
-        """Aggregate the ``pii_type`` ids this activity declares (the "expected"
-        set the compliance check compares against the detected one).
-
-        :param confirmed_only: if ``True``, include only DPO-confirmed mappings.
-        :returns: the union of ``pii_type`` ids across the data categories.
-        """
-        return {
-            pii_type
-            for category in self.data_categories
-            if not confirmed_only or category.mapping_state is MappingState.CONFIRMED
-            for pii_type in category.pii_types
-        }
-
-
-@dataclass
-class ROPA:
-    """A Record of Processing Activities: the set of processing activities.
-
-    :ivar activities: the processing activities of the register.
-    """
-
-    activities: list[ProcessingActivity] = field(default_factory=list)
-
-    def __post_init__(self) -> None:
-        """:raises ValueError: if two activities share the same ``activity_id``."""
-        seen: set[str] = set()
-        for activity in self.activities:
-            if activity.activity_id in seen:
-                raise ValueError(f"duplicate activity_id: {activity.activity_id!r}")
-            seen.add(activity.activity_id)
-
-    def activity(self, activity_id: str) -> ProcessingActivity | None:
-        """Look up an activity by id.
-
-        :param activity_id: identifier to resolve.
-        :returns: the matching activity, or ``None`` if absent.
-        """
-        for activity in self.activities:
-            if activity.activity_id == activity_id:
-                return activity
-        return None
-
-    def declared_pii_types(self, *, confirmed_only: bool = False) -> set[str]:
-        """Union of the declared ``pii_type`` ids across every activity.
-
-        :param confirmed_only: if ``True``, include only DPO-confirmed mappings.
-        :returns: the aggregated set of declared ``pii_type`` ids.
-        """
-        result: set[str] = set()
-        for activity in self.activities:
-            result |= activity.declared_pii_types(confirmed_only=confirmed_only)
-        return result
-
+    id: str
+    name: str
+    purpose: str
 
 __all__ = [
     "MappingState",
-    "DeclaredDataCategory",
-    "Retention",
+    "DeclaredCategory",
+    "DeclaredMacroCategory",
     "ProcessingActivity",
-    "ROPA",
 ]
