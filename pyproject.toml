@@ -11,7 +11,10 @@ dependencies = [
 # Gruppi opzionali
 [project.optional-dependencies]
 ner = ["gliner>=0.2.13",]
-ropa = ["openpyxl>=3.1"]
+ropa = [
+    "openpyxl>=3.1",
+    "odfpy>=1.4,
+    ]
 review = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
