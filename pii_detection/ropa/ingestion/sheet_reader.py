@@ -20,7 +20,7 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[list[str]]:
     raise ValueError(f"unsupported spreadsheet format: {suffix!r}")
 
 
-def _read_xlsx(path, sheet_name):
+def _read_xlsx(path: str | Path, sheet_name: str) -> list[list[str]]:
     wb = load_workbook(path, read_only=True, data_only=True)
     try:
         ws = wb[sheet_name]
@@ -35,7 +35,7 @@ def _read_xlsx(path, sheet_name):
         wb.close()
 
 
-def _read_ods(path, sheet_name):
+def _read_ods(path: str | Path, sheet_name: str) -> list[list[str]]:
     doc = load_ods(path)
     for table in doc.spreadsheet.getElementsByType(Table):
         if table.getAttribute("name") != sheet_name:

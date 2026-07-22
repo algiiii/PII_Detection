@@ -1,32 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Trattamenti{% endblock %}
 {% block content %}
-  <div class="row-between">
-    <h1>Trattamenti</h1>
-    <a class="btn" href="/new">➕ Nuovo trattamento</a>
-  </div>
+  <h1>Trattamenti</h1>
   <p class="muted">{{ activities|length }} attività nel registro</p>
   <table>
     <thead>
       <tr>
         <th>ID</th>
         <th>Nome</th>
-        <th>Titolare</th>
-        <th>Categorie PII</th>
+        <th>Finalità</th>
+        <th>Categorie</th>
         <th>Da confermare</th>
       </tr>
     </thead>
     <tbody>
       {% for a in activities %}
-        {% set pending = a.data_categories | selectattr("mapping_state.value", "equalto", "proposed") | list | length %}
+        {% set cats = a.macro_categories | map(attribute="categories") | sum(start=[]) %}
+        {% set pending = cats | selectattr("mapping_state.value", "equalto", "proposed") | list | length %}
         <tr>
-          <td><a href="/activity/{{ a.activity_id }}">{{ a.activity_id }}</a></td>
+          <td><a href="/activity/{{ a.id }}">{{ a.id }}</a></td>
           <td>{{ a.name }}</td>
-          <td>{{ a.controller }}</td>
-          <td>{{ a.declared_pii_types() | length }}</td>
+          <td>{{ a.purpose }}</td>
+          <td>{{ cats | length }}</td>
           <td>
             {% if pending %}<span class="badge warn">{{ pending }}</span>
-            {% else %}<span class="muted">—</span>{% endif %}
+            {% else %}<span class="badge ok">✓</span>{% endif %}
           </td>
         </tr>
       {% endfor %}

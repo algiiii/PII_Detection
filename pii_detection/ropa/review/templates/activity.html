@@ -24,137 +24,62 @@
 
 {% block content %}
   <p><a href="/">← Tutti i trattamenti</a></p>
-  <div class="row-between">
-    <div>
-      <h1>{{ a.name }}</h1>
-      <p class="muted">{{ a.activity_id }}</p>
-    </div>
-    <div class="actions">
-      <a class="btn" href="/activity/{{ a.activity_id }}/edit">Modifica</a>
-      <form method="post" action="/activity/{{ a.activity_id }}/delete"
-            onsubmit="return confirm('Eliminare il trattamento e tutti i suoi dati?');">
-        <button type="submit" class="danger">Elimina</button>
-      </form>
-    </div>
-  </div>
+  <h1>{{ a.name }}</h1>
+  <p class="muted">{{ a.id }}</p>
 
   <dl>
     <dt>Finalità</dt><dd>{{ a.purpose }}</dd>
-    <dt>Base giuridica</dt><dd>{{ a.legal_basis }}</dd>
-    <dt>Titolare</dt><dd>{{ a.controller }}</dd>
-    <dt>DPO</dt><dd>{{ a.dpo or "—" }}</dd>
   </dl>
 
-  <h2>Categorie di dati</h2>
+  <h2>Categorie di dati personali</h2>
   <p class="muted">
-    Ogni categoria del registro è collegata a uno o più <strong>tipi di dato personale (PII)</strong>
-    del catalogo. Verifica il collegamento e segna la categoria come «confermata».
+    Struttura a tre livelli: ogni <strong>macro-categoria</strong> (con la sua conservazione)
+    raccoglie una o più <strong>categorie dichiarate</strong>, ciascuna collegata ai
+    <strong>tipi di dato personale (PII)</strong> del catalogo. Verifica il collegamento e
+    conferma.
   </p>
 
-  {% for c in categories %}
-    <div class="card">
-      <div><strong>{{ c.raw_text }}</strong>
-        {% if c.mapping_state == "confirmed" %}
-          <span class="badge ok">confermata</span>
-        {% else %}
-          <span class="badge warn">da confermare</span>
-        {% endif %}
-      </div>
-      <div style="margin:.4rem 0">
-        {% for t in c.pii_types %}<span class="tag">{{ t }}</span>
-        {% else %}<span class="muted">nessun tipo PII associato</span>{% endfor %}
-      </div>
-      <details>
-        <summary>Modifica</summary>
-        <form method="post" action="/category/{{ c.id }}" class="stack">
-          <input type="hidden" name="activity_id" value="{{ a.activity_id }}">
-          <label>Categoria (testo originale)
-            <input name="raw_text" value="{{ c.raw_text }}" required>
-          </label>
-          {{ pii_checks(c.pii_types) }}
-          {{ state_select(c.mapping_state) }}
-          <div class="actions">
-            <button type="submit">Salva</button>
-            <button type="submit" class="danger" formaction="/category/{{ c.id }}/delete"
-              formnovalidate onclick="return confirm('Eliminare questa categoria?');">Elimina</button>
-          </div>
-        </form>
-      </details>
+  {% for m in a.macro_categories %}
+    <div class="row-between">
+      <h3>{{ m.raw_text }}</h3>
+      <form method="post" action="/macro/{{ m.id }}/confirm">
+        <input type="hidden" name="activity_id" value="{{ a.id }}">
+        <button type="submit">✓ Conferma tutte</button>
+      </form>
     </div>
-  {% else %}
-    <p class="muted">Nessuna categoria dichiarata.</p>
-  {% endfor %}
+    <p class="muted">
+      Conservazione: {{ m.retention_text or "—" }}
+      {% if m.retention_months is not none %} · {{ m.retention_months }} mesi{% endif %}
+    </p>
 
-  <details class="card add">
-    <summary>➕ Aggiungi categoria</summary>
-    <form method="post" action="/activity/{{ a.activity_id }}/category" class="stack">
-      <label>Categoria (testo originale)
-        <input name="raw_text" required>
-      </label>
-      {{ pii_checks([]) }}
-      {{ state_select("proposed") }}
-      <div class="actions"><button type="submit">Aggiungi</button></div>
-    </form>
-  </details>
-
-  <h2>Conservazione</h2>
-  {% for r in retentions %}
-    <div class="card">
-      <div><strong>{{ r.raw_text }}</strong> —
-        {% if r.duration_months is not none %}{{ r.duration_months }} mesi
-        {% else %}<span class="muted">criterio (nessuna durata fissa)</span>{% endif %}
+    {% for c in m.categories %}
+      <div class="card">
+        <div class="row-between">
+          <strong>{{ c.raw_text or "(vuota)" }}</strong>
+          {% if c.mapping_state.value == "confirmed" %}
+            <span class="badge ok">confermata</span>
+          {% else %}
+            <span class="badge warn">da confermare</span>
+          {% endif %}
+        </div>
+        <div style="margin:.4rem 0">
+          {% for t in c.pii_types %}<span class="tag">{{ t }}</span>
+          {% else %}<span class="badge warn">nessun tipo PII — non rilevabile dal motore</span>{% endfor %}
+        </div>
+        <details>
+          <summary>Modifica</summary>
+          <form method="post" action="/category/{{ c.id }}" class="stack">
+            <input type="hidden" name="activity_id" value="{{ a.id }}">
+            {{ pii_checks(c.pii_types) }}
+            {{ state_select(c.mapping_state.value) }}
+            <div class="actions"><button type="submit">Salva</button></div>
+          </form>
+        </details>
       </div>
-      <details>
-        <summary>Modifica</summary>
-        <form method="post" action="/retention/{{ r.id }}" class="stack">
-          <input type="hidden" name="activity_id" value="{{ a.activity_id }}">
-          <label>Testo originale
-            <input name="raw_text" value="{{ r.raw_text }}" required>
-          </label>
-          <label>Durata in mesi <span class="muted">(vuoto = criterio, nessuna durata fissa)</span>
-            <input name="duration_months" type="number" min="0"
-              value="{{ r.duration_months if r.duration_months is not none else '' }}">
-          </label>
-          <div class="actions">
-            <button type="submit">Salva</button>
-            <button type="submit" class="danger" formaction="/retention/{{ r.id }}/delete"
-              formnovalidate onclick="return confirm('Eliminare questa conservazione?');">Elimina</button>
-          </div>
-        </form>
-      </details>
-    </div>
-  {% else %}
-    <p class="muted">Nessuna regola di conservazione.</p>
-  {% endfor %}
-
-  <details class="card add">
-    <summary>➕ Aggiungi conservazione</summary>
-    <form method="post" action="/activity/{{ a.activity_id }}/retention" class="stack">
-      <label>Testo originale
-        <input name="raw_text" required>
-      </label>
-      <label>Durata in mesi <span class="muted">(vuoto = criterio)</span>
-        <input name="duration_months" type="number" min="0">
-      </label>
-      <div class="actions"><button type="submit">Aggiungi</button></div>
-    </form>
-  </details>
-
-  <h2>Altri campi</h2>
-  <p class="muted">Modificabili dal pulsante «Modifica» in cima alla pagina.</p>
-  {% set groups = [
-    ("Categorie di interessati", a.data_subjects),
-    ("Destinatari", a.recipients),
-    ("Trasferimenti extra-UE/SEE", a.third_country_transfers),
-    ("Misure di sicurezza", a.security_measures),
-    ("Sistemi informativi", a.information_systems),
-  ] %}
-  {% for label, values in groups %}
-    <h3>{{ label }}</h3>
-    {% if values %}
-      <ul>{% for v in values %}<li>{{ v }}</li>{% endfor %}</ul>
     {% else %}
-      <p class="muted">—</p>
-    {% endif %}
+      <p class="muted">Nessuna categoria.</p>
+    {% endfor %}
+  {% else %}
+    <p class="muted">Nessuna macro-categoria.</p>
   {% endfor %}
 {% endblock %}

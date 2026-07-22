@@ -13,7 +13,7 @@ import os
 
 def main() -> None:
     """Parse CLI options and start the uvicorn server."""
-    parser = argparse.ArgumentParser(description="ROPA review web app (read-only).")
+    parser = argparse.ArgumentParser(description="ROPA review web app.")
     parser.add_argument("--db", default=None, help="database URL (e.g. sqlite:///ropa.db)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
