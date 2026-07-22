@@ -57,6 +57,8 @@ class DeclaredMacroCategory:
     retention_text: str
     retention_date: int | None # DA METTERE DATETIME
 
+    categories: list[DeclaredCategory] = field(default_factory=list)
+
 @dataclass
 class ProcessingActivity:
     """General container of different MacroCategories
@@ -64,6 +66,8 @@ class ProcessingActivity:
     id: str
     name: str
     purpose: str
+
+    macro_categories: list[DeclaredMacroCategory] = field(default_factory=list)
 
 __all__ = [
     "MappingState",
