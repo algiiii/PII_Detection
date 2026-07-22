@@ -61,3 +61,17 @@ class ROPARepository:
         """
         with Session(self.engine, expire_on_commit=False) as s:
             return list(s.exec(select(ProcessingActivity)).all())
+        
+    def clear(self) -> None:
+        """Delete every processing activity and its subtree from the register.
+
+        Wipes the register in place, leaving an empty but initialized database.
+        Each activity is deleted through the session so the relationship cascade
+        (``all, delete-orphan``) also removes its macro categories and declared
+        categories. Destructive: used by a ``--replace`` re-ingestion, it drops
+        any edit made through the review app.
+        """
+        with Session(self.engine) as s:
+            for activity in s.exec(select(ProcessingActivity)).all():
+                s.delete(activity)
+            s.commit()
