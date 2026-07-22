@@ -23,10 +23,11 @@ transfers, security measures, information systems) as plain strings; they become
 richer entities only once the ingestion actually needs them.
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
+
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class MappingState(str, Enum):
@@ -41,33 +42,49 @@ class MappingState(str, Enum):
 
 
 # ----------------- Parte nuova -------------------
-@dataclass
-class DeclaredCategory:
+class DeclaredCategory(SQLModel, table=True):
     """Atomic category directly found in ROPA or singularly splitted or expanded by rules / AI
     """
+    __tablename__ = "declared_category"
+
+    id: int | None = Field(default=None, primary_key=True)
+    macro_category_id: int | None = Field(default=None, foreign_key="macro_category.id")
     raw_text: str
-    pii_types: tuple[str, ...] = ()
+    pii_types: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     mapping_state: MappingState = MappingState.PROPOSED # viene affidato ad automatismi e AI, ma il DPO controlla sempre
 
-@dataclass
-class DeclaredMacroCategory:
+    macro_category: Optional["DeclaredMacroCategory"] = Relationship(back_populates="categories")
+
+class DeclaredMacroCategory(SQLModel, table=True):
     """Container for different DeclaredCategory s with common retention policy
     """
+    __tablename__ = "macro_category"
+
+    id: int | None = Field(default=None, primary_key=True)
+    activity_id: str | None = Field(default=None, foreign_key="processing_activity.id")
     raw_text: str
     retention_text: str
-    retention_date: int | None # DA METTERE DATETIME
+    retention_date: int | None = None
 
-    categories: list[DeclaredCategory] = field(default_factory=list)
+    categories: list[DeclaredCategory] = Relationship(
+        back_populates="macro_category",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    activity: Optional["ProcessingActivity"] = Relationship(back_populates="macro_categories")
 
-@dataclass
-class ProcessingActivity:
+class ProcessingActivity(SQLModel, table=True):
     """General container of different MacroCategories
     """
-    id: str
+    __tablename__ = "processing_activity"
+
+    id: str = Field(primary_key=True)
     name: str
     purpose: str
 
-    macro_categories: list[DeclaredMacroCategory] = field(default_factory=list)
+    macro_categories: list[DeclaredMacroCategory] = Relationship(
+        back_populates="activity",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 __all__ = [
     "MappingState",
