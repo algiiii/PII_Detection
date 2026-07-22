@@ -50,10 +50,10 @@ python_version = "3.12"
 strict = true
 files = ["pii_detection"]
 
-# Presidio, spaCy and openpyxl ship no type stubs; silence missing-import errors
-# for them under --strict. Cfr. tesi §sec:valutazione-presidio.
+# Presidio, spaCy, openpyxl and odfpy ship no type stubs; silence missing-import
+# errors for them under --strict. Cfr. tesi §sec:valutazione-presidio.
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*"]
+module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*", "odf.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
