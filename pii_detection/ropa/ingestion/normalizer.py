@@ -1,39 +1,105 @@
-# Responsible for associating excel data with normalized table in py
+"""Map a CNIL spreadsheet sheet onto the ROPA domain model — block B1.
 
-from pii_detection.ropa.ingestion.excel_reader import RawTable
-from pii_detection.ropa.types import ProcessingActivity, ROPA, DeclaredDataCategory, Retention, MappingState
+The interpretive step of the ingestion: it takes the raw cell grid produced by
+:func:`~pii_detection.ropa.ingestion.sheet_reader.read_sheet` and builds one
+:class:`~pii_detection.ropa.types.ProcessingActivity` from it.
 
-def split_multi(value: str | None) -> list[str]:
-    if value is None:
-        return []
-    return [piece.strip() for piece in value.split(";") if piece.strip()]
+Only the "Categories of personal data" section of the sheet is modelled; the
+activity's identity (name, purpose) is read from two labelled cells, and every
+other block of the CNIL form is intentionally ignored. Rows are located by their
+label (the first cell), not by a fixed index, so the mapping survives layout
+changes.
 
-def normalize(table: RawTable) -> ROPA:
-    activities = []
-    for i, record in enumerate(table.records):
-        category = DeclaredDataCategory(
-            raw_text=record["data_categories"],
-            pii_types=tuple(split_multi(record["data_categories"])),
-            mapping_state=MappingState.CONFIRMED,
+The single categories (level 3) are kept as raw text with an empty ``pii_types``
+and :attr:`~pii_detection.ropa.types.MappingState.PROPOSED`: splitting them and
+resolving them onto the ``pii_type`` catalog is the job of the AI category mapper
+and the DPO's confirmation, not of this deterministic step.
+"""
+
+from pii_detection.ropa.types import (
+    DeclaredCategory,
+    DeclaredMacroCategory,
+    MappingState,
+    ProcessingActivity,
+)
+
+_NAME_LABEL = "Name of the processing operation"
+_PURPOSE_LABEL = "Main purpose"
+_CATEGORIES_HEADER = "Categories of personal data"
+
+
+def _find_value(rows: list[list[str]], label: str) -> str:
+    """Return the second cell of the first row whose first cell equals ``label``.
+
+    :param rows: the sheet grid.
+    :param label: the row label to look up, matched on the first cell.
+    :returns: the value cell, stripped, or ``""`` if the label is absent.
+    """
+    for row in rows:
+        if row and row[0].strip() == label:
+            return row[1].strip() if len(row) > 1 else ""
+    return ""
+
+
+def _slugify(text: str) -> str:
+    """Build a stable, lowercase, hyphenated id from a free-text name.
+
+    :param text: the source text, typically the activity name.
+    :returns: a slug such as ``"payroll-management"``; ``"activity"`` when empty.
+    """
+    slug = "-".join(text.lower().split())
+    return slug or "activity"
+
+
+def normalize(rows: list[list[str]]) -> ProcessingActivity:
+    """Build a processing activity from one CNIL sheet grid.
+
+    Reads the activity identity from its labelled cells and the declared data
+    categories from the "Categories of personal data" section, mapping each
+    section row onto a macro category (with its retention) holding a single raw
+    child category.
+
+    :param rows: the sheet grid, as returned by
+        :func:`~pii_detection.ropa.ingestion.sheet_reader.read_sheet`.
+    :returns: the normalized :class:`~pii_detection.ropa.types.ProcessingActivity`.
+    :raises ValueError: if the sheet has no "Categories of personal data" section.
+    """
+    name = _find_value(rows, _NAME_LABEL)
+    purpose = _find_value(rows, _PURPOSE_LABEL)
+
+    start = None
+    for i, row in enumerate(rows):
+        if row and row[0].strip() == _CATEGORIES_HEADER:
+            start = i + 1
+            break
+    if start is None:
+        raise ValueError(f"section not found: {_CATEGORIES_HEADER!r}")
+
+    macro_categories: list[DeclaredMacroCategory] = []
+    for row in rows[start:]:
+        if not row or not row[0].strip():
+            break
+        macro_categories.append(
+            DeclaredMacroCategory(
+                raw_text=row[0].strip(),
+                retention_text=row[2].strip() if len(row) > 2 else "",
+                retention_months=None,
+                categories=[
+                    DeclaredCategory(
+                        raw_text=row[1].strip() if len(row) > 1 else "",
+                        pii_types=[],
+                        mapping_state=MappingState.PROPOSED,
+                    )
+                ],
+            )
         )
-        retention = Retention(
-            raw_text=record["retention_raw"],
-            duration_months=record["retention_months"],
-        )
-        activity = ProcessingActivity(
-            activity_id=f"act-{i:04d}",
-            name=record["name"],
-            purpose=record["purpose"],
-            legal_basis=record["legal_basis"],
-            controller=record["controller"],
-            dpo=record["dpo"],
-            data_categories=[category],
-            retentions=[retention],
-            data_subjects=split_multi(record["data_subjects"]),
-            recipients=split_multi(record["recipients"]),
-            third_country_transfers=split_multi(record["third_country_transfers"]),
-            security_measures=split_multi(record["security_measures"]),
-            information_systems=split_multi(record["information_systems"]),
-        )
-        activities.append(activity)
-    return ROPA(activities=activities)
+
+    return ProcessingActivity(
+        id=_slugify(name),
+        name=name,
+        purpose=purpose,
+        macro_categories=macro_categories,
+    )
+
+
+__all__ = ["normalize"]
