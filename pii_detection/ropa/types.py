@@ -99,7 +99,7 @@ class DeclaredMacroCategory(SQLModel, table=True):
 
     categories: list[DeclaredCategory] = Relationship(
         back_populates="macro_category",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"},
     )
     activity: Optional["ProcessingActivity"] = Relationship(back_populates="macro_categories")
 
@@ -125,7 +125,7 @@ class ProcessingActivity(SQLModel, table=True):
 
     macro_categories: list[DeclaredMacroCategory] = Relationship(
         back_populates="activity",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"},
     )
 
 __all__ = [
