@@ -16,6 +16,7 @@ implementation plan in ``doc/scaffolding-plan.md``.
    api/detection
    api/ropa
    api/evaluation
+   api/llm
 
 Indices
 -------

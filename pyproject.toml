@@ -28,6 +28,10 @@ presidio = [
     "spacy>=3.7",
 ]
 
+# Local, CPU-friendly generative AI runtime (selective-AI tasks). Model pulled
+# separately, e.g.: ollama pull qwen2.5:3b
+llm = ["ollama>=0.6"]
+
 docs = [
     "sphinx>=7.3",
     "furo>=2024.5",
@@ -53,7 +57,7 @@ files = ["pii_detection"]
 # Presidio, spaCy, openpyxl and odfpy ship no type stubs; silence missing-import
 # errors for them under --strict. Cfr. tesi §sec:valutazione-presidio.
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*", "odf.*"]
+module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*", "odf.*", "ollama.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
