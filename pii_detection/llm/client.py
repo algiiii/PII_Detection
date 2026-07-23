@@ -19,7 +19,7 @@ import os
 from typing import Any, Protocol, cast
 
 #: Small quantized model runnable on CPU (CLAUDE.md); overridable via env.
-DEFAULT_MODEL = "qwen2.5:3b"
+DEFAULT_MODEL = "llama3.2:3b"
 
 
 class ChatBackend(Protocol):

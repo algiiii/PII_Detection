@@ -15,7 +15,10 @@ import os
 
 from sqlalchemy.exc import IntegrityError
 
-from pii_detection.ropa.ingestion.category_mapper import build_dictionary_mapper
+from pii_detection.ropa.ingestion.category_mapper import (
+    build_dictionary_mapper,
+    build_llm_category_mapper,
+)
 from pii_detection.ropa.ingestion.pipeline import ingest_file, map_categories
 from pii_detection.ropa.repository import ROPARepository
 
@@ -43,6 +46,12 @@ def main() -> None:
         help="after ingesting, resolve declared categories onto pii_type via the "
         "deterministic dictionary mapper (leaves unresolved ones for the DPO)",
     )
+    parser.add_argument(
+        "--llm",
+        action="store_true",
+        help="with --map, use the local LLM mapper (Ollama) instead of the "
+        "dictionary, falling back to the dictionary on failure",
+    )
     args = parser.parse_args()
 
     try:
@@ -56,7 +65,8 @@ def main() -> None:
     print(f"ingested {len(activities)} activities into {args.db}")
 
     if args.map:
-        split = map_categories(ROPARepository(args.db), build_dictionary_mapper())
+        mapper = build_llm_category_mapper() if args.llm else build_dictionary_mapper()
+        split = map_categories(ROPARepository(args.db), mapper)
         print(f"mapped {split} declared categories")
 
 

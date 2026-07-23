@@ -18,6 +18,7 @@ DPO to complete (human-in-the-loop), never silently dropped.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,6 +33,7 @@ from pii_detection.detection.config import (
     default_config_dir,
     load_category_catalog,
 )
+from pii_detection.llm.client import LLMClient
 
 #: Characters that separate the sub-categories inside one free-text cell.
 _SEPARATORS = re.compile(r"[;,/]")
@@ -156,6 +158,96 @@ class DictionaryCategoryMapper:
         return [MappedCategory(part, self._table.get(_normalize(part), ())) for part in parts]
 
 
+_LLM_SYSTEM_PROMPT = (
+    "You map declared data categories from a GDPR/nLPD processing register onto a "
+    "fixed catalog of PII type ids. Be conservative and literal: never invent or infer "
+    "sub-categories that are not explicitly written in the text, and assign only catalog "
+    "ids that clearly correspond to what is written. When in doubt, return an empty list "
+    "instead of guessing. Use only ids from the catalog given by the user. Answer with "
+    "JSON only, no prose."
+)
+
+_JSON_ARRAY = re.compile(r"\[.*\]", re.DOTALL)
+
+
+class LLMCategoryMapper:
+    """Category mapper backed by a local LLM, validated against the catalog.
+
+    Same :class:`CategoryMapper` contract as :class:`DictionaryCategoryMapper`, so
+    it is a drop-in replacement. The model is given the **closed** catalog and
+    asked to split the free text and resolve each part; every returned id is
+    validated against the catalog and unknown ones are dropped, so an
+    hallucination can never reach the data model. On any failure (unreachable
+    runtime, unparseable answer) it degrades to ``fallback`` — the AI is an
+    enhancement, not a single point of failure.
+
+    :ivar _client: the shared LLM client (private).
+    :ivar _catalog: the catalog every returned id is validated against (private).
+    :ivar _fallback: mapper used when the LLM fails, or ``None`` (private).
+    """
+
+    def __init__(
+        self,
+        client: LLMClient,
+        catalog: PIICategoryCatalog,
+        *,
+        fallback: CategoryMapper | None = None,
+    ) -> None:
+        """Store the client, the validating catalog and the optional fallback.
+
+        :param client: the shared LLM client.
+        :param catalog: catalog every returned ``pii_type`` is validated against.
+        :param fallback: mapper to use when the LLM call or its parsing fails;
+            when ``None``, a failure yields the raw text with no ``pii_types``.
+        """
+        self._client = client
+        self._catalog = catalog
+        self._fallback = fallback
+
+    def _prompt(self, raw_text: str) -> str:
+        """Build the user prompt embedding the closed catalog and the free text."""
+        catalog = "\n".join(f"- {c.id}: {c.label}" for c in self._catalog)
+        return (
+            f"Catalog of allowed pii_type ids:\n{catalog}\n\n"
+            f"Declared category text: {raw_text!r}\n\n"
+            "Split the text ONLY into the sub-categories that are verbatim substrings of "
+            "it — do not add, infer, invent, or translate anything. For each sub-category, "
+            "list only the catalog ids that clearly correspond; if none clearly applies, "
+            "use an empty list. Reply as a JSON array of objects "
+            '{"text": <verbatim substring of the category text>, "pii_types": [<id>, ...]}.'
+        )
+
+    def _parse(self, answer: str) -> list[MappedCategory]:
+        """Parse the model's JSON answer, dropping ids absent from the catalog.
+
+        :param answer: the raw text returned by the model.
+        :returns: the resolved sub-categories.
+        :raises ValueError: if no JSON array can be found in the answer.
+        """
+        match = _JSON_ARRAY.search(answer)
+        if match is None:
+            raise ValueError("no JSON array in LLM answer")
+        result: list[MappedCategory] = []
+        for item in json.loads(match.group(0)):
+            pii_types = tuple(t for t in item.get("pii_types", []) if t in self._catalog)
+            result.append(MappedCategory(str(item["text"]), pii_types))
+        return result
+
+    def map(self, raw_text: str) -> list[MappedCategory]:
+        """Resolve a declared-category free text via the LLM, with a safe fallback.
+
+        :param raw_text: the free-text category cell.
+        :returns: one :class:`MappedCategory` per sub-category; on any LLM failure,
+            the fallback's result, or the raw text with empty ``pii_types``.
+        """
+        try:
+            return self._parse(self._client.complete(self._prompt(raw_text), system=_LLM_SYSTEM_PROMPT))
+        except Exception:  # noqa: BLE001 — any LLM/parse failure degrades to the fallback
+            if self._fallback is not None:
+                return self._fallback.map(raw_text)
+            return [MappedCategory(raw_text, ())]
+
+
 def build_dictionary_mapper(config_dir: Path | None = None) -> DictionaryCategoryMapper:
     """Build a :class:`DictionaryCategoryMapper` from the packaged config.
 
@@ -173,6 +265,27 @@ def build_dictionary_mapper(config_dir: Path | None = None) -> DictionaryCategor
     return DictionaryCategoryMapper(table, catalog)
 
 
+def build_llm_category_mapper(
+    config_dir: Path | None = None, client: LLMClient | None = None
+) -> LLMCategoryMapper:
+    """Build an :class:`LLMCategoryMapper` with a deterministic dictionary fallback.
+
+    :param config_dir: directory holding ``categories.yaml`` and
+        ``category_map.yaml``; defaults to the packaged config.
+    :param client: the LLM client to use; defaults to a fresh :class:`LLMClient`
+        configured from the environment.
+    :returns: an LLM mapper that falls back to the dictionary mapper on failure.
+    :raises ConfigError: on any missing/malformed config file.
+    """
+    base = config_dir if config_dir is not None else default_config_dir()
+    catalog = load_category_catalog(base / "categories.yaml")
+    return LLMCategoryMapper(
+        client if client is not None else LLMClient(),
+        catalog,
+        fallback=build_dictionary_mapper(config_dir),
+    )
+
+
 __all__ = [
     "MappedCategory",
     "CategoryMapper",
@@ -180,4 +293,6 @@ __all__ = [
     "load_category_map",
     "DictionaryCategoryMapper",
     "build_dictionary_mapper",
+    "LLMCategoryMapper",
+    "build_llm_category_mapper",
 ]
