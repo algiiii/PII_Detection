@@ -135,6 +135,46 @@ class ROPARepository:
             s.commit()
             return activity_id
 
+    def split_category(self, category_id: int, parts: list[tuple[str, list[str]]]) -> str:
+        """Replace a declared category with the sub-categories a mapper produced.
+
+        Used by the post-ingestion mapping pass: the raw declared category is
+        removed and one new :class:`~pii_detection.ropa.types.DeclaredCategory`
+        (``PROPOSED``) is added per part, under the same macro category. Takes
+        plain ``(raw_text, pii_types)`` tuples so the persistence layer stays
+        independent of the mapping layer.
+
+        :param category_id: id of the declared category to replace.
+        :param parts: the sub-categories to insert, each a ``(raw_text,
+            pii_types)`` pair; ``pii_types`` may be empty (not resolved).
+        :returns: the id of the parent activity, for the caller's redirect.
+        :raises KeyError: if no category (or parent) has that id.
+        :raises ValueError: if any ``pii_type`` is not in the catalog.
+        """
+        unknown = [t for _, pii_types in parts for t in pii_types if t not in self.catalog]
+        if unknown:
+            raise ValueError(f"unknown pii_types: {unknown}")
+        with Session(self.engine) as s:
+            category = s.get(DeclaredCategory, category_id)
+            if category is None:
+                raise KeyError(category_id)
+            macro = s.get(DeclaredMacroCategory, category.macro_category_id)
+            if macro is None or macro.activity_id is None:
+                raise KeyError(category_id)
+            activity_id = macro.activity_id
+            s.delete(category)
+            for raw_text, pii_types in parts:
+                s.add(
+                    DeclaredCategory(
+                        macro_category_id=macro.id,
+                        raw_text=raw_text,
+                        pii_types=pii_types,
+                        mapping_state=MappingState.PROPOSED,
+                    )
+                )
+            s.commit()
+            return activity_id
+
     def confirm_macro(self, macro_id: int) -> str:
         """Confirm every declared category under a macro category.
 

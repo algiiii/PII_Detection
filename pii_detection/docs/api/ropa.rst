@@ -46,3 +46,9 @@ Pipeline (``ropa.ingestion.pipeline``)
 
 .. automodule:: pii_detection.ropa.ingestion.pipeline
    :members:
+
+Persistence (``ropa.repository``)
+---------------------------------
+
+.. automodule:: pii_detection.ropa.repository
+   :members:

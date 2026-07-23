@@ -15,7 +15,9 @@ import os
 
 from sqlalchemy.exc import IntegrityError
 
-from pii_detection.ropa.ingestion.pipeline import ingest_file
+from pii_detection.ropa.ingestion.category_mapper import build_dictionary_mapper
+from pii_detection.ropa.ingestion.pipeline import ingest_file, map_categories
+from pii_detection.ropa.repository import ROPARepository
 
 
 def main() -> None:
@@ -35,6 +37,12 @@ def main() -> None:
         action="store_true",
         help="wipe the existing register before ingesting (destructive)",
     )
+    parser.add_argument(
+        "--map",
+        action="store_true",
+        help="after ingesting, resolve declared categories onto pii_type via the "
+        "deterministic dictionary mapper (leaves unresolved ones for the DPO)",
+    )
     args = parser.parse_args()
 
     try:
@@ -46,6 +54,10 @@ def main() -> None:
         )
 
     print(f"ingested {len(activities)} activities into {args.db}")
+
+    if args.map:
+        split = map_categories(ROPARepository(args.db), build_dictionary_mapper())
+        print(f"mapped {split} declared categories")
 
 
 if __name__ == "__main__":
