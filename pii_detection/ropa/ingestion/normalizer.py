@@ -16,6 +16,7 @@ resolving them onto the ``pii_type`` catalog is the job of the AI category mappe
 and the DPO's confirmation, not of this deterministic step.
 """
 
+from pii_detection.ropa.ingestion.retention import parse_retention
 from pii_detection.ropa.types import (
     DeclaredCategory,
     DeclaredMacroCategory,
@@ -79,11 +80,12 @@ def normalize(rows: list[list[str]]) -> ProcessingActivity:
     for row in rows[start:]:
         if not row or not row[0].strip():
             break
+        retention_text = row[2].strip() if len(row) > 2 else ""
         macro_categories.append(
             DeclaredMacroCategory(
                 raw_text=row[0].strip(),
-                retention_text=row[2].strip() if len(row) > 2 else "",
-                retention_months=None,
+                retention_text=retention_text,
+                retention_months=parse_retention(retention_text),
                 categories=[
                     DeclaredCategory(
                         raw_text=row[1].strip() if len(row) > 1 else "",

@@ -13,3 +13,12 @@ Data model (``ropa.types``)
 .. automodule:: pii_detection.ropa.types
    :members:
    :member-order: bysource
+
+Ingestion (``ropa.ingestion``)
+------------------------------
+
+Retention parsing (``ropa.ingestion.retention``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: pii_detection.ropa.ingestion.retention
+   :members:
