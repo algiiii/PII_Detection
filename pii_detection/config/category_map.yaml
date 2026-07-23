@@ -1,0 +1,36 @@
+# Deterministic phrase -> pii_type[] dictionary for the ROPA category mapper (B1).
+#
+# The mapper (DictionaryCategoryMapper) splits a declared-category free text on
+# `,`/`;`/`/` and looks up each part here (case- and whitespace-insensitive).
+# Every pii_type MUST exist in categories.yaml. A phrase not listed here resolves
+# to an empty set: it stays PROPOSED for the DPO to complete (human-in-the-loop).
+# This deterministic table is the baseline; the LLM mapper will raise recall on
+# the messy, unseen wording of real registers.
+mappings:
+  # --- English (CNIL template wording) ---
+  "bank account details": [iban]
+  "last names": [person_name]
+  "names": [person_name]
+  "names and addresses": [person_name, address]
+  "addresses": [address]
+  "email address": [email]
+  "phone number": [phone]
+  "date of birth": [date_of_birth]
+  "social security number": [swiss_avs]
+  "social security numbers of the employees": [swiss_avs]
+  "credit card number": [credit_card]
+  "ip address": [ip_address]
+
+  # --- Italian (registri reali) ---
+  "coordinate bancarie": [iban]
+  "dati anagrafici": [person_name, date_of_birth]
+  "nome e cognome": [person_name]
+  "indirizzo": [address]
+  "recapiti": [email, phone]
+  "contatti": [email, phone]
+  "email": [email]
+  "telefono": [phone]
+  "data di nascita": [date_of_birth]
+  "codice fiscale": [italian_id]
+  "carta di credito": [credit_card]
+  "dati sanitari": [health_data]

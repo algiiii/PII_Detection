@@ -35,6 +35,12 @@ Normalizer (``ropa.ingestion.normalizer``)
 .. automodule:: pii_detection.ropa.ingestion.normalizer
    :members:
 
+Category mapper (``ropa.ingestion.category_mapper``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: pii_detection.ropa.ingestion.category_mapper
+   :members:
+
 Pipeline (``ropa.ingestion.pipeline``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
