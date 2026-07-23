@@ -63,9 +63,14 @@ def normalize(rows: list[list[str]]) -> ProcessingActivity:
     :param rows: the sheet grid, as returned by
         :func:`~pii_detection.ropa.ingestion.sheet_reader.read_sheet`.
     :returns: the normalized :class:`~pii_detection.ropa.types.ProcessingActivity`.
-    :raises ValueError: if the sheet has no "Categories of personal data" section.
+    :raises ValueError: if the sheet is not a processing-activity record — either
+        it has no processing-activity name, or no "Categories of personal data"
+        section. Both let a caller iterating a workbook skip non-activity tabs
+        (tutorials, lists, the blank template) with a single ``except``.
     """
     name = _find_value(rows, _NAME_LABEL)
+    if not name:
+        raise ValueError(f"no value for {_NAME_LABEL!r}: not a processing-activity sheet")
     purpose = _find_value(rows, _PURPOSE_LABEL)
 
     start = None

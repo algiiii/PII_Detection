@@ -1,8 +1,40 @@
+"""Read spreadsheet sheets (ODS or Excel) into plain string grids — block B1.
+
+The reader is format-agnostic on the outside: :func:`sheet_names` lists the tabs
+of a workbook and :func:`read_sheet` returns one tab as a ``list[list[str]]``
+grid, dispatching on the file extension (``.ods`` via odfpy, ``.xlsx``/``.xlsm``
+via openpyxl). Keeping both back-ends behind the same shape lets the normalizer
+stay unaware of the source format (Adapter).
+"""
+
 from pathlib import Path
 from openpyxl import load_workbook
 from odf.opendocument import load as load_ods
 from odf.table import Table, TableRow, TableCell
 from odf.text import P
+
+
+def sheet_names(path: str | Path) -> list[str]:
+    """List the sheet (tab) names of a workbook, in document order.
+
+    Lets the ingestion iterate every tab and decide per-sheet whether it is a
+    processing-activity record, without hard-coding tab names.
+
+    :param path: path to the ``.ods`` or ``.xlsx``/``.xlsm`` workbook.
+    :returns: the sheet names, in the order they appear in the workbook.
+    :raises ValueError: if the file extension is not a supported spreadsheet.
+    """
+    suffix = Path(path).suffix.lower()
+    if suffix == ".ods":
+        doc = load_ods(path)
+        return [str(t.getAttribute("name")) for t in doc.spreadsheet.getElementsByType(Table)]
+    if suffix in (".xlsx", ".xlsm"):
+        wb = load_workbook(path, read_only=True)
+        try:
+            return list(wb.sheetnames)
+        finally:
+            wb.close()
+    raise ValueError(f"unsupported spreadsheet format: {suffix!r}")
 
 
 def read_sheet(path: str | Path, sheet_name: str) -> list[list[str]]:
@@ -11,6 +43,13 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[list[str]]:
     Dispatches on the file extension: ``.ods`` via odfpy, ``.xlsx``/``.xlsm``
     via openpyxl. Both back-ends yield the same shape, so the normalizer is
     format-agnostic.
+
+    :param path: path to the ``.ods`` or ``.xlsx``/``.xlsm`` workbook.
+    :param sheet_name: name of the sheet to read.
+    :returns: the sheet as a grid of stripped cell strings (trailing empty cells
+        of each row are dropped).
+    :raises ValueError: if the file extension is not a supported spreadsheet.
+    :raises KeyError: if no sheet with ``sheet_name`` exists.
     """
     suffix = Path(path).suffix.lower()
     if suffix == ".ods":

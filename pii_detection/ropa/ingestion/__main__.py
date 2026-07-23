@@ -31,11 +31,6 @@ def main() -> None:
         help="database URL (default: $ROPA_DB_URL or sqlite:///ropa.db)",
     )
     parser.add_argument(
-        "--sheet",
-        default="4_-_Example_",
-        help="name of the sheet to ingest (default: 4_-_Example_)",
-    )
-    parser.add_argument(
         "--replace",
         action="store_true",
         help="wipe the existing register before ingesting (destructive)",
@@ -43,9 +38,7 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        activities = ingest_file(
-            args.path, args.db, sheet_name=args.sheet, replace=args.replace
-        )
+        activities = ingest_file(args.path, args.db, replace=args.replace)
     except IntegrityError:
         parser.error(
             f"{args.db} already contains activities with these ids; "

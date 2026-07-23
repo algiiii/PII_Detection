@@ -22,3 +22,21 @@ Retention parsing (``ropa.ingestion.retention``)
 
 .. automodule:: pii_detection.ropa.ingestion.retention
    :members:
+
+Sheet reader (``ropa.ingestion.sheet_reader``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: pii_detection.ropa.ingestion.sheet_reader
+   :members:
+
+Normalizer (``ropa.ingestion.normalizer``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: pii_detection.ropa.ingestion.normalizer
+   :members:
+
+Pipeline (``ropa.ingestion.pipeline``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. automodule:: pii_detection.ropa.ingestion.pipeline
+   :members:
