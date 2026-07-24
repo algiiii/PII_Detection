@@ -1,0 +1,48 @@
+# Annotated cases for the category-mapper benchmark (block B1).
+#
+# Each case is a declared-category free text and the pii_type set it *should*
+# resolve to (hand-curated ground truth). Ids must exist in config/categories.yaml.
+# The set mixes phrases the dictionary can match verbatim with phrases it cannot,
+# so the benchmark exposes the recall gap the LLM is meant to close.
+cases:
+  - text: "Last names, names and addresses"
+    expected: [person_name, address]
+  - text: "Bank account details"
+    expected: [iban]
+  - text: "Social security numbers of the employees"
+    expected: [swiss_avs]
+  - text: "coordinate bancarie"
+    expected: [iban]
+  - text: "dati anagrafici"
+    expected: [person_name, date_of_birth]
+  - text: "nome, cognome e indirizzo di residenza"
+    expected: [person_name, address]
+  - text: "indirizzo email e numero di telefono"
+    expected: [email, phone]
+  - text: "codice fiscale"
+    expected: [italian_id]
+  - text: "data di nascita"
+    expected: [date_of_birth]
+  - text: "estremi della carta di credito"
+    expected: [credit_card]
+  - text: "dati sanitari e diagnosi mediche"
+    expected: [health_data]
+  - text: "indirizzo IP del dispositivo"
+    expected: [ip_address]
+  # --- extra cases with different phrasings (some with no catalog type at all) ---
+  - text: "recapito email aziendale"
+    expected: [email]
+  - text: "numero di cellulare personale"
+    expected: [phone]
+  - text: "estremi del conto bancario"
+    expected: [iban]
+  - text: "luogo e data di nascita"
+    expected: [date_of_birth]
+  - text: "nominativo del referente commerciale"
+    expected: [person_name]
+  - text: "indirizzo IP statico"
+    expected: [ip_address]
+  - text: "fotografia del dipendente"
+    expected: []
+  - text: "partita IVA"
+    expected: []

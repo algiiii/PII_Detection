@@ -242,6 +242,10 @@ doc/latex_build/
 # Vari
 *.md
 
+# Generated example ROPA workbooks (reproducible via examples/ropa/demo.py)
+examples/ropa/*.ods
+examples/ropa/*.xlsx
+
 # LaTeX build artifacts (il PDF resta tracciato di proposito)
 *.fdb_latexmk
 *.fls

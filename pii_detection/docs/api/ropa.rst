@@ -52,3 +52,9 @@ Persistence (``ropa.repository``)
 
 .. automodule:: pii_detection.ropa.repository
    :members:
+
+Category-mapper benchmark (``ropa.eval.mapper_eval``)
+-----------------------------------------------------------
+
+.. automodule:: pii_detection.ropa.eval.mapper_eval
+   :members:
