@@ -16,11 +16,26 @@ import os
 from sqlalchemy.exc import IntegrityError
 
 from pii_detection.ropa.ingestion.category_mapper import (
+    CategoryMapper,
     build_dictionary_mapper,
     build_llm_category_mapper,
 )
 from pii_detection.ropa.ingestion.pipeline import ingest_file, map_categories
 from pii_detection.ropa.repository import ROPARepository
+
+
+def _build_mapper(kind: str) -> CategoryMapper:
+    """Build the category mapper selected on the command line.
+
+    :param kind: ``"dictionary"`` (deterministic, AI off), ``"llm"`` (the model
+        alone, no fallback), or ``"hybrid"`` (model with dictionary fallback).
+    :returns: the corresponding mapper.
+    """
+    if kind == "dictionary":
+        return build_dictionary_mapper()
+    if kind == "llm":
+        return build_llm_category_mapper(use_fallback=False)
+    return build_llm_category_mapper(use_fallback=True)
 
 
 def main() -> None:
@@ -41,16 +56,12 @@ def main() -> None:
         help="wipe the existing register before ingesting (destructive)",
     )
     parser.add_argument(
-        "--map",
-        action="store_true",
-        help="after ingesting, resolve declared categories onto pii_type via the "
-        "deterministic dictionary mapper (leaves unresolved ones for the DPO)",
-    )
-    parser.add_argument(
-        "--llm",
-        action="store_true",
-        help="with --map, use the local LLM mapper (Ollama) instead of the "
-        "dictionary, falling back to the dictionary on failure",
+        "--mapper",
+        choices=["dictionary", "llm", "hybrid"],
+        default=None,
+        help="after ingesting, resolve declared categories onto pii_type: "
+        "'dictionary' (deterministic, AI off), 'llm' (the local model alone), "
+        "'hybrid' (model with dictionary fallback). Omit to skip mapping.",
     )
     args = parser.parse_args()
 
@@ -64,10 +75,9 @@ def main() -> None:
 
     print(f"ingested {len(activities)} activities into {args.db}")
 
-    if args.map:
-        mapper = build_llm_category_mapper() if args.llm else build_dictionary_mapper()
-        split = map_categories(ROPARepository(args.db), mapper)
-        print(f"mapped {split} declared categories")
+    if args.mapper is not None:
+        split = map_categories(ROPARepository(args.db), _build_mapper(args.mapper))
+        print(f"mapped {split} declared categories with the {args.mapper} mapper")
 
 
 if __name__ == "__main__":

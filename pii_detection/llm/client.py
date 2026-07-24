@@ -28,11 +28,14 @@ class ChatBackend(Protocol):
     Structural contract, so a test fake satisfies it without importing Ollama.
     """
 
-    def chat(self, *, model: str, messages: list[dict[str, str]]) -> Any:
+    def chat(
+        self, *, model: str, messages: list[dict[str, str]], options: dict[str, float]
+    ) -> Any:
         """Send a chat conversation and return the runtime's raw response.
 
         :param model: name of the model to run.
         :param messages: ``{"role", "content"}`` turns, in order.
+        :param options: runtime options (e.g. ``{"temperature": 0.0}``).
         :returns: a response supporting ``response["message"]["content"]``.
         """
         ...
@@ -60,6 +63,7 @@ class LLMClient:
         model: str | None = None,
         host: str | None = None,
         *,
+        temperature: float = 0.0,
         client: ChatBackend | None = None,
     ) -> None:
         """Configure the model and open (or accept) the backend.
@@ -69,10 +73,14 @@ class LLMClient:
         :param host: Ollama server URL; defaults to the ``OLLAMA_HOST``
             environment variable, then to the client's own default. Ignored when
             ``client`` is given.
+        :param temperature: sampling temperature; ``0.0`` (default) makes the
+            output deterministic and conservative, which the extraction tasks
+            (category mapping, detection) rely on for reproducibility.
         :param client: an explicit backend to drive (Dependency Injection); when
             ``None`` a real Ollama client is created lazily.
         """
         self.model = model or os.environ.get("ROPA_LLM_MODEL") or DEFAULT_MODEL
+        self._options: dict[str, float] = {"temperature": temperature}
         resolved_host = host if host is not None else os.environ.get("OLLAMA_HOST")
         self._backend = client if client is not None else _default_backend(resolved_host)
 
@@ -87,7 +95,7 @@ class LLMClient:
         if system is not None:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        response = self._backend.chat(model=self.model, messages=messages)
+        response = self._backend.chat(model=self.model, messages=messages, options=self._options)
         return str(response["message"]["content"])
 
 

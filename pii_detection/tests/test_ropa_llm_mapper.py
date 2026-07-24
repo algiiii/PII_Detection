@@ -22,7 +22,9 @@ class _FakeBackend:
     def __init__(self, content: str) -> None:
         self.content = content
 
-    def chat(self, *, model: str, messages: list[dict[str, str]]) -> dict[str, dict[str, str]]:
+    def chat(
+        self, *, model: str, messages: list[dict[str, str]], options: dict[str, float]
+    ) -> dict[str, dict[str, str]]:
         return {"message": {"content": self.content}}
 
 

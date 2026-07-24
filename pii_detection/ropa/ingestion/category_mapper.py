@@ -35,8 +35,9 @@ from pii_detection.detection.config import (
 )
 from pii_detection.llm.client import LLMClient
 
-#: Characters that separate the sub-categories inside one free-text cell.
-_SEPARATORS = re.compile(r"[;,/]")
+#: Splits a free-text cell into sub-categories: punctuation and the conjunctions
+#: "e"/"ed"/"and" (as whole words), so "nome, cognome e indirizzo" → three parts.
+_SEPARATORS = re.compile(r"[;,/&]|\b(?:e|ed|and)\b", re.IGNORECASE)
 
 
 def _normalize(text: str) -> str:
@@ -124,11 +125,15 @@ def load_category_map(path: Path, catalog: PIICategoryCatalog) -> dict[str, list
 class DictionaryCategoryMapper:
     """Deterministic mapper backed by a phrase → ``pii_type`` dictionary.
 
-    Splits the free text on ``,``/``;``/``/`` and looks up each part in the
-    dictionary (case- and whitespace-insensitive). It is the default mapper: an
-    LLM mapper will implement the same :class:`CategoryMapper` Protocol later.
+    Splits the free text on punctuation and the conjunctions ``e``/``ed``/``and``,
+    then resolves each part (case- and whitespace-insensitive): an exact
+    dictionary hit first, otherwise greedy longest-first keyword spotting over the
+    tokens (see :meth:`_resolve`). It is the default mapper; an LLM mapper
+    implements the same :class:`CategoryMapper` Protocol.
 
     :ivar _table: normalized phrase → ``pii_type`` tuple (private).
+    :ivar _keys_by_length: dictionary keys sorted longest-first, for keyword
+        spotting (private).
     """
 
     def __init__(self, table: dict[str, list[str]], catalog: PIICategoryCatalog) -> None:
@@ -146,16 +151,51 @@ class DictionaryCategoryMapper:
                 raise ConfigError(f"unknown pii_type(s) for {phrase!r}: {unknown}")
             normalized[_normalize(phrase)] = tuple(pii_types)
         self._table = normalized
+        # Keys longest-first (in tokens), for greedy non-overlapping keyword spotting.
+        self._keys_by_length = sorted(normalized, key=lambda k: len(k.split()), reverse=True)
 
     def map(self, raw_text: str) -> list[MappedCategory]:
-        """Split ``raw_text`` on separators and resolve each part via the dictionary.
+        """Split ``raw_text`` on separators/conjunctions and resolve each part.
 
         :param raw_text: the free-text category cell.
-        :returns: one :class:`MappedCategory` per non-empty part; an unknown part
-            resolves to an empty ``pii_types`` tuple.
+        :returns: one :class:`MappedCategory` per non-empty part; an unresolved
+            part carries an empty ``pii_types`` tuple.
         """
         parts = [p.strip() for p in _SEPARATORS.split(raw_text) if p.strip()]
-        return [MappedCategory(part, self._table.get(_normalize(part), ())) for part in parts]
+        return [MappedCategory(part, self._resolve(part)) for part in parts]
+
+    def _resolve(self, phrase: str) -> tuple[str, ...]:
+        """Resolve one sub-phrase: exact match first, then greedy keyword spotting.
+
+        An exact dictionary hit wins outright. Otherwise the phrase's tokens are
+        scanned for dictionary keys occurring as a whole-word run, longest key
+        first, consuming matched tokens so a longer, more specific key
+        (``"indirizzo email"``) wins over a shorter one (``"indirizzo"``) and no
+        token is counted twice.
+
+        :param phrase: one sub-category free text.
+        :returns: the resolved ``pii_type`` ids, de-duplicated in order; empty
+            when nothing matches.
+        """
+        key = _normalize(phrase)
+        exact = self._table.get(key)
+        if exact is not None:
+            return exact
+        tokens = key.split()
+        consumed = [False] * len(tokens)
+        found: list[str] = []
+        for dict_key in self._keys_by_length:
+            dict_tokens = dict_key.split()
+            width = len(dict_tokens)
+            for start in range(len(tokens) - width + 1):
+                if any(consumed[start : start + width]):
+                    continue
+                if tokens[start : start + width] == dict_tokens:
+                    for index in range(start, start + width):
+                        consumed[index] = True
+                    found.extend(self._table[dict_key])
+                    break
+        return tuple(dict.fromkeys(found))
 
 
 _LLM_SYSTEM_PROMPT = (
@@ -266,23 +306,28 @@ def build_dictionary_mapper(config_dir: Path | None = None) -> DictionaryCategor
 
 
 def build_llm_category_mapper(
-    config_dir: Path | None = None, client: LLMClient | None = None
+    config_dir: Path | None = None,
+    client: LLMClient | None = None,
+    *,
+    use_fallback: bool = True,
 ) -> LLMCategoryMapper:
-    """Build an :class:`LLMCategoryMapper` with a deterministic dictionary fallback.
+    """Build an :class:`LLMCategoryMapper`, optionally with a dictionary fallback.
 
     :param config_dir: directory holding ``categories.yaml`` and
         ``category_map.yaml``; defaults to the packaged config.
     :param client: the LLM client to use; defaults to a fresh :class:`LLMClient`
         configured from the environment.
-    :returns: an LLM mapper that falls back to the dictionary mapper on failure.
+    :param use_fallback: when ``True`` (default) the mapper falls back to the
+        dictionary mapper on failure; when ``False`` it is the LLM alone — useful
+        to measure or observe the model in isolation.
+    :returns: the configured LLM mapper.
     :raises ConfigError: on any missing/malformed config file.
     """
     base = config_dir if config_dir is not None else default_config_dir()
     catalog = load_category_catalog(base / "categories.yaml")
+    fallback = build_dictionary_mapper(config_dir) if use_fallback else None
     return LLMCategoryMapper(
-        client if client is not None else LLMClient(),
-        catalog,
-        fallback=build_dictionary_mapper(config_dir),
+        client if client is not None else LLMClient(), catalog, fallback=fallback
     )
 
 

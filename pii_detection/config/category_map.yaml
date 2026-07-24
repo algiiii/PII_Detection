@@ -1,36 +1,104 @@
 # Deterministic phrase -> pii_type[] dictionary for the ROPA category mapper (B1).
 #
-# The mapper (DictionaryCategoryMapper) splits a declared-category free text on
-# `,`/`;`/`/` and looks up each part here (case- and whitespace-insensitive).
-# Every pii_type MUST exist in categories.yaml. A phrase not listed here resolves
-# to an empty set: it stays PROPOSED for the DPO to complete (human-in-the-loop).
-# This deterministic table is the baseline; the LLM mapper will raise recall on
-# the messy, unseen wording of real registers.
+# The DictionaryCategoryMapper splits a declared-category free text on punctuation
+# and the conjunctions e/ed/and, then resolves each part: exact match first, then
+# greedy longest-first keyword spotting over the tokens. So keys must NOT contain a
+# standalone "e"/"ed"/"and" (it would be split away). Longer, more specific keys
+# (e.g. "indirizzo email") win over shorter ones ("indirizzo").
+#
+# Every pii_type MUST exist in categories.yaml. A phrase resolving to nothing stays
+# PROPOSED for the DPO (human-in-the-loop).
 mappings:
-  # --- English (CNIL template wording) ---
-  "bank account details": [iban]
-  "last names": [person_name]
+  # --- person_name ---
+  "nome": [person_name]
+  "cognome": [person_name]
+  "nominativo": [person_name]
+  "generalità": [person_name]
+  "name": [person_name]
   "names": [person_name]
-  "names and addresses": [person_name, address]
+  "last name": [person_name]
+  "last names": [person_name]
+  "first name": [person_name]
+  "surname": [person_name]
+  "full name": [person_name]
+
+  # --- address ---  (note: the more specific "indirizzo email"/"indirizzo ip" below win)
+  "indirizzo": [address]
+  "residenza": [address]
+  "domicilio": [address]
+  "indirizzo di residenza": [address]
+  "indirizzo postale": [address]
   "addresses": [address]
+  "address": [address]
+  "postal address": [address]
+  "residential address": [address]
+
+  # --- email ---
+  "email": [email]
+  "e-mail": [email]
+  "pec": [email]
+  "posta elettronica": [email]
+  "indirizzo email": [email]
+  "indirizzo di posta elettronica": [email]
   "email address": [email]
+
+  # --- phone ---
+  "telefono": [phone]
+  "cellulare": [phone]
+  "numero di telefono": [phone]
+  "recapito telefonico": [phone]
   "phone number": [phone]
-  "date of birth": [date_of_birth]
-  "social security number": [swiss_avs]
-  "social security numbers of the employees": [swiss_avs]
+  "mobile": [phone]
+
+  # --- iban ---
+  "iban": [iban]
+  "coordinate bancarie": [iban]
+  "conto corrente": [iban]
+  "conto bancario": [iban]
+  "estremi bancari": [iban]
+  "dati bancari": [iban]
+  "bank account": [iban]
+  "bank account details": [iban]
+
+  # --- credit_card ---
+  "carta di credito": [credit_card]
+  "numero di carta di credito": [credit_card]
+  "credit card": [credit_card]
   "credit card number": [credit_card]
+
+  # --- date_of_birth ---
+  "data di nascita": [date_of_birth]
+  "nascita": [date_of_birth]
+  "date of birth": [date_of_birth]
+
+  # --- italian_id ---
+  "codice fiscale": [italian_id]
+  "tax code": [italian_id]
+  "fiscal code": [italian_id]
+
+  # --- swiss_avs ---
+  "avs": [swiss_avs]
+  "numero avs": [swiss_avs]
+  "numero di previdenza sociale": [swiss_avs]
+  "social security number": [swiss_avs]
+  "social security numbers": [swiss_avs]
+
+  # --- ip_address ---
+  "ip": [ip_address]
+  "indirizzo ip": [ip_address]
   "ip address": [ip_address]
 
-  # --- Italian (registri reali) ---
-  "coordinate bancarie": [iban]
-  "dati anagrafici": [person_name, date_of_birth]
-  "nome e cognome": [person_name]
-  "indirizzo": [address]
-  "recapiti": [email, phone]
-  "contatti": [email, phone]
-  "email": [email]
-  "telefono": [phone]
-  "data di nascita": [date_of_birth]
-  "codice fiscale": [italian_id]
-  "carta di credito": [credit_card]
+  # --- health_data ---
   "dati sanitari": [health_data]
+  "dati relativi alla salute": [health_data]
+  "informazioni mediche": [health_data]
+  "cartella clinica": [health_data]
+  "diagnosi": [health_data]
+  "health data": [health_data]
+
+  # --- generic contact buckets ---
+  "contatti": [email, phone]
+  "recapiti": [email, phone]
+
+  # --- multi-type buckets ---
+  "dati anagrafici": [person_name, date_of_birth]

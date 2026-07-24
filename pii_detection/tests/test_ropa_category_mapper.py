@@ -48,6 +48,33 @@ def test_unknown_phrase_resolves_to_empty_types() -> None:
     assert mapper.map("mystery data") == [MappedCategory("mystery data", ())]
 
 
+def test_splits_on_the_conjunction_e() -> None:
+    mapper = DictionaryCategoryMapper(
+        {"nome": ["person_name"], "cognome": ["person_name"]}, _catalog()
+    )
+    out = mapper.map("nome e cognome")
+    assert [mc.text for mc in out] == ["nome", "cognome"]
+    assert all(mc.pii_types == ("person_name",) for mc in out)
+
+
+def test_keyword_spotting_matches_an_inner_key() -> None:
+    mapper = DictionaryCategoryMapper({"carta di credito": ["credit_card"]}, _catalog())
+    assert mapper.map("estremi della carta di credito") == [
+        MappedCategory("estremi della carta di credito", ("credit_card",))
+    ]
+
+
+def test_longer_key_wins_over_shorter_overlapping_one() -> None:
+    mapper = DictionaryCategoryMapper(
+        {"indirizzo": ["address"], "indirizzo email": ["email"]}, _catalog()
+    )
+    # The longer "indirizzo email" consumes the tokens, so "indirizzo" -> address
+    # does not also fire: the part resolves to email only.
+    assert mapper.map("indirizzo email aziendale") == [
+        MappedCategory("indirizzo email aziendale", ("email",))
+    ]
+
+
 def test_rejects_pii_type_absent_from_catalog() -> None:
     with pytest.raises(ConfigError):
         DictionaryCategoryMapper({"whatever": ["not_a_type"]}, _catalog())
