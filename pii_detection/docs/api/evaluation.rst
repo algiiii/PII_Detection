@@ -24,3 +24,10 @@ Baseline runner (``evaluation.run_baseline``)
 .. automodule:: pii_detection.evaluation.run_baseline
    :members:
    :member-order: bysource
+
+Presidio baseline runner (``evaluation.run_presidio_baseline``)
+---------------------------------------------------------------------
+
+.. automodule:: pii_detection.evaluation.run_presidio_baseline
+   :members:
+   :member-order: bysource
