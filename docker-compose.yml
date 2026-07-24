@@ -1,0 +1,30 @@
+# Portable, cross-platform run of the whole system: `docker compose up` works on
+# any host with Docker, regardless of its architecture (no Rosetta/x86 concerns).
+# Each heavy/service functionality is its own container, configured via env.
+services:
+  app:
+    build: .
+    environment:
+      # Services are reached by name on the compose network (no hardcoded hosts).
+      OLLAMA_HOST: http://ollama:11434
+      ROPA_LLM_MODEL: llama3.2:3b
+      ROPA_DB_URL: sqlite:////data/ropa.db
+      HF_HOME: /models/hf
+    volumes:
+      - .:/app                 # live source (no rebuild on code changes)
+      - app-data:/data         # SQLite DB and other app state
+      - hf-cache:/models/hf    # GLiNER / HuggingFace model cache (persisted)
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama-models:/root/.ollama   # pulled LLM models persist here
+    ports:
+      - "11434:11434"
+
+volumes:
+  app-data:
+  hf-cache:
+  ollama-models:

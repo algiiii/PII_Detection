@@ -1,0 +1,12 @@
+# Keep the build context small and host-specific junk out of the image.
+.git
+.venv
+doc/
+pii_detection/docs/_build/
+**/__pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+examples/ropa/*.ods
+examples/ropa/*.xlsx
+*.db

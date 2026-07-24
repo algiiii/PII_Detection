@@ -14,6 +14,7 @@ ner = ["gliner>=0.2.13",]
 ropa = [
     "openpyxl>=3.1",
     "odfpy>=1.4",
+    "sqlmodel>=0.0.16",
 ]
 review = [
     "fastapi>=0.110",
@@ -36,6 +37,13 @@ docs = [
     "sphinx>=7.3",
     "furo>=2024.5",
     "sphinx-autodoc-typehints>=2.1",
+]
+
+# Dev tooling (previously installed ad-hoc in the local venv, undeclared).
+dev = [
+    "pytest>=8",
+    "mypy>=1.10",
+    "ruff>=0.5",
 ]
 
 [build-system]
