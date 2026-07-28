@@ -12,8 +12,8 @@ Four declarative files feed the layer:
 - ``categories.yaml`` — the canonical catalog of ``pii_type`` ids
   (:class:`PIICategoryCatalog`).
 - ``regex_rules.yaml`` — rules for the ``RegexDetector`` (Step 4).
-- ``ner_labels.yaml`` — label→``pii_type`` mapping for the ``GLiNERDetector``
-  (Step 5).
+- ``ner_labels.yaml`` — label→``pii_type`` mapping consumed by the GLiNER
+  recognizer inside Presidio.
 - ``presidio_entities.yaml`` — Presidio ``entity_type``→``pii_type`` mapping for
   the Presidio detector.
 
