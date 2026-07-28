@@ -38,3 +38,10 @@ Presidio detector (``detection.presidio_detector``)
 .. automodule:: pii_detection.detection.presidio_detector
    :members:
    :member-order: bysource
+
+Merge engine (``detection.pipeline``)
+-------------------------------------
+
+.. automodule:: pii_detection.detection.pipeline
+   :members:
+   :member-order: bysource
