@@ -18,8 +18,9 @@ from __future__ import annotations
 import os
 from typing import Any, Protocol, cast
 
-#: Small quantized model runnable on CPU (CLAUDE.md); overridable via env.
-DEFAULT_MODEL = "llama3.2:3b"
+#: Small quantized model runnable on CPU (thesis choice, §sec:scelta-modello-llm);
+#: overridable via the ROPA_LLM_MODEL env var.
+DEFAULT_MODEL = "phi4-mini"
 
 
 class ChatBackend(Protocol):
