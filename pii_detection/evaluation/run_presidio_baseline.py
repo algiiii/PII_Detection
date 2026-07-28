@@ -11,6 +11,8 @@ Loads the real Italian spaCy model, so it is slow; run it on demand.
 
 from __future__ import annotations
 
+import argparse
+
 from pii_detection.detection.config import (
     default_config_dir,
     load_category_catalog,
@@ -51,15 +53,24 @@ class _UnionDetector:
 
 def main() -> None:
     """Build the Presidio detectors, score pattern/NER/union on the corpus, print."""
+    parser = argparse.ArgumentParser(description="Benchmark Presidio on the annotated corpus.")
+    parser.add_argument(
+        "--gliner",
+        action="store_true",
+        help="use GLiNER for the NER instead of spaCy (heavy; needs the [ner] deps)",
+    )
+    args = parser.parse_args()
+
     catalog = load_category_catalog(default_config_dir() / "categories.yaml")
     entities = load_presidio_entities(default_config_dir() / "presidio_entities.yaml", catalog)
-    analyzer = build_italian_analyzer()
+    analyzer = build_italian_analyzer(use_gliner=args.gliner)
     pattern, ner = build_presidio_detectors(entities, analyzer)
     corpus = list(load_corpus_dir())
 
+    ner_label = "Presidio NER (GLiNER)" if args.gliner else "Presidio NER (spaCy)"
     rows: list[tuple[str, PIIDetector]] = [
         ("Presidio pattern (regex/checksum)", pattern),
-        ("Presidio NER (spaCy)", ner),
+        (ner_label, ner),
         ("Presidio union (pattern + NER)", _UnionDetector([pattern, ner])),
     ]
     for label, detector in rows:

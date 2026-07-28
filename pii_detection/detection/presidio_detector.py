@@ -32,12 +32,30 @@ NER_RECOGNIZER_NAMES: frozenset[str] = frozenset(
 
 _RECOGNIZER_NAME_KEY = "recognizer_name"
 
+#: Default GLiNER (zero-shot) label -> Presidio ``entity_type`` mapping. The keys
+#: are the labels prompted to GLiNER; the values are Presidio entities, routed to
+#: the ``pii_type`` catalog by ``presidio_entities.yaml`` (no duplicated mapping).
+_GLINER_ENTITY_MAPPING: dict[str, str] = {
+    "person": "PERSON",
+    "full name": "PERSON",
+    "address": "LOCATION",
+    "email": "EMAIL_ADDRESS",
+    "phone number": "PHONE_NUMBER",
+    "credit card number": "CREDIT_CARD",
+    "iban": "IBAN_CODE",
+    "ip address": "IP_ADDRESS",
+    "date of birth": "DATE_TIME",
+}
+
 
 def build_italian_analyzer(
     *,
     model_name: str = "it_core_news_lg",
     language: str = "it",
     swiss_avs_pattern: str | None = None,
+    use_gliner: bool = False,
+    gliner_model: str = "urchade/gliner_multi_pii-v1",
+    gliner_threshold: float = 0.3,
 ) -> AnalyzerEngine:
     """Build an ``AnalyzerEngine`` wired to an installed Italian spaCy model.
 
@@ -50,6 +68,12 @@ def build_italian_analyzer(
     :param swiss_avs_pattern: optional regex for the Swiss AVS number; when given,
         a custom ``PatternRecognizer`` for entity ``"SWISS_AVS"`` is registered
         (Presidio has no built-in for it).
+    :param use_gliner: when ``True``, replace the spaCy NER recognizer with a
+        GLiNER one (PII-specific zero-shot): spaCy stays only for tokenization,
+        the NER comes from GLiNER alone. Needs the heavy ``[ner]`` dependencies;
+        ``GLiNERRecognizer`` is imported lazily so the rest works without them.
+    :param gliner_model: HuggingFace id of the GLiNER model to load.
+    :param gliner_threshold: minimum GLiNER score to keep a span (recall-first: low).
     :returns: a configured analyzer ready for :meth:`AnalyzerEngine.analyze`.
     """
     provider = NlpEngineProvider(
@@ -67,6 +91,21 @@ def build_italian_analyzer(
                 supported_entity="SWISS_AVS",
                 patterns=[Pattern("swiss_avs", swiss_avs_pattern, 0.6)],
                 supported_language=language,
+            )
+        )
+    if use_gliner:
+        # Lazy import: GLiNER pulls torch, absent from the light local venv.
+        from presidio_analyzer.predefined_recognizers import GLiNERRecognizer
+
+        # NER from GLiNER only: drop Presidio's spaCy NER recognizer.
+        analyzer.registry.remove_recognizer("SpacyRecognizer")
+        analyzer.registry.add_recognizer(
+            GLiNERRecognizer(
+                supported_language=language,
+                entity_mapping=_GLINER_ENTITY_MAPPING,
+                model_name=gliner_model,
+                threshold=gliner_threshold,
+                map_location="cpu",
             )
         )
     return analyzer
