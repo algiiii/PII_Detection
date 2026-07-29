@@ -22,16 +22,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from pii_detection.detection.config import (
-    default_config_dir,
-    load_category_catalog,
-    load_presidio_entities,
-)
 from pii_detection.detection.pipeline import MergeEngine
-from pii_detection.detection.presidio_detector import (
-    build_italian_analyzer,
-    build_presidio_detectors,
-)
+from pii_detection.detection.presidio_detector import build_default_detectors
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.evaluation.render import default_rendered_dir, load_gold
 from pii_detection.evaluation.scoring import EvaluationReport, evaluate_values, format_report
@@ -97,10 +89,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    catalog = load_category_catalog(default_config_dir() / "categories.yaml")
-    entities = load_presidio_entities(default_config_dir() / "presidio_entities.yaml", catalog)
-    analyzer = build_italian_analyzer(use_gliner=args.gliner)
-    pattern, ner = build_presidio_detectors(entities, analyzer)
+    pattern, ner = build_default_detectors(use_gliner=args.gliner)
 
     clean_report, extracted_report = evaluate_rendered_corpus(
         args.dir, pattern, ner, file_format=args.file_format

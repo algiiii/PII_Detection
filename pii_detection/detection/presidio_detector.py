@@ -17,11 +17,17 @@ the recognizer that produced each result (:data:`NER_RECOGNIZER_NAMES`).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 
 from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 
-from pii_detection.detection.config import PresidioEntityModel
+from pii_detection.detection.config import (
+    PresidioEntityModel,
+    default_config_dir,
+    load_category_catalog,
+    load_presidio_entities,
+)
 from pii_detection.detection.protocol import BaseDetector
 from pii_detection.detection.types import DetectorKind, PIICandidate, TextSpan
 
@@ -206,9 +212,31 @@ def build_presidio_detectors(
     return pattern, ner
 
 
+def build_default_detectors(
+    *, use_gliner: bool = False, config_dir: Path | None = None
+) -> tuple[PresidioDetector, PresidioDetector]:
+    """Build the default ``(pattern, NER)`` detectors from the packaged config.
+
+    Convenience that loads the category catalog and the Presidio entity mapping,
+    builds the Italian analyzer, and returns the pattern/NER pair — the standard
+    detection stack shared by the scan CLI and the pipeline runner, so the wiring
+    lives in one place.
+
+    :param use_gliner: use GLiNER for the NER instead of spaCy (heavy; container).
+    :param config_dir: config directory; defaults to the packaged one.
+    :returns: the ``(pattern_detector, ner_detector)`` pair.
+    """
+    base = config_dir if config_dir is not None else default_config_dir()
+    catalog = load_category_catalog(base / "categories.yaml")
+    entities = load_presidio_entities(base / "presidio_entities.yaml", catalog)
+    analyzer = build_italian_analyzer(use_gliner=use_gliner)
+    return build_presidio_detectors(entities, analyzer)
+
+
 __all__ = [
     "NER_RECOGNIZER_NAMES",
     "build_italian_analyzer",
     "PresidioDetector",
     "build_presidio_detectors",
+    "build_default_detectors",
 ]
