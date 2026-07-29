@@ -11,6 +11,13 @@ Annotated corpus (``evaluation.corpus``)
    :members:
    :member-order: bysource
 
+Corpus generator (``evaluation.corpus_generator``)
+--------------------------------------------------
+
+.. automodule:: pii_detection.evaluation.corpus_generator
+   :members:
+   :member-order: bysource
+
 Scoring (``evaluation.scoring``)
 --------------------------------
 

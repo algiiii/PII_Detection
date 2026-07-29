@@ -246,6 +246,9 @@ doc/latex_build/
 examples/ropa/*.ods
 examples/ropa/*.xlsx
 
+# Generated detection corpus (reproducible via evaluation.corpus_generator)
+pii_detection/evaluation/documents_generated/
+
 # LaTeX build artifacts (il PDF resta tracciato di proposito)
 *.fdb_latexmk
 *.fls

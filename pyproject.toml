@@ -46,6 +46,22 @@ dev = [
     "ruff>=0.5",
 ]
 
+# Text extraction from real document formats (block B3, born-digital only; OCR
+# for scanned files is a later concern). Light, container-friendly.
+extraction = [
+    "pymupdf>=1.24",
+    "python-docx>=1.1",
+]
+
+# Synthetic evaluation-corpus generation + rendering: checksum-valid PII values
+# and PDF/DOCX output. Pure-Python and light, so the corpus builds in the local
+# venv without the heavy ML stack.
+eval = [
+    "faker>=25",
+    "python-codicefiscale>=0.9",
+    "fpdf2>=2.7",
+]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
@@ -65,7 +81,18 @@ files = ["pii_detection"]
 # Presidio, spaCy, openpyxl and odfpy ship no type stubs; silence missing-import
 # errors for them under --strict. Cfr. tesi §sec:valutazione-presidio.
 [[tool.mypy.overrides]]
-module = ["presidio_analyzer.*", "spacy.*", "openpyxl.*", "odf.*", "ollama.*"]
+module = [
+    "presidio_analyzer.*",
+    "spacy.*",
+    "openpyxl.*",
+    "odf.*",
+    "ollama.*",
+    "faker.*",
+    "codicefiscale.*",
+    "fpdf.*",
+    "docx.*",
+    "fitz.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
