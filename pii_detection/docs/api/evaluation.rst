@@ -45,3 +45,10 @@ Presidio baseline runner (``evaluation.run_presidio_baseline``)
 .. automodule:: pii_detection.evaluation.run_presidio_baseline
    :members:
    :member-order: bysource
+
+End-to-end pipeline runner (``evaluation.run_pipeline``)
+-------------------------------------------------------------
+
+.. automodule:: pii_detection.evaluation.run_pipeline
+   :members:
+   :member-order: bysource

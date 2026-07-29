@@ -92,6 +92,10 @@ def default_rendered_dir() -> Path:
 def render_corpus(out_dir: Path, n: int, seed: int, *, formats: Iterable[str]) -> Path:
     """Render ``n`` documents to the requested formats and write the gold file.
 
+    Also writes the clean text of each document under ``out_dir/clean`` (the
+    Tier-1 input, the same text the detector would see without extraction), so
+    the rendered corpus is self-contained for the end-to-end comparison.
+
     :param out_dir: destination directory (created if missing).
     :param n: number of documents to render.
     :param seed: reproducibility seed (matches the generator).
@@ -100,16 +104,34 @@ def render_corpus(out_dir: Path, n: int, seed: int, *, formats: Iterable[str]) -
     """
     formats = set(formats)
     out_dir.mkdir(parents=True, exist_ok=True)
+    clean_dir = out_dir / "clean"
+    clean_dir.mkdir(parents=True, exist_ok=True)
     gold_path = out_dir / "gold.jsonl"
     with gold_path.open("w", encoding="utf-8") as gold_file:
         for doc_id, annotated in generate_documents(n, seed):
             clean = parse_annotated_text(doc_id, annotated).text
+            (clean_dir / f"{doc_id}.txt").write_text(clean, encoding="utf-8")
             if "pdf" in formats:
                 render_pdf(clean, out_dir / f"{doc_id}.pdf")
             if "docx" in formats:
                 render_docx(clean, out_dir / f"{doc_id}.docx")
             gold_file.write(json.dumps(_gold_for(doc_id, annotated), ensure_ascii=False) + "\n")
     return gold_path
+
+
+def load_gold(path: Path) -> dict[str, list[tuple[str, str]]]:
+    """Load a ``gold.jsonl`` into ``{document_id: [(pii_type, value), ...]}``.
+
+    :param path: path to the gold file written by :func:`render_corpus`.
+    :returns: the value-based gold, keyed by document id.
+    """
+    gold: dict[str, list[tuple[str, str]]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        record = json.loads(line)
+        gold[record["document_id"]] = [
+            (item["pii_type"], item["value"]) for item in record["pii"]
+        ]
+    return gold
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -142,6 +164,7 @@ __all__ = [
     "render_pdf",
     "render_docx",
     "render_corpus",
+    "load_gold",
     "default_rendered_dir",
     "main",
 ]
