@@ -13,6 +13,7 @@ implementation plan in ``doc/scaffolding-plan.md``.
    :maxdepth: 2
    :caption: Modules
 
+   api/extraction
    api/detection
    api/ropa
    api/evaluation
