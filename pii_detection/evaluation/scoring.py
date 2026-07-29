@@ -9,7 +9,7 @@ and a worked example — is documented in ``doc/scoring.md``.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
 from pii_detection.detection.protocol import PIIDetector
@@ -150,12 +150,101 @@ def evaluate(
         fp_by.update(fp)
         fn_by.update(fn)
 
+    return _report_from_counters(tp_by, fp_by, fn_by)
+
+
+def _report_from_counters(
+    tp_by: Counter[str], fp_by: Counter[str], fn_by: Counter[str]
+) -> EvaluationReport:
+    """Assemble an :class:`EvaluationReport` from per-category tp/fp/fn counters.
+
+    Shared by the span scorer (:func:`evaluate`) and the value scorer
+    (:func:`evaluate_values`): both only differ in how they count, not in how the
+    report is built.
+
+    :returns: overall (micro-averaged) plus per-category metrics.
+    """
     categories = set(tp_by) | set(fp_by) | set(fn_by)
     per_category = {
         cat: Metrics(tp_by[cat], fp_by[cat], fn_by[cat]) for cat in sorted(categories)
     }
     overall = Metrics(sum(tp_by.values()), sum(fp_by.values()), sum(fn_by.values()))
     return EvaluationReport(overall=overall, per_category=per_category)
+
+
+def _normalize_value(value: str) -> str:
+    """Collapse whitespace and casefold a PII value for comparison.
+
+    Extraction can insert newlines inside a value (a name wrapped across lines)
+    and formats differ in case; normalizing both sides avoids counting such a
+    value as missed when it is really there.
+
+    :param value: raw value string.
+    :returns: the normalized comparison key.
+    """
+    return " ".join(value.split()).casefold()
+
+
+def _match_values(
+    detected: Iterable[tuple[str, str]], gold: Iterable[tuple[str, str]]
+) -> tuple[Counter[str], Counter[str], Counter[str]]:
+    """Multiset-match ``(pii_type, value)`` detections against gold, one document.
+
+    A detection matches a gold item sharing the ``pii_type`` and the same value
+    after :func:`_normalize_value`. Multiplicities are respected: a value present
+    twice needs two detections to be fully covered.
+
+    :param detected: detected ``(pii_type, value)`` pairs of one document.
+    :param gold: ground-truth ``(pii_type, value)`` pairs of the same document.
+    :returns: true-positive, false-positive and false-negative counters, keyed by
+        ``pii_type``.
+    """
+    det: Counter[tuple[str, str]] = Counter(
+        (pii_type, _normalize_value(value)) for pii_type, value in detected
+    )
+    gld: Counter[tuple[str, str]] = Counter(
+        (pii_type, _normalize_value(value)) for pii_type, value in gold
+    )
+    tp: Counter[str] = Counter()
+    fp: Counter[str] = Counter()
+    fn: Counter[str] = Counter()
+    for key in set(det) | set(gld):
+        pii_type = key[0]
+        matched = min(det[key], gld[key])
+        tp[pii_type] += matched
+        fp[pii_type] += det[key] - matched
+        fn[pii_type] += gld[key] - matched
+    return tp, fp, fn
+
+
+def evaluate_values(
+    detected_by_doc: Mapping[str, Iterable[tuple[str, str]]],
+    gold_by_doc: Mapping[str, Iterable[tuple[str, str]]],
+) -> EvaluationReport:
+    """Score detected values against a value-based gold, document by document.
+
+    The Tier-2 (post-extraction) scorer: once extraction has shifted the
+    character offsets, matching is by ``(pii_type, normalized value)`` instead of
+    by span. Documents are paired by id; a document present on only one side
+    contributes only false negatives (gold only) or false positives (detections
+    only).
+
+    :param detected_by_doc: detected ``(pii_type, value)`` pairs per ``document_id``.
+    :param gold_by_doc: ground-truth ``(pii_type, value)`` pairs per ``document_id``.
+    :returns: the same :class:`EvaluationReport` the span scorer produces, so
+        :func:`format_report` renders both tiers identically.
+    """
+    tp_by: Counter[str] = Counter()
+    fp_by: Counter[str] = Counter()
+    fn_by: Counter[str] = Counter()
+    for doc_id in set(gold_by_doc) | set(detected_by_doc):
+        tp, fp, fn = _match_values(
+            detected_by_doc.get(doc_id, ()), gold_by_doc.get(doc_id, ())
+        )
+        tp_by.update(tp)
+        fp_by.update(fp)
+        fn_by.update(fn)
+    return _report_from_counters(tp_by, fp_by, fn_by)
 
 
 def format_report(report: EvaluationReport) -> str:
@@ -189,5 +278,6 @@ __all__ = [
     "Metrics",
     "EvaluationReport",
     "evaluate",
+    "evaluate_values",
     "format_report",
 ]

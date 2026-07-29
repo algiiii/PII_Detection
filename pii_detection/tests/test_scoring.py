@@ -11,7 +11,12 @@ from pii_detection.detection.types import (
     TextSpan,
 )
 from pii_detection.evaluation.corpus import AnnotatedDocument, GroundTruthSpan
-from pii_detection.evaluation.scoring import EvaluationReport, Metrics, evaluate
+from pii_detection.evaluation.scoring import (
+    EvaluationReport,
+    Metrics,
+    evaluate,
+    evaluate_values,
+)
 
 
 def _cand(start: int, end: int, pii_type: str) -> PIICandidate:
@@ -119,6 +124,48 @@ class TestWorkedExample:
         assert r.overall.precision == pytest.approx(2 / 3)
         assert r.overall.recall == pytest.approx(2 / 3)
         assert r.overall.f1 == pytest.approx(2 / 3)
+
+
+class TestValueScoring:
+    def test_exact_match_is_tp(self) -> None:
+        r = evaluate_values(
+            {"d": [("iban", "IT60X0542811101000000123456")]},
+            {"d": [("iban", "IT60X0542811101000000123456")]},
+        )
+        assert (r.overall.tp, r.overall.fp, r.overall.fn) == (1, 0, 0)
+
+    def test_whitespace_and_case_are_normalized(self) -> None:
+        # a name wrapped across lines and cased differently still matches
+        r = evaluate_values(
+            {"d": [("person_name", "Mario\n  Rossi")]},
+            {"d": [("person_name", "mario rossi")]},
+        )
+        assert r.overall.tp == 1
+
+    def test_type_mismatch_is_fp_and_fn(self) -> None:
+        r = evaluate_values({"d": [("email", "a@b.it")]}, {"d": [("phone", "a@b.it")]})
+        assert (r.overall.tp, r.overall.fp, r.overall.fn) == (0, 1, 1)
+        assert r.per_category["email"].fp == 1
+        assert r.per_category["phone"].fn == 1
+
+    def test_missing_is_fn_and_extra_is_fp(self) -> None:
+        missed = evaluate_values({"d": []}, {"d": [("iban", "X")]})
+        assert (missed.overall.tp, missed.overall.fp, missed.overall.fn) == (0, 0, 1)
+        extra = evaluate_values({"d": [("iban", "X")]}, {"d": []})
+        assert (extra.overall.tp, extra.overall.fp, extra.overall.fn) == (0, 1, 0)
+
+    def test_documents_are_matched_by_id(self) -> None:
+        # a value found in doc "a" must not satisfy the gold of doc "b"
+        r = evaluate_values({"a": [("iban", "X")]}, {"b": [("iban", "X")]})
+        assert (r.overall.tp, r.overall.fp, r.overall.fn) == (0, 1, 1)
+
+    def test_multiplicity_is_respected(self) -> None:
+        # the value appears twice detected, once in gold -> 1 tp, 1 fp
+        r = evaluate_values(
+            {"d": [("email", "a@b.it"), ("email", "a@b.it")]},
+            {"d": [("email", "a@b.it")]},
+        )
+        assert (r.overall.tp, r.overall.fp, r.overall.fn) == (1, 1, 0)
 
 
 class TestMetrics:
