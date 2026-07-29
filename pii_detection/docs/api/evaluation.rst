@@ -18,6 +18,13 @@ Corpus generator (``evaluation.corpus_generator``)
    :members:
    :member-order: bysource
 
+Corpus renderer (``evaluation.render``)
+---------------------------------------
+
+.. automodule:: pii_detection.evaluation.render
+   :members:
+   :member-order: bysource
+
 Scoring (``evaluation.scoring``)
 --------------------------------
 
