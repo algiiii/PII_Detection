@@ -27,6 +27,7 @@ from pii_detection.detection.config import (
     default_config_dir,
     load_category_catalog,
     load_presidio_entities,
+    load_regex_rules,
 )
 from pii_detection.detection.protocol import BaseDetector
 from pii_detection.detection.types import DetectorKind, PIICandidate, TextSpan
@@ -222,6 +223,10 @@ def build_default_detectors(
     detection stack shared by the scan CLI and the pipeline runner, so the wiring
     lives in one place.
 
+    The Swiss AVS regex (``swiss_avs`` in ``regex_rules.yaml``) is registered as a
+    custom Presidio recognizer, since Presidio has no built-in for it; its pattern
+    stays sourced from config, not hardcoded.
+
     :param use_gliner: use GLiNER for the NER instead of spaCy (heavy; container).
     :param config_dir: config directory; defaults to the packaged one.
     :returns: the ``(pattern_detector, ner_detector)`` pair.
@@ -229,7 +234,13 @@ def build_default_detectors(
     base = config_dir if config_dir is not None else default_config_dir()
     catalog = load_category_catalog(base / "categories.yaml")
     entities = load_presidio_entities(base / "presidio_entities.yaml", catalog)
-    analyzer = build_italian_analyzer(use_gliner=use_gliner)
+    rules = load_regex_rules(base / "regex_rules.yaml", catalog)
+    swiss_avs_pattern = next(
+        (rule.pattern for rule in rules if rule.pii_type == "swiss_avs"), None
+    )
+    analyzer = build_italian_analyzer(
+        use_gliner=use_gliner, swiss_avs_pattern=swiss_avs_pattern
+    )
     return build_presidio_detectors(entities, analyzer)
 
 
