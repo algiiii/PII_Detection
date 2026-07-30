@@ -52,6 +52,10 @@ _GLINER_ENTITY_MAPPING: dict[str, str] = {
     "iban": "IBAN_CODE",
     "ip address": "IP_ADDRESS",
     "date of birth": "DATE_TIME",
+    # Health is free-text: no built-in, GLiNER prompted zero-shot -> custom entity.
+    "medical condition": "MEDICAL_CONDITION",
+    "disease": "MEDICAL_CONDITION",
+    "health condition": "MEDICAL_CONDITION",
 }
 
 
