@@ -22,7 +22,7 @@ COPY pii_detection ./pii_detection
 # model. The pip cache is mounted, so torch/spaCy are not re-downloaded when the
 # dependency set changes across rebuilds.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -e '.[ropa,review,presidio,llm,ner,dev,extraction,eval]' \
+    pip install -e '.[ropa,review,presidio,llm,ner,dev,extraction,eval,registry]' \
     && pip install "https://github.com/explosion/spacy-models/releases/download/it_core_news_lg-3.8.0/it_core_news_lg-3.8.0-py3-none-any.whl"
 
 # GLiNER and other HuggingFace models are downloaded on first use into HF_HOME,

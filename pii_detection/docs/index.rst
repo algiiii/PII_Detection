@@ -16,6 +16,7 @@ implementation plan in ``doc/scaffolding-plan.md``.
    api/extraction
    api/detection
    api/scan
+   api/registry
    api/ropa
    api/evaluation
    api/llm

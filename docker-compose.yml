@@ -9,6 +9,7 @@ services:
       OLLAMA_HOST: http://ollama:11434
       ROPA_LLM_MODEL: phi4-mini
       ROPA_DB_URL: sqlite:////data/ropa.db
+      PII_DB_URL: sqlite:////data/pii.db
       HF_HOME: /models/hf
     volumes:
       - .:/app                 # live source (no rebuild on code changes)

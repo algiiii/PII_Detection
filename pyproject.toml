@@ -16,6 +16,11 @@ ropa = [
     "odfpy>=1.4",
     "sqlmodel>=0.0.16",
 ]
+
+# Detected-PII registry persistence (block B5).
+registry = [
+    "sqlmodel>=0.0.16",
+]
 review = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
