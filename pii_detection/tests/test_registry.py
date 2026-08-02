@@ -113,13 +113,51 @@ def test_replace_avoids_duplicates(tmp_path: Path) -> None:
     assert len(repo.instances_for("doc")) == len(matches)
 
 
-def test_without_replace_a_rescan_appends(tmp_path: Path) -> None:
-    # Documents the Step-1 limitation the Step-2 delta will remove.
+def _changes(instance: PIIInstance) -> list[ChangeType]:
+    return [c.change_type for c in sorted(instance.changes, key=lambda c: c.id or 0)]
+
+
+def test_rescan_identical_is_confirmed(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
-    matches = [_match(0, 10, "iban")]
+    matches = [_match(0, 10, "iban"), _match(20, 30, "email")]
     repo.record_scan("doc", matches)
     repo.record_scan("doc", matches)
-    assert len(repo.instances_for("doc")) == 2 * len(matches)
+
+    instances = repo.instances_for("doc")
+    assert len(instances) == 2  # no duplicates: the re-scan confirms, not re-adds
+    assert all(_changes(i) == [ChangeType.NEW, ChangeType.CONFIRMED] for i in instances)
+
+
+def test_rescan_added_pii_is_new(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.record_scan("doc", [_match(0, 10, "iban")])
+    repo.record_scan("doc", [_match(0, 10, "iban"), _match(40, 50, "phone")])
+
+    by_type = {i.pii_type: i for i in repo.instances_for("doc")}
+    assert set(by_type) == {"iban", "phone"}
+    assert _changes(by_type["iban"]) == [ChangeType.NEW, ChangeType.CONFIRMED]
+    assert _changes(by_type["phone"]) == [ChangeType.NEW]
+
+
+def test_rescan_missing_pii_is_removed(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.record_scan("doc", [_match(0, 10, "iban"), _match(20, 30, "email")])
+    repo.record_scan("doc", [_match(0, 10, "iban")])
+
+    assert {i.pii_type for i in repo.instances_for("doc")} == {"iban"}  # current state
+    all_by_type = {i.pii_type: i for i in repo.instances_for("doc", include_removed=True)}
+    assert all_by_type["email"].removed is True
+    assert _changes(all_by_type["email"]) == [ChangeType.NEW, ChangeType.REMOVED]
+
+
+def test_rescan_shifted_pii_is_moved(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    repo.record_scan("doc", [_match(0, 10, "iban")])
+    repo.record_scan("doc", [_match(5, 15, "iban")])
+
+    (instance,) = repo.instances_for("doc")
+    assert (instance.start, instance.end) == (5, 15)  # position updated in place
+    assert _changes(instance) == [ChangeType.NEW, ChangeType.MOVED]
 
 
 def test_ingest_document_persists_detected_pii(tmp_path: Path) -> None:

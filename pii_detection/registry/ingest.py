@@ -15,7 +15,9 @@ re-scan, until the Step-2 delta lands).
 from __future__ import annotations
 
 import argparse
+import os
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 
 from pii_detection.detection.pipeline import MergeEngine
@@ -46,7 +48,14 @@ def ingest_document(
     """
     repository = repository if repository is not None else PIIRepository()
     matches = scan_document(path, pattern, ner, merge=merge)
-    return repository.record_scan(Path(path).stem, matches, path=str(path), replace=replace)
+    modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+    return repository.record_scan(
+        Path(path).stem,
+        matches,
+        path=str(path),
+        source_modified_at=modified_at,
+        replace=replace,
+    )
 
 
 def main(argv: list[str] | None = None) -> None:

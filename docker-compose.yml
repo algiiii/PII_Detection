@@ -8,12 +8,13 @@ services:
       # Services are reached by name on the compose network (no hardcoded hosts).
       OLLAMA_HOST: http://ollama:11434
       ROPA_LLM_MODEL: phi4-mini
-      ROPA_DB_URL: sqlite:////data/ropa.db
-      PII_DB_URL: sqlite:////data/pii.db
+      # Canonical store: the host ./data dir, reached at /app/data via the repo
+      # bind-mount below (relative sqlite URL). Same file locally and in-container.
+      ROPA_DB_URL: sqlite:///data/ropa.db
+      PII_DB_URL: sqlite:///data/pii.db
       HF_HOME: /models/hf
     volumes:
-      - .:/app                 # live source (no rebuild on code changes)
-      - app-data:/data         # SQLite DB and other app state
+      - .:/app                 # live source + shared ./data (no rebuild on changes)
       - hf-cache:/models/hf    # GLiNER / HuggingFace model cache (persisted)
     depends_on:
       - ollama
@@ -26,6 +27,5 @@ services:
       - "11434:11434"
 
 volumes:
-  app-data:
   hf-cache:
   ollama-models:

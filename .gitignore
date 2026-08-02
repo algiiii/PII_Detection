@@ -249,6 +249,13 @@ examples/ropa/*.xlsx
 # Generated detection corpus (reproducible via evaluation.corpus_generator)
 pii_detection/evaluation/documents_generated/
 
+# Runtime SQLite databases — canonical store is data/ (never versioned).
+# The data/ dir itself is kept (data/.gitkeep); its DB contents are ignored.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # LaTeX build artifacts (il PDF resta tracciato di proposito)
 *.fdb_latexmk
 *.fls

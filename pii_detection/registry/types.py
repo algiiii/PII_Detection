@@ -59,6 +59,14 @@ class Document(SQLModel, table=True):
         stem, matching :class:`~pii_detection.detection.types.NormalizedDocument`.
     :ivar path: original path, kept for reference; ``None`` if not provided.
     :ivar first_seen: when the document was first recorded.
+    :ivar activity_ids: the declared processing activities this document belongs
+        to (block B6, assigned by the DPO). A set, so a document may relate to
+        several activities (N:N); the ids reference
+        :class:`~pii_detection.ropa.types.ProcessingActivity` in the separate ROPA
+        database — there is no physical foreign key across the two databases.
+    :ivar source_modified_at: last-modified time of the source file at ingestion
+        (its ``mtime``), used as the document's reference date for the approximate
+        retention check (B7); a *reference*, not a PII value. ``None`` if unknown.
     :ivar instances: the PII instances contained in this document.
     """
 
@@ -67,6 +75,8 @@ class Document(SQLModel, table=True):
     document_id: str = Field(primary_key=True)
     path: str | None = None
     first_seen: datetime = Field(default_factory=_utcnow)
+    activity_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    source_modified_at: datetime | None = None
 
     instances: list["PIIInstance"] = Relationship(
         back_populates="document",

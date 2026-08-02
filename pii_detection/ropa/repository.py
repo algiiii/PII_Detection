@@ -41,10 +41,11 @@ class ROPARepository:
         """Open the database, creating the schema if it does not exist yet.
 
         :param url: SQLAlchemy database URL; when ``None`` it is read from the
-            ``ROPA_DB_URL`` environment variable, defaulting to the local file
-            ``sqlite:///ropa.db``.
+            ``ROPA_DB_URL`` environment variable, defaulting to the canonical local
+            store ``sqlite:///data/ropa.db`` (the ``data/`` directory, shared with
+            the container via the repo bind-mount).
         """
-        url = url or os.environ.get("ROPA_DB_URL", "sqlite:///ropa.db")
+        url = url or os.environ.get("ROPA_DB_URL", "sqlite:///data/ropa.db")
         self.engine = create_engine(url)
         SQLModel.metadata.create_all(self.engine)
         self.catalog = load_category_catalog(default_config_dir() / "categories.yaml")

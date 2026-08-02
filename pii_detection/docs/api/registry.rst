@@ -3,12 +3,19 @@
 
 Detected-PII registry (block B5): persist the PII found in documents as a
 delta-based changelog, storing only references and never the values
-(minimization). Step 1 (population) is implemented.
+(minimization). Population and the re-scan delta are both implemented.
 
 Data model (``registry.types``)
 -------------------------------
 
 .. automodule:: pii_detection.registry.types
+   :members:
+   :member-order: bysource
+
+Delta (``registry.diff``)
+-------------------------
+
+.. automodule:: pii_detection.registry.diff
    :members:
    :member-order: bysource
 
