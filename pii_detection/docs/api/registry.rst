@@ -32,3 +32,10 @@ Ingest pipeline (``registry.ingest``)
 .. automodule:: pii_detection.registry.ingest
    :members:
    :member-order: bysource
+
+Folder scan (``registry.scan_folder``)
+--------------------------------------
+
+.. automodule:: pii_detection.registry.scan_folder
+   :members:
+   :member-order: bysource

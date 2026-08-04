@@ -32,6 +32,7 @@ def ingest_document(
     pattern: PIIDetector,
     ner: PIIDetector,
     *,
+    document_id: str | None = None,
     replace: bool = False,
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
@@ -41,6 +42,9 @@ def ingest_document(
     :param path: path to a ``.pdf``/``.docx``/``.txt`` document.
     :param pattern: the pattern/regex detector.
     :param ner: the NER detector.
+    :param document_id: identifier to record the document under; defaults to the
+        file stem. A batch scan passes the path relative to its root, so documents
+        with the same name in different folders do not collide.
     :param replace: drop the document's existing instances first.
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine to use; a default one is built when omitted.
@@ -50,7 +54,7 @@ def ingest_document(
     matches = scan_document(path, pattern, ner, merge=merge)
     modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
     return repository.record_scan(
-        Path(path).stem,
+        document_id if document_id is not None else Path(path).stem,
         matches,
         path=str(path),
         source_modified_at=modified_at,
