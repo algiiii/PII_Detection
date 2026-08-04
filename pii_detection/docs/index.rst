@@ -10,6 +10,12 @@ The reference design is defined in ``doc/planning.md``; the step-by-step
 implementation plan in ``doc/scaffolding-plan.md``.
 
 .. toctree::
+   :maxdepth: 1
+   :caption: Guides
+
+   guides/custom-patterns
+
+.. toctree::
    :maxdepth: 2
    :caption: Modules
 

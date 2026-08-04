@@ -19,9 +19,8 @@ entities:
     pii_type: address
   - entity: DATE_TIME
     pii_type: date_of_birth
-  # Not covered by Presidio out of the box: produced by custom recognizers.
-  - entity: SWISS_AVS
-    pii_type: swiss_avs
+  # Swiss AVS is not covered by Presidio; it is detected by the config-driven
+  # RegexDetector over custom_patterns.yaml, which emits the pii_type directly.
   # Free-text health data, prompted zero-shot to GLiNER (see _GLINER_ENTITY_MAPPING).
   - entity: MEDICAL_CONDITION
     pii_type: health_data

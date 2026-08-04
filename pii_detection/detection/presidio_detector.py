@@ -19,9 +19,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
+from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngineProvider
 
+from pii_detection.detection.composite import CompositeDetector
 from pii_detection.detection.config import (
     PresidioEntityModel,
     default_config_dir,
@@ -29,7 +30,8 @@ from pii_detection.detection.config import (
     load_presidio_entities,
     load_regex_rules,
 )
-from pii_detection.detection.protocol import BaseDetector
+from pii_detection.detection.protocol import BaseDetector, PIIDetector
+from pii_detection.detection.regex_detector import RegexDetector
 from pii_detection.detection.types import DetectorKind, PIICandidate, TextSpan
 
 #: Names of the Presidio recognizers whose results count as NER (vs pattern).
@@ -63,7 +65,6 @@ def build_italian_analyzer(
     *,
     model_name: str = "it_core_news_lg",
     language: str = "it",
-    swiss_avs_pattern: str | None = None,
     use_gliner: bool = False,
     gliner_model: str = "urchade/gliner_multi_pii-v1",
     gliner_threshold: float = 0.3,
@@ -72,13 +73,13 @@ def build_italian_analyzer(
 
     A bare ``AnalyzerEngine()`` defaults to English and tries to download
     ``en_core_web_lg`` at runtime; this factory configures the NLP engine
-    explicitly on an already-installed Italian model instead.
+    explicitly on an already-installed Italian model instead. Identifiers Presidio
+    has no built-in for (e.g. the Swiss AVS number) are handled by the
+    config-driven :class:`~pii_detection.detection.regex_detector.RegexDetector`
+    over ``custom_patterns.yaml``, not here.
 
     :param model_name: installed spaCy model to load, e.g. ``"it_core_news_lg"``.
     :param language: language code the analyzer answers on.
-    :param swiss_avs_pattern: optional regex for the Swiss AVS number; when given,
-        a custom ``PatternRecognizer`` for entity ``"SWISS_AVS"`` is registered
-        (Presidio has no built-in for it).
     :param use_gliner: when ``True``, replace the spaCy NER recognizer with a
         GLiNER one (PII-specific zero-shot): spaCy stays only for tokenization,
         the NER comes from GLiNER alone. Needs the heavy ``[ner]`` dependencies;
@@ -96,14 +97,6 @@ def build_italian_analyzer(
     analyzer = AnalyzerEngine(
         nlp_engine=provider.create_engine(), supported_languages=[language]
     )
-    if swiss_avs_pattern is not None:
-        analyzer.registry.add_recognizer(
-            PatternRecognizer(
-                supported_entity="SWISS_AVS",
-                patterns=[Pattern("swiss_avs", swiss_avs_pattern, 0.6)],
-                supported_language=language,
-            )
-        )
     if use_gliner:
         # Lazy import: GLiNER pulls torch, absent from the light local venv.
         from presidio_analyzer.predefined_recognizers import GLiNERRecognizer
@@ -219,7 +212,7 @@ def build_presidio_detectors(
 
 def build_default_detectors(
     *, use_gliner: bool = False, config_dir: Path | None = None
-) -> tuple[PresidioDetector, PresidioDetector]:
+) -> tuple[PIIDetector, PIIDetector]:
     """Build the default ``(pattern, NER)`` detectors from the packaged config.
 
     Convenience that loads the category catalog and the Presidio entity mapping,
@@ -227,9 +220,11 @@ def build_default_detectors(
     detection stack shared by the scan CLI and the pipeline runner, so the wiring
     lives in one place.
 
-    The Swiss AVS regex (``swiss_avs`` in ``regex_rules.yaml``) is registered as a
-    custom Presidio recognizer, since Presidio has no built-in for it; its pattern
-    stays sourced from config, not hardcoded.
+    The **pattern** detector is a :class:`~pii_detection.detection.composite.CompositeDetector`
+    of Presidio's built-in pattern recognizers **and** a config-driven
+    :class:`~pii_detection.detection.regex_detector.RegexDetector` over
+    ``custom_patterns.yaml``: adding a custom pattern (e.g. the Swiss AVS number,
+    which Presidio has no built-in for) is a YAML edit, no code.
 
     :param use_gliner: use GLiNER for the NER instead of spaCy (heavy; container).
     :param config_dir: config directory; defaults to the packaged one.
@@ -238,14 +233,13 @@ def build_default_detectors(
     base = config_dir if config_dir is not None else default_config_dir()
     catalog = load_category_catalog(base / "categories.yaml")
     entities = load_presidio_entities(base / "presidio_entities.yaml", catalog)
-    rules = load_regex_rules(base / "regex_rules.yaml", catalog)
-    swiss_avs_pattern = next(
-        (rule.pattern for rule in rules if rule.pii_type == "swiss_avs"), None
+    custom_rules = load_regex_rules(base / "custom_patterns.yaml", catalog)
+    analyzer = build_italian_analyzer(use_gliner=use_gliner)
+    presidio_pattern, ner = build_presidio_detectors(entities, analyzer)
+    pattern = CompositeDetector(
+        "pattern.composite", [presidio_pattern, RegexDetector("regex.custom", custom_rules)]
     )
-    analyzer = build_italian_analyzer(
-        use_gliner=use_gliner, swiss_avs_pattern=swiss_avs_pattern
-    )
-    return build_presidio_detectors(entities, analyzer)
+    return pattern, ner
 
 
 __all__ = [

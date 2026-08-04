@@ -1,0 +1,33 @@
+# Custom regex patterns — the extension point for "detect this too".
+#
+# Add here any structured identifier you want detected that Presidio does not
+# cover out of the box. These rules are executed **live** by the config-driven
+# RegexDetector, combined with Presidio's pattern recognizers (CompositeDetector),
+# so adding a pattern is a YAML edit — no code.
+#
+# HOW TO ADD A PATTERN
+#   1. If the category is new, declare it in `categories.yaml` (id + label).
+#   2. Add a rule below.
+#
+# FIELDS (schema: RegexRuleModel in detection/config.py)
+#   rule_id          : unique id of the rule within this file.
+#   pii_type         : category the rule produces; MUST exist in categories.yaml.
+#   pattern          : regex source; must compile (checked at load time).
+#   base_confidence  : optional, confidence of a match in [0, 1]. Default: 0.6.
+#   flags            : optional, list of Python `re` flag names. Default: ["UNICODE"].
+#                      Allowed: IGNORECASE, MULTILINE, DOTALL, UNICODE, VERBOSE, ASCII.
+#
+# NOTE: checksum validation of structured identifiers is a declared future
+# development — a pattern here is matched by shape, not validated.
+#
+# EXAMPLE (uncomment and adapt; requires `employee_id` in categories.yaml):
+#   - rule_id: employee_id
+#     pii_type: employee_id
+#     pattern: '\bEMP-\d{5}\b'
+#     base_confidence: 0.8
+rules:
+  # Swiss AVS number — Presidio has no built-in for it (nLPD context).
+  - rule_id: swiss_avs
+    pii_type: swiss_avs
+    pattern: "\\b756\\.?\\d{4}\\.?\\d{4}\\.?\\d{2}\\b"
+    base_confidence: 0.6
