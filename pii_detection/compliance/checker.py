@@ -194,20 +194,23 @@ def check_document(
     ropa: ROPARepository,
     registry: PIIRepository,
     include_proposed: bool = False,
+    persist_coverage: bool = True,
 ) -> ComplianceReport:
     """Check a document against its declared activities and persist the outcome (B7).
 
     Reads the document and its instances from the ``registry`` and the associated
-    activities from ``ropa``, runs :func:`build_report`, and writes each instance's
-    justifying activity (or ``None`` if orphan) back to the registry.
+    activities from ``ropa``, runs :func:`build_report`, and (by default) writes
+    each instance's justifying activity (or ``None`` if orphan) back to the registry.
 
     :param document_id: the document to check; must be recorded and associated with
         at least one activity (B6).
     :param ropa: the ROPA repository (declared side).
     :param registry: the detected-PII registry (detected side); the per-instance
-        coverage is updated as a side effect.
+        coverage is updated as a side effect unless ``persist_coverage`` is ``False``.
     :param include_proposed: count ``PROPOSED`` category mappings too; by default
         only DPO-confirmed ones contribute.
+    :param persist_coverage: write the per-instance coverage back to the registry;
+        set ``False`` for a read-only verdict (e.g. rendering a page on a ``GET``).
     :returns: the compliance verdict.
     :raises KeyError: if the document was never recorded.
     :raises ValueError: if the document has no activity association (run B6 first).
@@ -233,7 +236,8 @@ def check_document(
     result = build_report(
         document, activities, unknown, instances, include_proposed=include_proposed
     )
-    registry.apply_coverage(document_id, result.coverage)
+    if persist_coverage:
+        registry.apply_coverage(document_id, result.coverage)
     return result.report
 
 

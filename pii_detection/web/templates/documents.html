@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Documenti{% endblock %}
+{% block content %}
+  <h1>Documenti analizzati</h1>
+  <p class="muted">{{ rows|length }} documenti nel registro delle PII rilevate</p>
+  {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Documento</th>
+          <th>Percorso</th>
+          <th>PII</th>
+          <th>Trattamenti associati</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td><a href="{{ url_for('document_detail', document_id=row.id) }}">{{ row.id }}</a></td>
+            <td class="muted">{{ row.path or "—" }}</td>
+            <td>{{ row.pii_count }}</td>
+            <td>
+              {% if row.activity_ids %}
+                {% for a in row.activity_ids %}<span class="tag">{{ a }}</span>{% endfor %}
+              {% else %}
+                <span class="badge warn">da associare</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Nessun documento ancora ingerito nel registro.</p>
+  {% endif %}
+{% endblock %}

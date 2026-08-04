@@ -18,7 +18,7 @@
         {% set cats = a.macro_categories | map(attribute="categories") | sum(start=[]) %}
         {% set pending = cats | selectattr("mapping_state.value", "equalto", "proposed") | list | length %}
         <tr>
-          <td><a href="/activity/{{ a.id }}">{{ a.id }}</a></td>
+          <td><a href="{{ url_for('activity_detail', activity_id=a.id) }}">{{ a.id }}</a></td>
           <td>{{ a.name }}</td>
           <td>{{ a.purpose }}</td>
           <td>{{ cats | length }}</td>

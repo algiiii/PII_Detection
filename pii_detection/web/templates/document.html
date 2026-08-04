@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ document.document_id }}{% endblock %}
+{% block content %}
+  <p><a href="{{ url_for('documents') }}">← Tutti i documenti</a></p>
+  <h1>{{ document.document_id }}</h1>
+  <p class="muted">{{ document.path or "—" }}</p>
+
+  <h2>Verdetto di conformità</h2>
+  {% if report %}
+    <div class="card">
+      <div class="row-between">
+        <strong>Esito</strong>
+        {% if report.compliant %}
+          <span class="badge ok">CONFORME</span>
+        {% else %}
+          <span class="badge bad">NON CONFORME</span>
+        {% endif %}
+      </div>
+      <p style="margin:.5rem 0 .2rem"><strong>Orfane</strong> <span class="muted">(rilevate, non dichiarate)</span></p>
+      <div>{% for t in report.orphan %}<span class="badge bad">{{ t }}</span> {% else %}<span class="muted">nessuna</span>{% endfor %}</div>
+      <p style="margin:.5rem 0 .2rem"><strong>Coperte</strong> <span class="muted">(rilevate e dichiarate)</span></p>
+      <div>{% for t in report.covered %}<span class="tag">{{ t }}</span>{% else %}<span class="muted">nessuna</span>{% endfor %}</div>
+      <p style="margin:.5rem 0 .2rem"><strong>Mancanti</strong> <span class="muted">(dichiarate, non trovate)</span></p>
+      <div>{% for t in report.missing %}<span class="badge warn">{{ t }}</span> {% else %}<span class="muted">nessuna</span>{% endfor %}</div>
+      {% if report.unresolved %}
+        <p style="margin:.5rem 0 .2rem"><strong>Categorie non risolvibili</strong> <span class="muted">(dichiarate senza tipo PII)</span></p>
+        <div>{% for c in report.unresolved %}<span class="badge warn">{{ c }}</span> {% endfor %}</div>
+      {% endif %}
+      {% if report.unknown_activity_ids %}
+        <p style="margin:.5rem 0 .2rem"><span class="badge bad">Trattamenti non trovati nel ROPA:</span>
+          {% for a in report.unknown_activity_ids %}<code>{{ a }}</code> {% endfor %}</p>
+      {% endif %}
+      {% if report.retention_flags %}
+        <p style="margin:.6rem 0 .2rem"><strong>Conservazione superata</strong></p>
+        {% for f in report.retention_flags %}
+          <p class="muted" style="margin:.1rem 0">
+            «{{ f.category }}» [{{ f.activity_id }}]: {{ f.pii_types|join(", ") }} —
+            età ~{{ f.age_months }} mesi &gt; limite {{ f.retention_months }} mesi
+          </p>
+        {% endfor %}
+      {% endif %}
+    </div>
+    <p class="muted">Il verdetto considera sia le mappature confermate dal DPO sia quelle proposte.</p>
+  {% else %}
+    <p class="muted">Documento non ancora associato ad alcun trattamento: assegnane almeno uno per calcolare il verdetto.</p>
+  {% endif %}
+
+  <h2>Associazione ai trattamenti</h2>
+  <form method="post" action="{{ url_for('assign_document', document_id=document.document_id) }}">
+    <p class="muted">A quali trattamenti dichiarati appartiene questo documento? (uno o più)</p>
+    <div class="checks">
+      {% for a in activities %}
+        <label><input type="checkbox" name="activity_ids" value="{{ a.id }}"
+          {% if a.id in document.activity_ids %}checked{% endif %}> {{ a.name }} <span class="muted">({{ a.id }})</span></label>
+      {% else %}
+        <span class="muted">Nessun trattamento nel ROPA — ingerisci prima un registro.</span>
+      {% endfor %}
+    </div>
+    <button type="submit">Salva associazione</button>
+  </form>
+
+  <h2>PII rilevate <span class="muted">({{ instances|length }})</span></h2>
+  <p class="muted">Il registro conserva solo riferimenti (tipo, posizione, provenienza), mai il valore della PII.</p>
+  {% if instances %}
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Posizione</th>
+          <th>Conferma</th>
+          <th>Sorgenti</th>
+          <th>Trattamento</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in instances %}
+          <tr>
+            <td>{{ i.pii_type }}</td>
+            <td class="muted">{{ i.start }}–{{ i.end }}</td>
+            <td>{{ i.confirmation_level }}</td>
+            <td class="muted">{{ i.sources|join(", ") }}</td>
+            <td>
+              {% if i.processing_activity_id %}<span class="tag">{{ i.processing_activity_id }}</span>
+              {% else %}<span class="badge bad">orfana</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">Nessuna PII registrata per questo documento.</p>
+  {% endif %}
+{% endblock %}

@@ -78,6 +78,7 @@ def activity_detail(request: Request, activity_id: str) -> HTMLResponse:
 
 @app.post("/category/{category_id}")
 def update_category_submit(
+    request: Request,
     category_id: int,
     activity_id: str = Form(...),
     pii_types: list[str] = Form([]),
@@ -85,6 +86,8 @@ def update_category_submit(
 ) -> RedirectResponse:
     """Update a declared category's ``pii_types`` and mapping state.
 
+    :param request: the incoming request, used to build the redirect URL so it is
+        correct whether the app runs standalone or mounted under a path prefix.
     :param category_id: id of the declared category to update.
     :param activity_id: parent activity, carried by the form for the redirect.
     :param pii_types: the catalog ids ticked on the form.
@@ -98,13 +101,18 @@ def update_category_submit(
         raise HTTPException(status_code=404, detail=f"unknown category: {category_id}") from None
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from None
-    return RedirectResponse(url=f"/activity/{activity_id}", status_code=303)
+    url = request.url_for("activity_detail", activity_id=activity_id)
+    return RedirectResponse(url=str(url), status_code=303)
 
 
 @app.post("/macro/{macro_id}/confirm")
-def confirm_macro_submit(macro_id: int, activity_id: str = Form(...)) -> RedirectResponse:
+def confirm_macro_submit(
+    request: Request, macro_id: int, activity_id: str = Form(...)
+) -> RedirectResponse:
     """Confirm every declared category under a macro category in one click.
 
+    :param request: the incoming request, used to build the redirect URL so it is
+        correct whether the app runs standalone or mounted under a path prefix.
     :param macro_id: id of the macro category whose children to confirm.
     :param activity_id: parent activity, carried by the form for the redirect.
     :returns: a 303 redirect to the activity's detail page.
@@ -114,4 +122,5 @@ def confirm_macro_submit(macro_id: int, activity_id: str = Form(...)) -> Redirec
         get_repository().confirm_macro(macro_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"unknown macro category: {macro_id}") from None
-    return RedirectResponse(url=f"/activity/{activity_id}", status_code=303)
+    url = request.url_for("activity_detail", activity_id=activity_id)
+    return RedirectResponse(url=str(url), status_code=303)

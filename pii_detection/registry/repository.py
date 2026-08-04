@@ -181,6 +181,15 @@ class PIIRepository:
                 return list(instances)
             return [instance for instance in instances if not instance.removed]
 
+    def documents(self) -> list[Document]:
+        """List every recorded document, for the dashboard overview (block B8).
+
+        :returns: all documents in the registry, each with its activity assignment
+            and reference date; the PII instances are not eagerly loaded here.
+        """
+        with Session(self.engine, expire_on_commit=False) as session:
+            return list(session.exec(select(Document)).all())
+
     def get_document(self, document_id: str) -> Document | None:
         """Load a document by id, with its activity assignment and reference date.
 
