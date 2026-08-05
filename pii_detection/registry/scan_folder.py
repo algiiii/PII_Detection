@@ -1,19 +1,20 @@
 """Scan the files in a folder and persist each document's PII (batch, B3+B4+B5).
 
 The operational path behind the "point it at a folder and let it run" deployment:
-read every supported document **directly inside** a folder (not its sub-folders —
-no file-system structure analysis here) and keep the detected-PII registry in sync
-with what is on disk. It composes the per-document pipeline
-(:func:`~pii_detection.registry.ingest.ingest_document`) that already exists, adding
-only the folder walk, a per-file identity and the reconciliation of files that
-disappeared::
+read every supported document under a folder **recursively (sub-folders included)**
+and keep the detected-PII registry in sync with what is on disk. It composes the
+per-document pipeline (:func:`~pii_detection.registry.ingest.ingest_document`) that
+already exists, adding only the tree walk, a per-file identity and the
+reconciliation of files that disappeared::
 
     python -m pii_detection.registry.scan_folder path/to/folder [--gliner] [--no-prune]
 
-Each file is recorded under a ``document_id`` equal to its file name (names are
-unique within a folder). ``--gliner`` swaps spaCy for GLiNER (heavy, container
-only). By default a document already in the registry but no longer in the folder is
-reconciled as gone (its PII marked ``REMOVED``); ``--no-prune`` disables it.
+Each file is recorded under a ``document_id`` equal to its path relative to the
+scanned folder (POSIX, e.g. ``HR/contratti/mario.pdf``), so equally named files in
+different sub-folders do not collide. ``--gliner`` swaps spaCy for GLiNER (heavy,
+container only). By default a document already in the registry but no longer under
+the folder is reconciled as gone (its PII marked ``REMOVED``); ``--no-prune``
+disables it.
 """
 
 from __future__ import annotations
@@ -58,19 +59,20 @@ def ingest_folder(
     merge: MergeEngine | None = None,
     prune: bool = True,
 ) -> FolderScanResult:
-    """Ingest every supported document directly inside ``folder`` (batch scan).
+    """Ingest every supported document under ``folder``, recursively (batch scan).
 
-    Reads the files in ``folder`` (not recursively) and ingests each
-    ``.pdf``/``.docx``/``.txt`` under a ``document_id`` equal to its file name. Each
-    file is isolated: one that fails to extract is recorded in ``errors`` and the
-    scan continues. Re-scanning updates each document through the B5 delta.
+    Walks ``folder`` and its sub-folders and ingests each supported file (see
+    :func:`~pii_detection.extraction.supported_suffixes`) under a ``document_id``
+    equal to its path relative to ``folder`` (POSIX). Each file is isolated: one
+    that fails to extract is recorded in ``errors`` and the scan continues.
+    Re-scanning updates each document through the B5 delta.
 
     When ``prune`` is set, documents already in the registry that were **not** seen
     in this scan and still have present PII are reconciled as gone: recording an
     empty scan marks their instances ``REMOVED``. This assumes the registry watches
-    a single folder (one registry per monitored folder).
+    a single folder tree (one registry per monitored folder).
 
-    :param folder: directory whose files to scan (not recursive).
+    :param folder: root directory to scan recursively.
     :param pattern: the pattern/regex detector.
     :param ner: the NER detector.
     :param repository: registry to write to; a default one is built when omitted.
@@ -88,11 +90,11 @@ def ingest_folder(
 
     result = FolderScanResult()
     seen: set[str] = set()
-    for path in sorted(item for item in folder.iterdir() if item.is_file()):
+    for path in sorted(item for item in folder.rglob("*") if item.is_file()):
         if path.suffix.lower() not in supported:
             result.skipped.append(path)
             continue
-        document_id = path.name
+        document_id = path.relative_to(folder).as_posix()
         try:
             ingest_document(
                 path,
@@ -132,7 +134,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Scan the files in a folder and persist each document's PII (batch)."
     )
-    parser.add_argument("folder", type=Path, help="directory whose files to scan (not recursive)")
+    parser.add_argument("folder", type=Path, help="root directory to scan recursively (sub-folders included)")
     parser.add_argument(
         "--gliner",
         action="store_true",

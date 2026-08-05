@@ -1,8 +1,10 @@
 """Tests for the minimal B3 extraction layer.
 
 Plain-text extraction, dispatch and error paths need no optional deps. The
-PDF/DOCX round-trips build a tiny file and read it back, so they ``importorskip``
-the ``[extraction]``/``[eval]`` libraries and are skipped when absent.
+PDF/DOCX/XLSX round-trips build a tiny file and read it back, so they
+``importorskip`` the ``[extraction]``/``[eval]`` libraries and are skipped when
+absent. Legacy ``.doc`` is covered only on its guard path (antiword absent), since
+a valid ``.doc`` is impractical to author in a test.
 """
 
 from __future__ import annotations
@@ -39,8 +41,10 @@ def test_missing_file_raises() -> None:
         extract_document("/definitely/not/here.pdf")
 
 
-def test_supported_suffixes_are_the_expected_three() -> None:
-    assert supported_suffixes() == frozenset({".pdf", ".docx", ".txt"})
+def test_supported_suffixes() -> None:
+    assert supported_suffixes() == frozenset(
+        {".pdf", ".docx", ".doc", ".txt", ".xlsx", ".xlsm", ".ods"}
+    )
 
 
 def test_normalize_tidies_whitespace_without_moving_tokens() -> None:
@@ -72,3 +76,29 @@ def test_pdf_round_trip(tmp_path: Path) -> None:
     out = extract_document(path)
     assert out.document_id == "letter_01"
     assert "IT60X0542811101000000123456" in out.text
+
+
+def test_xlsx_round_trip(tmp_path: Path) -> None:
+    openpyxl = pytest.importorskip("openpyxl")
+    path = tmp_path / "clienti_01.xlsx"
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.append(["Nome", "Email"])
+    sheet.append(["Mario Rossi", "mario@x.it"])
+    workbook.save(str(path))
+
+    out = extract_document(path)
+    assert out.document_id == "clienti_01"
+    assert "Mario Rossi" in out.text
+    assert "mario@x.it" in out.text
+
+
+def test_doc_without_antiword_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A valid .doc is hard to author in tests; here we verify the guard: with the
+    # antiword binary absent, a .doc is reported as unsupported (the batch then skips
+    # it) rather than crashing.
+    monkeypatch.setattr("shutil.which", lambda _name: None)
+    path = tmp_path / "legacy_01.doc"
+    path.write_bytes(b"\xd0\xcf\x11\xe0 fake legacy word")
+    with pytest.raises(UnsupportedFormatError):
+        extract_document(path)

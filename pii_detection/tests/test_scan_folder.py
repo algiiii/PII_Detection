@@ -1,9 +1,9 @@
 """Tests for the batch folder scan (block B5 batch driver).
 
-A temporary flat folder is scanned with fake detectors (no Presidio), checking the
-per-file identity, that sub-folders are not descended, that unsupported/unreadable
-files are handled without aborting, the folder-wide inventory, and the prune of a
-file removed from the folder.
+A temporary folder tree is scanned with fake detectors (no Presidio), checking the
+recursive walk and the relative-path identity, that unsupported/unreadable files are
+handled without aborting, the folder-wide inventory, and the prune of a file removed
+from a sub-folder.
 """
 
 from __future__ import annotations
@@ -72,20 +72,20 @@ def _make_folder(tmp_path: Path) -> Path:
     (folder / "bad.txt").write_bytes(b"\xff\xfe not valid utf-8")
     sub = folder / "sub"
     sub.mkdir()
-    (sub / "c.txt").write_text(f"IBAN {_IBAN}", encoding="utf-8")  # must NOT be scanned
+    (sub / "c.txt").write_text(f"IBAN {_IBAN}", encoding="utf-8")  # scanned recursively
     return folder
 
 
-def test_scan_is_flat_and_ingests_files(tmp_path: Path) -> None:
+def test_scan_is_recursive_and_ingests_files(tmp_path: Path) -> None:
     folder = _make_folder(tmp_path)
     repo = _repo(tmp_path)
 
     result = ingest_folder(folder, _pattern(), _EmptyDetector(), repository=repo)
 
-    assert result.scanned == 2  # a.txt, b.txt (bad.txt errored, skip.bin skipped, sub/ not descended)
+    assert result.scanned == 3  # a.txt, b.txt, sub/c.txt (bad.txt errored, skip.bin skipped)
     ids = {document.document_id for document in repo.documents()}
-    assert ids == {"a.txt", "b.txt"}  # file name is the id; sub/c.txt not scanned
-    assert result.by_type == {"iban": 1, "email": 1}
+    assert ids == {"a.txt", "b.txt", "sub/c.txt"}  # id = path relative to the folder (POSIX)
+    assert result.by_type == {"iban": 2, "email": 1}  # iban in a.txt and sub/c.txt
 
 
 def test_unsupported_and_unreadable_are_handled(tmp_path: Path) -> None:
@@ -114,3 +114,19 @@ def test_rescan_prunes_removed_file(tmp_path: Path) -> None:
     removed = repo.instances_for("b.txt", include_removed=True)
     assert removed and all(instance.removed for instance in removed)
     assert {i.pii_type for i in repo.instances_for("a.txt")} == {"iban"}  # still there
+
+
+def test_rescan_prunes_removed_nested_file(tmp_path: Path) -> None:
+    folder = tmp_path / "docs"
+    (folder / "sub").mkdir(parents=True)
+    (folder / "a.txt").write_text(f"scrivi a {_EMAIL}", encoding="utf-8")
+    (folder / "sub" / "c.txt").write_text(f"IBAN {_IBAN}", encoding="utf-8")
+    repo = _repo(tmp_path)
+    ingest_folder(folder, _pattern(), _EmptyDetector(), repository=repo)
+
+    (folder / "sub" / "c.txt").unlink()  # a nested file disappears from the tree
+    result = ingest_folder(folder, _pattern(), _EmptyDetector(), repository=repo)
+
+    assert result.removed == ["sub/c.txt"]  # pruned by its relative-path id
+    assert repo.instances_for("sub/c.txt") == []
+    assert {i.pii_type for i in repo.instances_for("a.txt")} == {"email"}  # untouched

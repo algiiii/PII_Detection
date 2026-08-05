@@ -1,12 +1,14 @@
 """Minimal text extraction from real document formats (block B3).
 
-Reads a born-digital file — PDF, Word (``.docx``) or plain text — into the
+Reads a born-digital file — PDF, Word (``.docx`` and legacy ``.doc``),
+spreadsheets (``.xlsx``/``.xlsm``/``.ods``) or plain text — into the
 :class:`~pii_detection.detection.types.NormalizedDocument` the detection layer
 (B4) consumes. This is the real "receive a document, unpack and read it"
 capability, kept deliberately minimal: **no OCR** for scanned files and **no
 layout/table reconstruction** (later concerns, e.g. via Docling). The heavy
 readers are imported lazily, so importing this module — and building its docs —
-needs no ``[extraction]`` dependency; only actually reading a PDF/DOCX does.
+needs no extraction dependency; only actually reading a file does. Legacy ``.doc``
+relies on the ``antiword`` system binary, present in the container image.
 """
 
 from __future__ import annotations
@@ -63,10 +65,49 @@ def _extract_txt(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def _extract_spreadsheet(path: Path) -> str:
+    """Flatten a spreadsheet (``.xlsx``/``.xlsm``/``.ods``) to text, sheet by sheet.
+
+    Reuses the ROPA spreadsheet reader (openpyxl/odfpy behind one shape); cells are
+    joined by tabs, rows by newlines and sheets by a blank line, so the detection
+    layer sees the cell contents as plain text.
+    """
+    from pii_detection.ropa.ingestion.sheet_reader import read_sheet, sheet_names  # lazy
+
+    sheets = [
+        "\n".join("\t".join(row) for row in read_sheet(path, name))
+        for name in sheet_names(path)
+    ]
+    return "\n\n".join(sheets)
+
+
+def _extract_doc(path: Path) -> str:
+    """Extract text from a legacy Word ``.doc`` via the ``antiword`` binary.
+
+    :raises UnsupportedFormatError: if ``antiword`` is not installed (it ships in
+        the container image; a local run without it lets the batch skip the file).
+    """
+    import shutil  # lazy
+    import subprocess  # lazy
+
+    if shutil.which("antiword") is None:
+        raise UnsupportedFormatError(
+            "reading '.doc' requires the 'antiword' binary (present in the container image)"
+        )
+    result = subprocess.run(
+        ["antiword", str(path)], capture_output=True, text=True, check=True
+    )
+    return result.stdout
+
+
 _EXTRACTORS: dict[str, Callable[[Path], str]] = {
     ".pdf": _extract_pdf,
     ".docx": _extract_docx,
     ".txt": _extract_txt,
+    ".xlsx": _extract_spreadsheet,
+    ".xlsm": _extract_spreadsheet,
+    ".ods": _extract_spreadsheet,
+    ".doc": _extract_doc,
 }
 
 
@@ -81,7 +122,8 @@ def extract_document(path: str | Path) -> NormalizedDocument:
     Dispatches on the file extension; the ``document_id`` is the file stem, so a
     rendered corpus file keeps the identity of its source document.
 
-    :param path: path to a ``.pdf``, ``.docx`` or ``.txt`` file.
+    :param path: path to a supported file (``.pdf``, ``.docx``, ``.doc``,
+        ``.xlsx``/``.xlsm``/``.ods`` or ``.txt``).
     :returns: the normalized document (``document_id`` + normalized ``text``).
     :raises FileNotFoundError: if the file does not exist.
     :raises UnsupportedFormatError: if the extension has no registered extractor.

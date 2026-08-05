@@ -8,9 +8,9 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     HF_HOME=/models/hf
 
-# libgomp1: OpenMP runtime required by torch.
+# libgomp1: OpenMP runtime required by torch. antiword: reads legacy Word .doc (B3).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgomp1 \
+    && apt-get install -y --no-install-recommends libgomp1 antiword \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

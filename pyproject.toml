@@ -56,6 +56,8 @@ dev = [
 extraction = [
     "pymupdf>=1.24",
     "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "odfpy>=1.4",
 ]
 
 # Synthetic evaluation-corpus generation + rendering: checksum-valid PII values
