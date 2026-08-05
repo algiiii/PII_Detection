@@ -237,7 +237,8 @@ def build_default_detectors(
     analyzer = build_italian_analyzer(use_gliner=use_gliner)
     presidio_pattern, ner = build_presidio_detectors(entities, analyzer)
     pattern = CompositeDetector(
-        "pattern.composite", [presidio_pattern, RegexDetector("regex.custom", custom_rules)]
+        "pattern.composite",
+        [presidio_pattern, RegexDetector("regex.custom", list(custom_rules))],
     )
     return pattern, ner
 

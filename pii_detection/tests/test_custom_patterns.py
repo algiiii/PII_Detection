@@ -8,6 +8,7 @@ same detector wired into the live pipeline. So adding a pattern is a YAML edit.
 from __future__ import annotations
 
 from pii_detection.detection.config import (
+    RegexRuleModel,
     default_config_dir,
     load_category_catalog,
     load_regex_rules,
@@ -15,7 +16,7 @@ from pii_detection.detection.config import (
 from pii_detection.detection.regex_detector import RegexDetector
 
 
-def _custom_rules() -> list:
+def _custom_rules() -> list[RegexRuleModel]:
     base = default_config_dir()
     catalog = load_category_catalog(base / "categories.yaml")
     return list(load_regex_rules(base / "custom_patterns.yaml", catalog))
