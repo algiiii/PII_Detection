@@ -78,6 +78,10 @@ class Document(SQLModel, table=True):
         several activities (N:N); the ids reference
         :class:`~pii_detection.ropa.types.ProcessingActivity` in the separate ROPA
         database — there is no physical foreign key across the two databases.
+    :ivar association_source: where :attr:`activity_ids` came from
+        (:class:`AssociationSource`), or ``None`` if the document has no
+        association yet. Rule application skips documents set to
+        :attr:`AssociationSource.MANUAL` (manual wins over folder rules).
     :ivar source_modified_at: last-modified time of the source file at ingestion
         (its ``mtime``), used as the document's reference date for the approximate
         retention check (B7); a *reference*, not a PII value. ``None`` if unknown.
@@ -90,6 +94,7 @@ class Document(SQLModel, table=True):
     path: str | None = None
     first_seen: datetime = Field(default_factory=_utcnow)
     activity_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    association_source: AssociationSource | None = None
     source_modified_at: datetime | None = None
 
     instances: list["PIIInstance"] = Relationship(
