@@ -12,6 +12,13 @@ Data model (``registry.types``)
    :members:
    :member-order: bysource
 
+Folder rules (``registry.folder_rules``)
+----------------------------------------
+
+.. automodule:: pii_detection.registry.folder_rules
+   :members:
+   :member-order: bysource
+
 Delta (``registry.diff``)
 -------------------------
 
