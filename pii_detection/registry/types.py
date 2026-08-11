@@ -190,10 +190,39 @@ class PIIChange(SQLModel, table=True):
 
     instance: Optional["PIIInstance"] = Relationship(back_populates="changes")
 
+class FolderRule(SQLModel, table = True):
+    """A rule mapping a folder prefix to the processing actrivities under it (B6)
+    
+    The seamless alternative to associating documents one by one: the DPO maps a
+    folder prefix to one or more activities once, and every document whose id (its
+    POSIX path relative to the scan root) falls under that prefix inherits the
+    association — new files included, on the next scan.
+
+    :ivar prefix: the POSIX path prefix, normalized (no trailing slash); ``""`` is
+        the root and matches every document. Primary key.
+    :ivar activity_ids: the activities documents under ``prefix`` are associated
+        with; they reference :class:`~pii_detection.ropa.types.ProcessingActivity`
+        in the separate ROPA database (no physical foreign key), like
+        :attr:`Document.activity_ids`.
+    :ivar created_at: when the rule was created.
+    """
+
+    __tablename__ = "registry_folder_rule"
+
+    prefix: str = Field(primary_key = True)
+    activity_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+    def matches(self, document_id: str) -> bool:
+        if self.prefix == "":
+            return True
+        return document_id == self.prefix or document_id.startswith(self.prefix + "/")
 
 __all__ = [
+    "AssociationSource",
     "ChangeType",
     "Document",
+    "FolderRule",
     "Scan",
     "PIIInstance",
     "PIIChange",
