@@ -51,6 +51,20 @@ class ChangeType(str, Enum):
     MOVED = "moved"
     REMOVED = "removed"
 
+class AssociationSource(str, Enum):
+    """Where a document's activity association came from
+    
+    Distinguishes an association set **by hand** by the DPO from one **derived by
+    a folder rule**, so that re-applying the rules never overwrites a manual
+    choice (manual wins). ``None`` on :attr:`Document.association_source` means the
+    document has no association yet.
+
+    :cvar MANUAL: association set explicitly by the DPO (web form or CLI).
+    :cvar RULE: association derived from a folder→activity rule.
+    """
+    MANUAL = "manual"
+    RULE = "rule"
+
 
 class Document(SQLModel, table=True):
     """A scanned document — the container of the PII instances found in it.
