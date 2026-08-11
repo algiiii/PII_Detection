@@ -17,7 +17,7 @@ from pii_detection.detection.types import (
     TextSpan,
 )
 from pii_detection.registry.repository import PIIRepository
-from pii_detection.registry.scan_folder import ingest_folder
+from pii_detection.registry.scan_folder import ingest_folder, plan_folder
 
 _IBAN = "IT60X0542811101000000123456"
 _EMAIL = "mario@x.it"
@@ -86,6 +86,33 @@ def test_scan_is_recursive_and_ingests_files(tmp_path: Path) -> None:
     ids = {document.document_id for document in repo.documents()}
     assert ids == {"a.txt", "b.txt", "sub/c.txt"}  # id = path relative to the folder (POSIX)
     assert result.by_type == {"iban": 2, "email": 1}  # iban in a.txt and sub/c.txt
+
+
+def test_plan_folder_enumerates_scannable_and_skipped(tmp_path: Path) -> None:
+    folder = _make_folder(tmp_path)
+
+    plan = plan_folder(folder)
+
+    # extension-based: bad.txt is scannable (it only fails later, at ingest time)
+    assert {doc_id for _p, doc_id in plan.scannable} == {"a.txt", "b.txt", "bad.txt", "sub/c.txt"}
+    assert [p.name for p in plan.skipped] == ["skip.bin"]
+
+
+def test_ingest_folder_reports_progress(tmp_path: Path) -> None:
+    folder = _make_folder(tmp_path)
+    calls: list[tuple[int, int]] = []
+
+    ingest_folder(
+        folder,
+        _pattern(),
+        _EmptyDetector(),
+        repository=_repo(tmp_path),
+        progress=lambda done, total: calls.append((done, total)),
+    )
+
+    # one call per scannable file (a.txt, b.txt, bad.txt, sub/c.txt), in order
+    assert [done for done, _ in calls] == [1, 2, 3, 4]
+    assert calls[-1] == (4, 4)
 
 
 def test_unsupported_and_unreadable_are_handled(tmp_path: Path) -> None:

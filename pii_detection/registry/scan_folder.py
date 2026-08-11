@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -50,6 +51,43 @@ class FolderScanResult:
     by_type: dict[str, int] = field(default_factory=dict)
 
 
+@dataclass
+class FolderPlan:
+    """What a recursive scan of a folder would cover — computed without detection.
+
+    :ivar scannable: ``(path, document_id)`` pairs that will be ingested;
+        ``document_id`` is the path relative to the folder (POSIX).
+    :ivar skipped: paths skipped because their extension is not supported.
+    """
+
+    scannable: list[tuple[Path, str]] = field(default_factory=list)
+    skipped: list[Path] = field(default_factory=list)
+
+
+def plan_folder(folder: str | Path) -> FolderPlan:
+    """Enumerate the files a recursive scan of ``folder`` would cover.
+
+    Pure enumeration (no detection): used both to **preview** a scan and to drive
+    :func:`ingest_folder`, so the two always agree on what gets scanned.
+
+    :param folder: root directory to enumerate recursively.
+    :returns: the :class:`FolderPlan` (scannable files + skipped ones), each list
+        sorted by path.
+    :raises NotADirectoryError: if ``folder`` is not a directory.
+    """
+    folder = Path(folder)
+    if not folder.is_dir():
+        raise NotADirectoryError(f"not a directory: {folder}")
+    supported = supported_suffixes()
+    plan = FolderPlan()
+    for path in sorted(item for item in folder.rglob("*") if item.is_file()):
+        if path.suffix.lower() in supported:
+            plan.scannable.append((path, path.relative_to(folder).as_posix()))
+        else:
+            plan.skipped.append(path)
+    return plan
+
+
 def ingest_folder(
     folder: str | Path,
     pattern: PIIDetector,
@@ -58,14 +96,14 @@ def ingest_folder(
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
     prune: bool = True,
+    progress: Callable[[int, int], None] | None = None,
 ) -> FolderScanResult:
     """Ingest every supported document under ``folder``, recursively (batch scan).
 
-    Walks ``folder`` and its sub-folders and ingests each supported file (see
-    :func:`~pii_detection.extraction.supported_suffixes`) under a ``document_id``
-    equal to its path relative to ``folder`` (POSIX). Each file is isolated: one
-    that fails to extract is recorded in ``errors`` and the scan continues.
-    Re-scanning updates each document through the B5 delta.
+    Enumerates the tree with :func:`plan_folder` and ingests each supported file
+    under a ``document_id`` equal to its path relative to ``folder`` (POSIX). Each
+    file is isolated: one that fails to extract is recorded in ``errors`` and the
+    scan continues. Re-scanning updates each document through the B5 delta.
 
     When ``prune`` is set, documents already in the registry that were **not** seen
     in this scan and still have present PII are reconciled as gone: recording an
@@ -78,23 +116,19 @@ def ingest_folder(
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine reused across files; a default one when omitted.
     :param prune: reconcile documents gone from the folder as removed.
+    :param progress: optional callback invoked ``progress(done, total)`` after each
+        file (whether ingested or errored), for a UI progress bar.
     :returns: a :class:`FolderScanResult` summary, including the folder-wide inventory.
     :raises NotADirectoryError: if ``folder`` is not a directory.
     """
-    folder = Path(folder)
-    if not folder.is_dir():
-        raise NotADirectoryError(f"not a directory: {folder}")
     repository = repository if repository is not None else PIIRepository()
     merge = merge if merge is not None else MergeEngine()
-    supported = supported_suffixes()
 
-    result = FolderScanResult()
+    plan = plan_folder(folder)
+    result = FolderScanResult(skipped=list(plan.skipped))
     seen: set[str] = set()
-    for path in sorted(item for item in folder.rglob("*") if item.is_file()):
-        if path.suffix.lower() not in supported:
-            result.skipped.append(path)
-            continue
-        document_id = path.relative_to(folder).as_posix()
+    total = len(plan.scannable)
+    for done, (path, document_id) in enumerate(plan.scannable, start=1):
         try:
             ingest_document(
                 path,
@@ -106,9 +140,11 @@ def ingest_folder(
             )
         except Exception as exc:  # noqa: BLE001 — one bad file must not abort the batch
             result.errors.append((path, str(exc)))
-            continue
-        seen.add(document_id)
-        result.scanned += 1
+        else:
+            seen.add(document_id)
+            result.scanned += 1
+        if progress is not None:
+            progress(done, total)
 
     if prune:
         for document in repository.documents():
@@ -176,4 +212,4 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["FolderScanResult", "ingest_folder", "main"]
+__all__ = ["FolderScanResult", "FolderPlan", "plan_folder", "ingest_folder", "main"]

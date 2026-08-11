@@ -89,6 +89,16 @@ def test_unknown_document_is_404(client: TestClient) -> None:
     assert client.get("/document/nope").status_code == 404
 
 
+def test_document_id_with_slashes_is_reachable(client: TestClient, tmp_path: Path) -> None:
+    # A recursive folder scan uses relative-path ids (e.g. "HR/contratti/x.pdf");
+    # the dashboard link and the detail route must handle the embedded slashes.
+    registry = PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}")
+    registry.record_scan("HR/contratti/mario.pdf", [_match(0, 4, "iban")])
+
+    assert "HR/contratti/mario.pdf" in client.get("/").text  # dashboard renders the link
+    assert client.get("/document/HR/contratti/mario.pdf").status_code == 200
+
+
 def test_assign_persists_and_produces_verdict(client: TestClient, tmp_path: Path) -> None:
     resp = client.post("/document/doc/assign", data={"activity_ids": ["payroll"]})
     assert resp.status_code == 200  # followed the 303 to the detail page

@@ -44,11 +44,13 @@
     button, .btn { font: inherit; cursor: pointer; border: 1px solid #2563eb; background: #2563eb; color: #fff; padding: .4rem .8rem; border-radius: 6px; text-decoration: none; display: inline-block; }
     code { background: #f3f4f6; padding: .05rem .3rem; border-radius: 4px; font-size: .85em; }
   </style>
+  {% block head %}{% endblock %}
 </head>
 <body>
   <header>
     <span class="brand">PII Discovery</span>
     <a href="{{ url_for('documents') }}">Conformità</a>
+    <a href="{{ url_for('scan_form') }}">Scansione</a>
     <a href="/ropa/">Trattamenti (ROPA)</a>
   </header>
   <main>{% block content %}{% endblock %}</main>
