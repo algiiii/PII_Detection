@@ -19,7 +19,16 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 
 from pii_detection.detection.types import PIIMatch
 from pii_detection.registry.diff import diff_scan
-from pii_detection.registry.types import ChangeType, Document, PIIChange, PIIInstance, Scan
+from pii_detection.registry.folder_rules import ApplyRulesResult, match_activities
+from pii_detection.registry.types import (
+    AssociationSource,
+    ChangeType,
+    Document,
+    FolderRule,
+    PIIChange,
+    PIIInstance,
+    Scan,
+)
 
 
 def _instance_from_match(document_id: str, match: PIIMatch, scan_id: int | None) -> PIIInstance:
@@ -200,7 +209,7 @@ class PIIRepository:
         with Session(self.engine, expire_on_commit=False) as session:
             return session.get(Document, document_id)
 
-    def assign_activities(self, document_id: str, activity_ids: Sequence[str]) -> None:
+    def assign_activities(self, document_id: str, activity_ids: Sequence[str], *, source: AssociationSource = AssociationSource.MANUAL) -> None:
         """Assign a document to the processing activities it belongs to (block B6).
 
         Explicit, DPO-driven association: the ids are stored as-is on the document
@@ -212,6 +221,11 @@ class PIIRepository:
         :param document_id: identifier of an already-recorded document.
         :param activity_ids: the activities to associate; must be non-empty and
             contain no blank id.
+        :param source: where the association comes from —
+            :attr:`~pii_detection.registry.types.AssociationSource.MANUAL` (explicit
+            DPO input, the default) or ``RULE`` (derived by
+            :meth:`apply_folder_rules`). Stored so rule application can skip
+            documents a human associated (manual wins).
         :raises KeyError: if the document was never recorded.
         :raises ValueError: if ``activity_ids`` is empty or holds a blank id.
         """
@@ -223,7 +237,57 @@ class PIIRepository:
             if document is None:
                 raise KeyError(document_id)
             document.activity_ids = ids
+            document.association_source = source
             session.commit()
+
+    def folder_rules(self) -> list[FolderRule]:
+        with Session(self.engine, expire_on_commit = False) as session:
+            statement = select(FolderRule).order_by(col(FolderRule.prefix))
+            return list(session.exec(statement).all())
+
+    def save_rule(self, prefix: str, activity_ids: Sequence[str]) -> FolderRule:
+
+        ids = list(activity_ids)
+        if not ids or any(not str(activity_id).strip() for activity_id in ids):
+            raise ValueError("activity_ids must be non-empty and containt no blank id")
+        normalized = prefix.strip().strip("/")
+        with Session(self.engine, expire_on_commit=False) as session:
+            rule = session.get(FolderRule, normalized)
+            if rule is None:
+                rule = FolderRule(prefix=normalized, activity_ids=ids)
+                session.add(rule)
+            else:
+                rule.activity_ids = ids
+            session.commit()
+            session.refresh(rule)
+            return rule
+
+    def delete_rule(self, prefix: str) -> None:
+        normalized = prefix.strip().strip("/")
+        with Session(self.engine) as session:
+            rule = session.get(FolderRule, normalized)
+            if rule is not None:
+                session.delete(rule)
+                session.commit()
+
+    def apply_folder_rules(self) -> ApplyRulesResult:
+        rules = self.folder_rules()
+        result = ApplyRulesResult()
+        with Session(self.engine) as session:
+            for document in session.exec(select(Document)).all():
+                if document.association_source == AssociationSource.MANUAL:
+                    result.skipped_manual += 1
+                    continue
+                activity_ids = match_activities(document.document_id, rules)
+                if activity_ids:
+                    document.activity_ids = activity_ids
+                    document.association_source = AssociationSource.RULE
+                    result.associated += 1
+                else:
+                    result.unmatched += 1
+            session.commit()
+        return result
+            
 
     def apply_coverage(self, document_id: str, coverage: Mapping[int, str | None]) -> None:
         """Write the per-instance compliance outcome (block B7).
