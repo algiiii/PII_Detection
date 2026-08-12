@@ -36,8 +36,9 @@ def match_activities(document_id: str, rules: Sequence[FolderRule]) -> list[str]
 
     seen: dict[str, None] = {}
     for rule in rules:
-        for activity_id in rule.activity_ids:
-            seen.setdefault(activity_id, None)
+        if rule.matches(document_id):
+            for activity_id in rule.activity_ids:
+                seen.setdefault(activity_id, None)
     return list(seen)
 
 @dataclass
