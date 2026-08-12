@@ -3,6 +3,36 @@
 {% block content %}
   <h1>Trattamenti</h1>
   <p class="muted">{{ activities|length }} attività nel registro</p>
+
+  {% if imported %}
+    <div class="card"><span class="badge ok">import riuscito</span> {{ imported }} trattamenti importati dal file.</div>
+  {% endif %}
+  {% if error %}
+    <div class="card" style="border-color:#fca5a5;color:#b91c1c">{{ error }}</div>
+  {% endif %}
+
+  <details class="add">
+    <summary>Importa un registro ROPA (.ods / .xlsx)…</summary>
+    <form method="post" action="{{ url_for('import_ropa') }}" enctype="multipart/form-data" class="stack">
+      <label>File del registro
+        <input type="file" name="file" accept=".ods,.xlsx" required>
+      </label>
+      <label>Mappatura categorie → pii_type
+        <select name="mapper">
+          <option value="dictionary" selected>dizionario (locale, deterministico)</option>
+          <option value="none">nessuna (mappo dopo, a mano)</option>
+          <option value="llm">llm (richiede Ollama)</option>
+          <option value="hybrid">hybrid (llm + fallback dizionario)</option>
+        </select>
+      </label>
+      <div class="checks"><label><input type="checkbox" name="replace" value="true"> Sostituisci il registro esistente (distruttivo)</label></div>
+      <div class="actions">
+        <button type="submit">Importa</button>
+        <span id="import-loading" class="loading" hidden><span class="spinner"></span> Elaborazione del registro… la mappatura può richiedere qualche secondo.</span>
+      </div>
+    </form>
+  </details>
+
   <table>
     <thead>
       <tr>
@@ -11,6 +41,7 @@
         <th>Finalità</th>
         <th>Categorie</th>
         <th>Da confermare</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -26,8 +57,32 @@
             {% if pending %}<span class="badge warn">{{ pending }}</span>
             {% else %}<span class="badge ok">✓</span>{% endif %}
           </td>
+          <td>
+            <form method="post" action="{{ url_for('delete_activity_submit', activity_id=a.id) }}"
+                  onsubmit="return confirm('Eliminare questo trattamento dal registro?')">
+              <button type="submit" class="btn danger">Elimina</button>
+            </form>
+          </td>
         </tr>
       {% endfor %}
     </tbody>
   </table>
+
+  <style>
+    .spinner { display:inline-block; width:.9em; height:.9em; border:2px solid #c7d2fe;
+      border-top-color:#2563eb; border-radius:50%; animation:spin .7s linear infinite;
+      vertical-align:-2px; margin-right:.3rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading { color:#6b7280; font-size:.85rem; }
+  </style>
+  <script>
+    document.querySelector('form[action$="/import"]')?.addEventListener('submit', function () {
+      var loading = document.getElementById('import-loading');
+      if (loading) loading.hidden = false;
+      var button = this.querySelector('button[type=submit]');
+      setTimeout(function () {
+        if (button) { button.disabled = true; button.textContent = 'Elaborazione…'; }
+      }, 0);
+    });
+  </script>
 {% endblock %}

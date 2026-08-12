@@ -15,27 +15,9 @@ import os
 
 from sqlalchemy.exc import IntegrityError
 
-from pii_detection.ropa.ingestion.category_mapper import (
-    CategoryMapper,
-    build_dictionary_mapper,
-    build_llm_category_mapper,
-)
+from pii_detection.ropa.ingestion.category_mapper import build_mapper
 from pii_detection.ropa.ingestion.pipeline import ingest_file, map_categories
 from pii_detection.ropa.repository import ROPARepository
-
-
-def _build_mapper(kind: str) -> CategoryMapper:
-    """Build the category mapper selected on the command line.
-
-    :param kind: ``"dictionary"`` (deterministic, AI off), ``"llm"`` (the model
-        alone, no fallback), or ``"hybrid"`` (model with dictionary fallback).
-    :returns: the corresponding mapper.
-    """
-    if kind == "dictionary":
-        return build_dictionary_mapper()
-    if kind == "llm":
-        return build_llm_category_mapper(use_fallback=False)
-    return build_llm_category_mapper(use_fallback=True)
 
 
 def main() -> None:
@@ -76,7 +58,7 @@ def main() -> None:
     print(f"ingested {len(activities)} activities into {args.db}")
 
     if args.mapper is not None:
-        split = map_categories(ROPARepository(args.db), _build_mapper(args.mapper))
+        split = map_categories(ROPARepository(args.db), build_mapper(args.mapper))
         print(f"mapped {split} declared categories with the {args.mapper} mapper")
 
 

@@ -3,8 +3,9 @@
 A small FastAPI + Jinja2 application that lets the DPO browse the ingested
 register as a three-level tree (activity → macro category → declared category)
 and confirm the mapping of each declared category onto the ``pii_type`` catalog.
-The structure itself comes from the ingestion of the CNIL register; the app only
-reviews it, so there is no create/delete of activities here.
+The register is authored from a CNIL spreadsheet, which the DPO can **import** from
+the browser (file upload) and prune by **deleting** a single activity; field-by-field
+authoring stays out of scope — the file is the source of truth.
 
 It is the "interface on a port": the database stays a file behind the app,
 reached only through :class:`~pii_detection.ropa.repository.ROPARepository`. The
@@ -17,12 +18,16 @@ form.
 from __future__ import annotations
 
 import os
+import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import IntegrityError
 
+from pii_detection.ropa.ingestion.category_mapper import build_mapper
+from pii_detection.ropa.ingestion.pipeline import ingest_file, map_categories
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.types import MappingState
 
@@ -39,6 +44,18 @@ def get_repository() -> ROPARepository:
     return ROPARepository(os.environ.get("ROPA_DB_URL", "sqlite:///ropa.db"))
 
 
+def _redirect_index(request: Request, **params: object) -> RedirectResponse:
+    """Build a 303 redirect to the index carrying banner query parameters.
+
+    :param request: the incoming request, so the URL is correct under the ``/ropa``
+        mount prefix.
+    :param params: query parameters for the index banner (``imported`` / ``error``).
+    :returns: the redirect response.
+    """
+    url = request.url_for("index").include_query_params(**params)
+    return RedirectResponse(url=str(url), status_code=303)
+
+
 # ----- READ -----
 
 
@@ -47,10 +64,19 @@ def index(request: Request) -> HTMLResponse:
     """List every processing activity in the register.
 
     :param request: the incoming request (required by the template engine).
-    :returns: the rendered activity list.
+    :returns: the rendered activity list, with an optional banner after a redirect
+        (``?imported=N`` on a successful import, ``?error=…`` on failure).
     """
     activities = get_repository().load()
-    return _TEMPLATES.TemplateResponse(request, "index.html", {"activities": activities})
+    return _TEMPLATES.TemplateResponse(
+        request,
+        "index.html",
+        {
+            "activities": activities,
+            "imported": request.query_params.get("imported"),
+            "error": request.query_params.get("error"),
+        },
+    )
 
 
 @app.get("/activity/{activity_id}", response_class=HTMLResponse)
@@ -124,3 +150,67 @@ def confirm_macro_submit(
         raise HTTPException(status_code=404, detail=f"unknown macro category: {macro_id}") from None
     url = request.url_for("activity_detail", activity_id=activity_id)
     return RedirectResponse(url=str(url), status_code=303)
+
+
+# ----- IMPORT / DELETE -----
+
+
+@app.post("/import")
+async def import_ropa(
+    request: Request,
+    file: UploadFile = File(...),
+    mapper: str = Form("dictionary"),
+    replace: bool = Form(False),
+) -> RedirectResponse:
+    """Import a ROPA workbook uploaded from the browser (block B1).
+
+    The browser's native file picker runs on the client; the file is uploaded here
+    as bytes, so the container never touches the client filesystem. The bytes are
+    written to a temporary file and fed to the existing ingestion pipeline
+    (:func:`~pii_detection.ropa.ingestion.pipeline.ingest_file`), then the selected
+    mapper resolves the declared categories
+    (:func:`~pii_detection.ropa.ingestion.pipeline.map_categories`).
+
+    :param request: the incoming request, for building the redirect URL.
+    :param file: the uploaded ``.ods``/``.xlsx`` register.
+    :param mapper: ``"none"`` to skip, or a mapper name
+        (``dictionary``/``llm``/``hybrid``) to resolve categories after ingesting;
+        defaults to ``dictionary``.
+    :param replace: if ``True``, wipe the register before importing (destructive);
+        otherwise add to it, which fails if an activity id already exists.
+    :returns: a 303 redirect to the index, with an ``?imported=N`` or ``?error=…``
+        banner.
+    :raises HTTPException: 400 if the file is not an ``.ods``/``.xlsx``.
+    """
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in {".ods", ".xlsx"}:
+        raise HTTPException(status_code=400, detail="carica un file .ods o .xlsx")
+    data = await file.read()
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    db_url = str(get_repository().engine.url)
+    try:
+        activities = ingest_file(tmp_path, db_url, replace=replace)
+        if mapper != "none":
+            map_categories(get_repository(), build_mapper(mapper))
+    except IntegrityError:
+        return _redirect_index(
+            request, error="Esistono già trattamenti con questi id: usa «sostituisci»."
+        )
+    finally:
+        os.unlink(tmp_path)
+    return _redirect_index(request, imported=len(activities))
+
+
+@app.post("/activity/{activity_id}/delete")
+def delete_activity_submit(request: Request, activity_id: str) -> RedirectResponse:
+    """Delete a single processing activity from the register (block B1).
+
+    :param request: the incoming request, for building the redirect URL.
+    :param activity_id: identifier of the activity to delete; an unknown id is a
+        no-op.
+    :returns: a 303 redirect back to the index.
+    """
+    get_repository().delete_activity(activity_id)
+    return RedirectResponse(url=str(request.url_for("index")), status_code=303)

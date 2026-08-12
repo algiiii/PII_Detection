@@ -331,6 +331,26 @@ def build_llm_category_mapper(
     )
 
 
+def build_mapper(kind: str) -> CategoryMapper:
+    """Build the category mapper selected by name.
+
+    Single source of the ``dictionary``/``llm``/``hybrid`` selection, shared by the
+    ingestion CLI and the ROPA web import, so both offer the same choices.
+
+    :param kind: ``"dictionary"`` (deterministic, AI off), ``"llm"`` (the local
+        model alone, no fallback), or ``"hybrid"`` (model with dictionary fallback).
+    :returns: the corresponding mapper.
+    :raises ValueError: if ``kind`` is not one of the three known names.
+    """
+    if kind == "dictionary":
+        return build_dictionary_mapper()
+    if kind == "llm":
+        return build_llm_category_mapper(use_fallback=False)
+    if kind == "hybrid":
+        return build_llm_category_mapper(use_fallback=True)
+    raise ValueError(f"unknown mapper: {kind!r}")
+
+
 __all__ = [
     "MappedCategory",
     "CategoryMapper",
@@ -340,4 +360,5 @@ __all__ = [
     "build_dictionary_mapper",
     "LLMCategoryMapper",
     "build_llm_category_mapper",
+    "build_mapper",
 ]
