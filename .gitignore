@@ -242,15 +242,12 @@ doc/latex_build/
 # Vari
 *.md
 
-# Generated example ROPA workbooks (reproducible via examples/ropa/demo.py)
-examples/ropa/*.ods
-examples/ropa/*.xlsx
-
 # Generated detection corpus (reproducible via evaluation.corpus_generator)
 pii_detection/evaluation/documents_generated/
 
-# Local sample folder for scan_folder demos (copied from the generated corpus)
-campione/
+# Local sample & demo data: scan documents (corpus/documents/) + example ROPA
+# workbooks (corpus/ropa/, generated via examples/ropa/demo.py). Disposable.
+corpus/
 
 # Runtime SQLite databases — canonical store is data/ (never versioned).
 # The data/ dir itself is kept (data/.gitkeep); its DB contents are ignored.

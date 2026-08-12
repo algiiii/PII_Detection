@@ -7,6 +7,4 @@ pii_detection/docs/_build/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-examples/ropa/*.ods
-examples/ropa/*.xlsx
 *.db

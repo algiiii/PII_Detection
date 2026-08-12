@@ -140,7 +140,7 @@ def show(path: Path, kind: str) -> None:
 
 
 def main() -> None:
-    """Generate both workbooks next to this script and run the demo on each."""
+    """Generate both workbooks into ``corpus/ropa/`` and run the demo on each."""
     parser = argparse.ArgumentParser(description="Generate example ROPA workbooks and map them.")
     parser.add_argument(
         "--mapper",
@@ -150,7 +150,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ods, xlsx = HERE / "ropa_aziendale.ods", HERE / "ropa_aziendale.xlsx"
+    target = HERE.parents[1] / "corpus" / "ropa"  # repo-root/corpus/ropa (gitignored)
+    target.mkdir(parents=True, exist_ok=True)
+    ods, xlsx = target / "ropa_aziendale.ods", target / "ropa_aziendale.xlsx"
     write_ods(ods)
     write_xlsx(xlsx)
     print(f"generati:\n  {ods}\n  {xlsx}")

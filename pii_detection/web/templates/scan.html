@@ -3,13 +3,13 @@
 {% block content %}
   <h1>Scansiona una cartella</h1>
   <p class="muted">
-    Indica un percorso sul server (dentro il container, es. <code>/app/campione</code>).
+    Indica un percorso sul server (dentro il container, es. <code>/app/corpus/documents</code>).
     La scansione è <strong>ricorsiva</strong> (sotto-cartelle incluse). Prima di avviarla
     vedrai l'anteprima dei file coinvolti.
   </p>
   <form method="get" action="{{ url_for('scan_preview') }}" class="stack">
     <label>Percorso della cartella
-      <input type="text" name="path" placeholder="/app/campione" required style="width:100%">
+      <input type="text" name="path" placeholder="/app/corpus/documents" required style="width:100%">
     </label>
     <label class="checks-inline">
       <input type="checkbox" name="gliner" value="true"> Usa GLiNER (NER migliore; solo container)
