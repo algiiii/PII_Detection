@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Regole di associazione{% endblock %}
+{% block content %}
+  <h1>Regole cartella → trattamento</h1>
+  <p class="muted">Associa una cartella (per prefisso di percorso) a uno o più trattamenti:
+    ogni documento sotto quel percorso eredita l'associazione, i file nuovi inclusi alla
+    prossima scansione. L'associazione fatta a mano su un documento ha la precedenza.</p>
+
+  {% if applied %}
+    <div class="card"><span class="badge ok">regole applicate</span>
+      {{ applied.associated }} associati · {{ applied.skipped_manual }} manuali tenuti ·
+      {{ applied.unmatched }} senza regola</div>
+  {% endif %}
+
+  <h2>Regole attive</h2>
+  {% if rows %}
+    <table>
+      <thead><tr><th>Prefisso</th><th>Trattamenti</th><th>Documenti</th><th></th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td><code>{{ row.prefix or "/ (radice)" }}</code></td>
+            <td>{% for name in row.activity_names %}<span class="tag">{{ name }}</span>{% endfor %}</td>
+            <td class="muted">{{ row.matched }}</td>
+            <td>
+              <form method="post" action="{{ url_for('delete_rule') }}">
+                <input type="hidden" name="prefix" value="{{ row.prefix }}">
+                <button type="submit" class="btn" style="background:#991b1b;border-color:#991b1b">Elimina</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <form method="post" action="{{ url_for('apply_rules') }}" style="margin-top:.8rem">
+      <button type="submit">Applica regole ora</button>
+    </form>
+  {% else %}
+    <p class="muted">Nessuna regola. Aggiungine una qui sotto.</p>
+  {% endif %}
+
+  <h2>Aggiungi regola</h2>
+  <form method="post" action="{{ url_for('create_rule') }}">
+    <p><label>Prefisso cartella<br>
+      <input type="text" name="prefix"
+        placeholder="es. HR/contratti  (vuoto = radice, tutti i documenti)"
+        style="width:100%;max-width:480px;padding:.4rem"></label></p>
+    <p class="muted">Trattamenti da associare (uno o più):</p>
+    <div class="checks">
+      {% for a in activities %}
+        <label><input type="checkbox" name="activity_ids" value="{{ a.id }}"> {{ a.name }} <span class="muted">({{ a.id }})</span></label>
+      {% else %}
+        <span class="muted">Nessun trattamento nel ROPA — ingerisci prima un registro.</span>
+      {% endfor %}
+    </div>
+    <button type="submit">Salva regola</button>
+  </form>
+{% endblock %}

@@ -15,6 +15,7 @@ from pii_detection.detection.types import (
     TextSpan,
 )
 from pii_detection.registry.repository import PIIRepository
+from pii_detection.registry.types import AssociationSource
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.types import (
     DeclaredCategory,
@@ -116,3 +117,20 @@ def test_ropa_review_is_mounted(client: TestClient) -> None:
     resp = client.get("/ropa/")
     assert resp.status_code == 200
     assert "Gestione del personale" in resp.text
+
+
+def test_rules_page_lists_activities(client: TestClient) -> None:
+    body = client.get("/rules").text
+    assert "Gestione del personale" in body  # ROPA activity offered for a rule
+
+
+def test_create_rule_and_apply_associates_document(client: TestClient, tmp_path: Path) -> None:
+    created = client.post("/rules", data={"prefix": "", "activity_ids": ["payroll"]})
+    assert created.status_code == 200  # followed the 303 back to /rules
+    assert client.post("/rules/apply").status_code == 200
+
+    registry = PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}")
+    document = registry.get_document("doc")
+    assert document is not None
+    assert document.activity_ids == ["payroll"]
+    assert document.association_source is AssociationSource.RULE

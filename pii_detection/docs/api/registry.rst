@@ -6,7 +6,7 @@ delta-based changelog, storing only references and never the values
 (minimization). Population and the re-scan delta are both implemented.
 
 Data model (``registry.types``)
--------------------------------
+----------------------------------------
 
 .. automodule:: pii_detection.registry.types
    :members:
@@ -20,7 +20,7 @@ Folder rules (``registry.folder_rules``)
    :member-order: bysource
 
 Delta (``registry.diff``)
--------------------------
+----------------------------------------
 
 .. automodule:: pii_detection.registry.diff
    :members:

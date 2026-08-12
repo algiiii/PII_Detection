@@ -206,5 +206,88 @@ def scan_status(request: Request, job_id: str) -> HTMLResponse:
     return _TEMPLATES.TemplateResponse(request, "scan_status.html", {"job": job})
 
 
+@app.get("/rules", response_class=HTMLResponse)
+def rules_page(request: Request) -> HTMLResponse:
+    """List the folder→activity rules and the form to add one (block B6).
+
+    Shows, for each rule, how many currently-recorded documents it matches, and —
+    after an ``/rules/apply`` — a one-line summary carried over the redirect.
+
+    :param request: the incoming request.
+    :returns: the rendered rules page.
+    """
+    registry = get_registry()
+    activities = get_ropa().load()
+    names = {activity.id: activity.name for activity in activities}
+    document_ids = [document.document_id for document in registry.documents()]
+    rows = [
+        {
+            "prefix": rule.prefix,
+            "activity_names": [names.get(a, a) for a in rule.activity_ids],
+            "matched": sum(1 for document_id in document_ids if rule.matches(document_id)),
+        }
+        for rule in registry.folder_rules()
+    ]
+    applied = None
+    if "associated" in request.query_params:
+        applied = {
+            "associated": request.query_params.get("associated"),
+            "skipped_manual": request.query_params.get("skipped_manual"),
+            "unmatched": request.query_params.get("unmatched"),
+        }
+    return _TEMPLATES.TemplateResponse(
+        request, "rules.html", {"rows": rows, "activities": activities, "applied": applied}
+    )
+
+
+@app.post("/rules")
+def create_rule(
+    request: Request, prefix: str = Form(""), activity_ids: list[str] = Form([])
+) -> RedirectResponse:
+    """Create or update a folder→activity rule (upsert by prefix, block B6).
+
+    :param request: the incoming request, for building the redirect URL.
+    :param prefix: the folder prefix (normalized by the repository); an empty
+        prefix is the root and matches every document.
+    :param activity_ids: the activities ticked on the form; an empty selection is
+        a no-op.
+    :returns: a 303 redirect back to the rules page.
+    """
+    if activity_ids:
+        get_registry().save_rule(prefix, activity_ids)
+    return RedirectResponse(url=str(request.url_for("rules_page")), status_code=303)
+
+
+@app.post("/rules/delete")
+def delete_rule(request: Request, prefix: str = Form(...)) -> RedirectResponse:
+    """Delete a folder→activity rule by prefix (block B6).
+
+    :param request: the incoming request, for building the redirect URL.
+    :param prefix: the prefix of the rule to delete.
+    :returns: a 303 redirect back to the rules page.
+    """
+    get_registry().delete_rule(prefix)
+    return RedirectResponse(url=str(request.url_for("rules_page")), status_code=303)
+
+
+@app.post("/rules/apply")
+def apply_rules(request: Request) -> RedirectResponse:
+    """Apply the folder rules to the whole registry now (block B6).
+
+    Manual associations are preserved (manual wins); the counts are carried back
+    to the rules page as query parameters for a one-line summary.
+
+    :param request: the incoming request, for building the redirect URL.
+    :returns: a 303 redirect back to the rules page, with the apply summary.
+    """
+    applied = get_registry().apply_folder_rules()
+    url = request.url_for("rules_page").include_query_params(
+        associated=applied.associated,
+        skipped_manual=applied.skipped_manual,
+        unmatched=applied.unmatched,
+    )
+    return RedirectResponse(url=str(url), status_code=303)
+
+
 # The ROPA review (block B1) is reachable under /ropa on the same port.
 app.mount("/ropa", ropa_app)

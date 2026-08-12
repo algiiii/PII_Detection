@@ -46,6 +46,9 @@
   {% endif %}
 
   <h2>Associazione ai trattamenti</h2>
+  {% if document.association_source %}
+    <p><span class="badge info">{{ "associazione manuale" if document.association_source.value == "manual" else "associazione da regola" }}</span></p>
+  {% endif %}
   <form method="post" action="{{ url_for('assign_document', document_id=document.document_id) }}">
     <p class="muted">A quali trattamenti dichiarati appartiene questo documento? (uno o più)</p>
     <div class="checks">

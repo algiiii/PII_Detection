@@ -24,6 +24,12 @@
         <p style="margin:.6rem 0 .2rem"><strong>Inventario PII</strong></p>
         <div>{% for pii_type, count in r.by_type|dictsort %}<span class="tag">{{ pii_type }} × {{ count }}</span>{% endfor %}</div>
       {% endif %}
+      {% if job.rules_applied %}
+        {% set ra = job.rules_applied %}
+        <p class="muted" style="margin-top:.6rem">Regole applicate:
+          {{ ra.associated }} associati · {{ ra.skipped_manual }} manuali tenuti ·
+          {{ ra.unmatched }} senza regola</p>
+      {% endif %}
     </div>
     <p><a class="btn" href="{{ url_for('documents') }}">Vai alla dashboard</a></p>
   {% endif %}

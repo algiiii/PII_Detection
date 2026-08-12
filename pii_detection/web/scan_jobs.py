@@ -13,6 +13,7 @@ import uuid
 from dataclasses import dataclass
 
 from pii_detection.detection.protocol import PIIDetector
+from pii_detection.registry.folder_rules import ApplyRulesResult
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.scan_folder import FolderScanResult, ingest_folder
 
@@ -28,6 +29,7 @@ class ScanJob:
     :ivar done: files processed so far.
     :ivar total: files to process.
     :ivar result: the summary once finished, else ``None``.
+    :ivar rules_applied: folder-rule application summary once finished, else ``None``.
     :ivar error: the error message on failure, else ``None``.
     """
 
@@ -38,6 +40,7 @@ class ScanJob:
     done: int = 0
     total: int = 0
     result: FolderScanResult | None = None
+    rules_applied: ApplyRulesResult | None = None
     error: str | None = None
 
 
@@ -87,11 +90,14 @@ def _run(job: ScanJob) -> None:
 
     try:
         pattern, ner = _build_detectors(job.use_gliner)
+        repository = PIIRepository()
         result = ingest_folder(
-            job.folder, pattern, ner, repository=PIIRepository(), progress=_progress
+            job.folder, pattern, ner, repository=repository, progress=_progress
         )
+        applied = repository.apply_folder_rules()
         with _LOCK:
             job.result = result
+            job.rules_applied = applied
             job.state = "done"
     except Exception as exc:  # noqa: BLE001 — surface any failure on the status page
         with _LOCK:

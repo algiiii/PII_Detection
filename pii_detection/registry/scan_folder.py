@@ -182,13 +182,22 @@ def main(argv: list[str] | None = None) -> None:
         action="store_false",
         help="do not mark documents gone from the folder as removed",
     )
+    parser.add_argument(
+        "--no-apply-rules",
+        dest="apply_rules",
+        action="store_false",
+        help="do not apply folder→activity rules after the scan",
+    )
     args = parser.parse_args(argv)
     # Lazy import: pulls Presidio only when actually running the scan. Detectors are
     # built once here and reused across every file (GLiNER is expensive to load).
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
-    result = ingest_folder(args.folder, pattern, ner, prune=args.prune)
+    repository = PIIRepository()
+    result = ingest_folder(
+        args.folder, pattern, ner, repository=repository, prune=args.prune
+    )
 
     print(f"Scanned {result.scanned} documents in '{args.folder}'.")
     if result.skipped:
@@ -206,6 +215,12 @@ def main(argv: list[str] | None = None) -> None:
         print(f"\nPII inventory ({total} across the folder):")
         for pii_type, count in sorted(result.by_type.items()):
             print(f"  {pii_type:<16} {count}")
+    if args.apply_rules:
+        applied = repository.apply_folder_rules()
+        print(
+            f"\nFolder rules applied: {applied.associated} associated, "
+            f"{applied.skipped_manual} kept manual, {applied.unmatched} unmatched."
+        )
 
 
 if __name__ == "__main__":

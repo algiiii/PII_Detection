@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 import pii_detection.web.scan_jobs as scan_jobs
 from pii_detection.detection.types import DetectorKind, PIICandidate
+from pii_detection.registry.repository import PIIRepository
 from pii_detection.web.app import app
 from pii_detection.web.scan_jobs import get_job
 
@@ -82,3 +83,24 @@ def test_run_starts_background_job_and_completes(client: TestClient, tmp_path: P
 
 def test_status_unknown_job_is_404(client: TestClient) -> None:
     assert client.get("/scan/status/nope").status_code == 404
+
+
+def test_run_applies_folder_rules(client: TestClient, tmp_path: Path) -> None:
+    folder = _make_tree(tmp_path)
+    registry = PIIRepository()  # same PII_DB_URL as the client fixture
+    registry.save_rule("", ["catch_all"])  # root prefix matches every document
+
+    resp = client.post("/scan/run", data={"path": str(folder)})
+    job_id = resp.url.path.rsplit("/", 1)[-1]
+    for _ in range(100):
+        job = get_job(job_id)
+        if job is not None and job.state != "running":
+            break
+        time.sleep(0.05)
+
+    job = get_job(job_id)
+    assert job is not None and job.state == "done"
+    assert job.rules_applied is not None
+    assert job.rules_applied.associated == 2  # both scanned docs matched the root rule
+    doc = registry.get_document("a.txt")
+    assert doc is not None and doc.activity_ids == ["catch_all"]
