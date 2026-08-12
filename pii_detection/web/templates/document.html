@@ -16,7 +16,7 @@
           <span class="badge bad">NON CONFORME</span>
         {% endif %}
       </div>
-      <p style="margin:.5rem 0 .2rem"><strong>Orfane</strong> <span class="muted">(rilevate, non dichiarate)</span></p>
+      <p style="margin:.5rem 0 .2rem"><strong>Non coperte</strong> <span class="muted">(rilevate, non dichiarate)</span></p>
       <div>{% for t in report.orphan %}<span class="badge bad">{{ t }}</span> {% else %}<span class="muted">nessuna</span>{% endfor %}</div>
       <p style="margin:.5rem 0 .2rem"><strong>Coperte</strong> <span class="muted">(rilevate e dichiarate)</span></p>
       <div>{% for t in report.covered %}<span class="tag">{{ t }}</span>{% else %}<span class="muted">nessuna</span>{% endfor %}</div>
@@ -64,6 +64,12 @@
 
   <h2>PII rilevate <span class="muted">({{ instances|length }})</span></h2>
   <p class="muted">Il registro conserva solo riferimenti (tipo, posizione, provenienza), mai il valore della PII.</p>
+  <p class="muted" style="margin:.2rem 0 .6rem">
+    Stato di conformità di ogni PII:
+    <span class="badge ok">coperta</span> rilevata <em>e</em> dichiarata dai trattamenti associati ·
+    <span class="badge bad">non coperta</span> rilevata ma <em>non</em> dichiarata (il rischio, art. 30) ·
+    <span class="muted">non valutabile</span> documento non ancora associato.
+  </p>
   {% if instances %}
     <table>
       <thead>
@@ -72,7 +78,7 @@
           <th>Posizione</th>
           <th>Conferma</th>
           <th>Sorgenti</th>
-          <th>Trattamento</th>
+          <th>Conformità</th>
         </tr>
       </thead>
       <tbody>
@@ -83,8 +89,9 @@
             <td>{{ i.confirmation_level }}</td>
             <td class="muted">{{ i.sources|join(", ") }}</td>
             <td>
-              {% if i.processing_activity_id %}<span class="tag">{{ i.processing_activity_id }}</span>
-              {% else %}<span class="badge bad">orfana</span>{% endif %}
+              {% if report is none %}<span class="muted">non valutabile</span>
+              {% elif i.pii_type in report.covered %}<span class="badge ok">coperta</span>
+              {% else %}<span class="badge bad">non coperta</span>{% endif %}
             </td>
           </tr>
         {% endfor %}

@@ -119,6 +119,12 @@ def test_ropa_review_is_mounted(client: TestClient) -> None:
     assert "Gestione del personale" in resp.text
 
 
+def test_document_detail_has_coverage_legend_and_column(client: TestClient) -> None:
+    body = client.get("/document/doc").text
+    assert "Conformità" in body  # the per-instance coverage column
+    assert "il rischio, art. 30" in body  # the coverage legend (orphan entry)
+
+
 def test_rules_page_lists_activities(client: TestClient) -> None:
     body = client.get("/rules").text
     assert "Gestione del personale" in body  # ROPA activity offered for a rule
