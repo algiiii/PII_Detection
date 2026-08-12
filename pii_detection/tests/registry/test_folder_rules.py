@@ -1,9 +1,10 @@
-"""Unit tests for folder→activity rule matching (block B6, pure logic)."""
-
 from __future__ import annotations
 
+from pathlib import Path
+
 from pii_detection.registry.folder_rules import ApplyRulesResult, match_activities
-from pii_detection.registry.types import FolderRule
+from pii_detection.registry.repository import PIIRepository
+from pii_detection.registry.types import AssociationSource, FolderRule
 
 
 def _rule(prefix: str, *activity_ids: str) -> FolderRule:
@@ -40,3 +41,54 @@ def test_match_activities_empty_when_no_rule_matches() -> None:
 def test_apply_rules_result_defaults_to_zero() -> None:
     result = ApplyRulesResult()
     assert (result.associated, result.skipped_manual, result.unmatched) == (0, 0, 0)
+
+def _registry(tmp_path: Path) -> PIIRepository:
+    return PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}")
+
+
+def test_apply_rules_associates_matching_documents(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.record_scan("HR/contratti/mario.pdf", [])
+    registry.record_scan("finance/report.pdf", [])
+    registry.save_rule("HR", ["payroll"])
+
+    result = registry.apply_folder_rules()
+
+    assert (result.associated, result.unmatched, result.skipped_manual) == (1, 1, 0)
+    doc = registry.get_document("HR/contratti/mario.pdf")
+    assert doc is not None
+    assert doc.activity_ids == ["payroll"]
+    assert doc.association_source is AssociationSource.RULE
+
+
+def test_apply_rules_skips_manual_association(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.record_scan("HR/mario.pdf", [])
+    registry.assign_activities("HR/mario.pdf", ["chosen_by_hand"])  # MANUAL
+
+    registry.save_rule("HR", ["payroll"])
+    result = registry.apply_folder_rules()
+
+    assert result.skipped_manual == 1
+    doc = registry.get_document("HR/mario.pdf")
+    assert doc is not None
+    assert doc.activity_ids == ["chosen_by_hand"]  # manual wins
+    assert doc.association_source is AssociationSource.MANUAL
+
+
+def test_save_rule_upserts_and_normalizes_prefix(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.save_rule("HR/", ["payroll"])       # trailing slash normalized away
+    registry.save_rule("HR", ["payroll", "hr"])  # same rule, updated in place
+
+    rules = registry.folder_rules()
+    assert len(rules) == 1
+    assert rules[0].prefix == "HR"
+    assert rules[0].activity_ids == ["payroll", "hr"]
+
+
+def test_delete_rule_removes_it(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.save_rule("HR", ["payroll"])
+    registry.delete_rule("HR")
+    assert registry.folder_rules() == []
