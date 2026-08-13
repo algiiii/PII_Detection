@@ -61,7 +61,25 @@ class PIIRepository:
         """
         url = url or os.environ.get("PII_DB_URL", "sqlite:///data/pii.db")
         self.engine = create_engine(url)
-        SQLModel.metadata.create_all(self.engine)
+        # Create only the registry tables: the SQLModel metadata is shared across
+        # the whole process, so an unfiltered create_all() would also materialize
+        # the ROPA tables (processing_activity/macro_category/declared_category) in
+        # this database. The two registers live in separate databases and share no
+        # physical foreign key.
+        metadata = SQLModel.metadata
+        metadata.create_all(
+            self.engine,
+            tables=[
+                metadata.tables[name]
+                for name in (
+                    "registry_document",
+                    "registry_scan",
+                    "registry_pii_instance",
+                    "registry_pii_change",
+                    "registry_folder_rule",
+                )
+            ],
+        )
 
     def record_scan(
         self,

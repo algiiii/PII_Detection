@@ -47,7 +47,18 @@ class ROPARepository:
         """
         url = url or os.environ.get("ROPA_DB_URL", "sqlite:///data/ropa.db")
         self.engine = create_engine(url)
-        SQLModel.metadata.create_all(self.engine)
+        # Create only the ROPA tables: the SQLModel metadata is shared across the
+        # whole process, so an unfiltered create_all() would also materialize the
+        # detected-PII registry tables (registry_*) in this ROPA database. The two
+        # registers live in separate databases and share no physical foreign key.
+        metadata = SQLModel.metadata
+        metadata.create_all(
+            self.engine,
+            tables=[
+                metadata.tables[name]
+                for name in ("processing_activity", "macro_category", "declared_category")
+            ],
+        )
         self.catalog = load_category_catalog(default_config_dir() / "categories.yaml")
 
     def save(self, to_be_saved: list[ProcessingActivity]) -> None:
