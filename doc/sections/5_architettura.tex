@@ -4,81 +4,6 @@
 \begin{figure}[htbp]
 	\centering
 	\begin{tikzpicture}[
-			node distance=2cm,
-			box/.style={rectangle, draw, rounded corners, minimum width=2.5cm, minimum height=1cm, text centered, font=\sffamily},
-			arrow/.style={thick,->,>=stealth}
-		]
-		% Nodi
-		\node[box, text width=3cm] (input) at (0, 0) {Acquisizione Input (File System)};
-		\node[box, text width=3cm] (estrazione) at (4.5, 0) {Estrazione Testo e Metadati};
-		\node[box, text width=3cm] (rilevamento) at (9, 0) {Rilevamento PII (NER + Regex)};
-
-		\node[box, text width=3cm] (ropa) at (0, -3) {Ingestione ROPA};
-		\node[box, text width=3cm] (confronto) at (4.5, -3) {Confronto e Anomalie};
-		\node[box, text width=3cm] (registro) at (9, -3) {Registro PII (Persistenza)};
-
-		\node[box, text width=3cm] (report) at (4.5, -6) {Report per DPO e Feedback Loop};
-
-		% Frecce
-		\draw[arrow] (input) -- (estrazione);
-		\draw[arrow] (estrazione) -- (rilevamento);
-		\draw[arrow] (rilevamento) -- (registro);
-
-		\draw[arrow] (ropa) -- (confronto);
-		\draw[arrow] (registro) -- (confronto);
-
-		\draw[arrow] (confronto) -- (report);
-		\draw[arrow, dashed] (report.east) -| (registro.south);
-	\end{tikzpicture}
-	\caption{Pipeline di esecuzione del sistema}
-	\label{fig:architettura-pipeline}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{tikzpicture}[
-			node distance=2cm,
-			layer/.style={rectangle, draw, rounded corners, minimum width=10cm, minimum height=1.5cm, text centered, font=\sffamily, fill=gray!10},
-			module/.style={rectangle, draw, rounded corners, minimum width=2.8cm, minimum height=1cm, text centered, font=\sffamily, fill=white},
-			arrow/.style={thick,->,>=stealth}
-		]
-
-		% Livello Interfaccia
-		\node[layer, fill=blue!10] (presentation) at (0, 0) {};
-		\node[anchor=north west, font=\sffamily\bfseries] at (presentation.north west) {Presentation Layer};
-		\node[module] (cli) at (-2, -0.1) {CLI / GUI Utente};
-		\node[module] (dashboard) at (2, -0.1) {Dashboard DPO};
-
-		% Livello Business Logic
-		\node[layer, fill=green!10, minimum height=3.5cm] (logic) at (0, -3.2) {};
-		\node[anchor=north west, font=\sffamily\bfseries] at (logic.north west) {Business Logic Layer};
-
-		\node[module] (ropa_mgr) at (-3, -2.5) {Manager ROPA};
-		\node[module] (orchestrator) at (0, -2.5) {Orchestratore};
-		\node[module] (compliance) at (3, -2.5) {Compliance \& Anomalie};
-
-		\node[module] (extractor) at (-3, -4) {Estrattore Testo / OCR};
-		\node[module] (ner) at (0, -4) {Motore Rilevamento (NER)};
-		\node[module] (report_gen) at (3, -4) {Generatore Report};
-
-		% Livello Dati
-		\node[layer, fill=orange!10] (data) at (0, -6.5) {};
-		\node[anchor=north west, font=\sffamily\bfseries] at (data.north west) {Data Access Layer};
-		\node[module] (fs) at (-2, -6.6) {File System (Doc / ROPA)};
-		\node[module] (db) at (2, -6.6) {Registro PII (DB / JSON)};
-
-		% Frecce / Relazioni tra livelli
-		\draw[thick, <->, >=stealth] (presentation.south) -- (logic.north);
-		\draw[thick, <->, >=stealth] (logic.south) -- (data.north);
-
-	\end{tikzpicture}
-	\caption{Suddivisione in moduli dell'architettura}
-	\label{fig:architettura-moduli}
-\end{figure}
-
-\begin{figure}[htbp]
-	\centering
-	\begin{tikzpicture}[
 			block/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
 					minimum height=1cm, align=center, fill=blue!8, font=\small},
 			onetime/.style={rectangle, draw, dashed, rounded corners, minimum width=3.6cm,
@@ -127,7 +52,7 @@
 		\draw [arrow] (b1.west) -- ++(-1.2,0) |- (b7.west);
 
 	\end{tikzpicture}
-	\caption{Architettura a macro-blocchi del sistema (bozza)}
+	\caption{Architettura a macro-blocchi del sistema}
 	\label{fig:architettura-macro-blocchi}
 \end{figure}
 
@@ -275,7 +200,7 @@ Il blocco B1 della Figura~\ref{fig:architettura-macro-blocchi} acquisisce il ROP
 
 L'ingestione del ROPA ammette due strategie agli estremi opposti. Nella prima la \textbf{struttura dati è definita a monte}: il sistema impone uno schema noto e l'ingestione lo popola in modo deterministico a partire da un ROPA già compilato. Nella seconda, \textbf{totalmente agentica}, i documenti del ROPA vengono forniti così come sono a un modello generativo, delegando a esso l'individuazione della struttura --- l'approccio «si immettono i documenti e si osserva cosa emerge».
 
-Si adotta la prima. Un registro dei trattamenti è un \textit{artefatto di conformità}: la sua affidabilità e la sua auditabilità non possono dipendere da una strutturazione inferita, potenzialmente allucinata e non riproducibile. Uno schema esplicito garantisce inoltre che il modello sia interrogabile in modo prevedibile dal blocco di confronto (B7) e mantenibile nel tempo. L'AI non viene esclusa, ma \textbf{circoscritta} a un ruolo di arricchimento su un singolo campo (§\ref{sub:ropa-ai}); ciò è coerente con l'uso selettivo dell'AI già previsto per il blocco B1 nella Figura~\ref{fig:archite ttura-macro-blocchi}.
+Si adotta la prima. Un registro dei trattamenti è un \textit{artefatto di conformità}: la sua affidabilità e la sua auditabilità non possono dipendere da una strutturazione inferita, potenzialmente allucinata e non riproducibile. Uno schema esplicito garantisce inoltre che il modello sia interrogabile in modo prevedibile dal blocco di confronto (B7) e mantenibile nel tempo. L'AI non viene esclusa, ma \textbf{circoscritta} a un ruolo di arricchimento su un singolo campo (§\ref{sub:ropa-ai}); ciò è coerente con l'uso selettivo dell'AI già previsto per il blocco B1 nella Figura~\ref{fig:architettura-macro-blocchi}.
 
 \subsection{Il registro-tipo CNIL come schema di riferimento}
 \label{sub:ropa-cnil}
@@ -298,31 +223,67 @@ Il modello CNIL è organizzato per \textit{attività di trattamento}: una scheda
 \subsection{Normalizzazione in un modello relazionale}
 \label{sub:ropa-modello}
 
-La scheda CNIL è \textit{denormalizzata} --- un foglio piatto per trattamento. Il modello interno la normalizza attorno all'entità \texttt{ProcessingActivity}, già introdotta nel §\ref{sub:persistenza-modello-dati}, con i suoi campi scalari (nome, finalità, base giuridica, titolare, DPO) e un insieme di entità collegate in relazione 1--N: \texttt{DataSubjectCategory}, \texttt{DataCategory}, \texttt{Recipient}, \texttt{ThirdCountryTransfer}, \texttt{Retention} (tipicamente per categoria di dato) e \texttt{SecurityMeasure}. Si aggiunge un'entità non prevista esplicitamente dalla scheda CNIL ma necessaria al sistema, \texttt{InformationSystem}, che collega ogni trattamento ai sistemi e ai repository in cui i dati risiedono.
+La scheda CNIL è \textit{denormalizzata} --- un foglio piatto per trattamento --- e ricca di campi che il sistema non ha motivo di modellare. Poiché la verifica di conformità (B7) confronta le categorie di dati \textit{dichiarate} con quelle \textit{rilevate}, il modello interno conserva soltanto ciò che alimenta quel confronto --- l'identità del trattamento e le sue categorie di dati personali --- e scarta deliberatamente gli altri campi della scheda (attori, categorie di interessati, destinatari, trasferimenti verso Paesi terzi, misure di sicurezza). È una scelta \textbf{sottrattiva}: riduce la superficie da mantenere e da tenere allineata alla fonte, senza togliere nulla a ciò che il sistema deve poter verificare.
 
-Due collegamenti fanno del ROPA non un semplice archivio, ma il riferimento operativo del sistema.
-\begin{enumerate}
-	\item \texttt{DataCategory} è messa in corrispondenza con il \textbf{catalogo delle categorie di PII} usato dal motore di rilevamento (blocco B4). Il ROPA dichiara così quali categorie un trattamento \textit{dovrebbe} contenere; il blocco B4 rileva quelle \textit{effettivamente} presenti nei documenti. Il confronto tra i due insiemi è ciò che alimenta la verifica di conformità (B7): da un lato le PII rilevate ma non dichiarate (\textit{orfane}, cfr. §\ref{sub:persistenza-modello-dati}), dall'altro le categorie dichiarate ma mai riscontrate.
-	\item \texttt{InformationSystem} lega il trattamento ai documenti da analizzare, indicando al sistema \textit{dove} cercare e \textit{che cosa} attendersi.
-\end{enumerate}
+Ciò che resta viene normalizzato in una gerarchia a \textbf{tre livelli}, che ricalca l'organizzazione del registro CNIL:
+\begin{itemize}
+	\item \texttt{ProcessingActivity} (livello 1) --- l'identità del trattamento: un identificatore stabile, il nome e la finalità.
+	\item \texttt{DeclaredMacroCategory} (livello 2) --- un blocco di categorie di dato del registro (ad esempio «stato civile, identità»), con la relativa \textbf{durata di conservazione}. La conservazione vive a questo livello, non sul singolo dato: le categorie raccolte nel blocco la ereditano. Accanto al testo originale si conserva una durata in mesi \textit{calcolabile a macchina} (\texttt{retention\_months}), così la verifica «conservazione superata?» diventa un confronto e non una lettura di prosa.
+	\item \texttt{DeclaredCategory} (livello 3) --- la singola categoria dichiarata, il punto di aggancio al motore di rilevamento.
+\end{itemize}
+
+Un solo collegamento fa del ROPA il riferimento operativo del sistema, e non un semplice archivio. \texttt{DeclaredCategory} è messa in corrispondenza (relazione 1--N, tramite l'attributo \texttt{pii\_types}) con il \textbf{catalogo delle categorie di PII} usato dal motore di rilevamento (blocco B4). Il ROPA dichiara così quali categorie un trattamento \textit{dovrebbe} contenere; il blocco B4 rileva quelle \textit{effettivamente} presenti nei documenti. Il confronto tra i due insiemi è ciò che alimenta la verifica di conformità (B7): da un lato le PII rilevate ma non dichiarate (\textit{orfane}, cfr. §\ref{sub:persistenza-modello-dati}), dall'altro le categorie dichiarate ma mai riscontrate. Una categoria che non si risolve in alcun \texttt{pii\_type} (insieme vuoto) resta \textbf{esplicita} nel modello: è dichiarata ma non rilevabile dal motore, e come tale va segnalata al DPO invece di essere scambiata per conforme.
 
 \subsection{Ruolo circoscritto dell'AI: normalizzazione, non strutturazione}
 \label{sub:ropa-ai}
 
-La struttura viene popolata in modo \textbf{deterministico}: poiché un ROPA compilato secondo il modello CNIL ha colonne note, l'ingestione dei campi strutturati è un'operazione di parsing, senza AI. L'unico punto che richiede interpretazione è il campo \textbf{categorie di dati}, che nei registri reali è spesso redatto in linguaggio naturale e in modo sbrigativo (ad esempio «dati anagrafici, coordinate bancarie, contatti»). Qui l'AI interviene \textbf{una tantum e a livello di singolo campo}, per normalizzare ed espandere quel testo libero nelle categorie canoniche del catalogo di PII (ad esempio «coordinate bancarie» $\rightarrow$ \texttt{iban}; «dati anagrafici» $\rightarrow$ \texttt{person\_name}, \texttt{date\_of\_birth}, \texttt{italian\_id}). La mappatura proposta è sottoposta a \textbf{conferma del DPO} (\textit{human-in-the-loop}) prima di essere fissata.
+I livelli 1 e 2 vengono popolati in modo \textbf{deterministico}: poiché un ROPA compilato secondo il modello CNIL ha una struttura nota, leggere l'identità del trattamento, i blocchi di categorie e le durate di conservazione è un'operazione di parsing, senza AI. L'unico punto che richiede interpretazione è il passaggio al \textbf{livello 3}, cioè il contenuto dei blocchi di categorie, che nei registri reali è spesso redatto in linguaggio naturale e in modo sbrigativo (ad esempio «dati anagrafici, coordinate bancarie, contatti»). Qui l'AI interviene \textbf{una tantum e a livello di singolo campo}, per \textit{scindere} ed espandere quel testo libero nelle singole categorie e risolverle sulle voci canoniche del catalogo di PII (ad esempio «coordinate bancarie» $\rightarrow$ \texttt{iban}; «dati anagrafici» $\rightarrow$ \texttt{person\_name}, \texttt{date\_of\_birth}, \texttt{italian\_id}). L'AI opera \textbf{dentro un vocabolario chiuso e verificato}: ogni \texttt{pii\_type} proposto è validato contro il catalogo e gli identificatori sconosciuti vengono scartati, così il modello non può essere inquinato da un'allucinazione. La mappatura è marcata come \textit{proposta} (\texttt{MappingState.PROPOSED}) e sottoposta a \textbf{conferma del DPO} (\textit{human-in-the-loop}) prima di essere fissata (\texttt{CONFIRMED}).
 
 Questo confina l'AI a un compito circoscritto, verificabile e reversibile, coerente con la strategia di uso selettivo dell'AI adottata altrove nel sistema, senza cedere alla strutturazione agentica dell'intero documento.
 
 \subsection{Punti aperti di progettazione}
 \label{sub:ropa-punti-aperti}
 
-Come per la persistenza, alcune decisioni restano aperte e si riportano come lavoro in corso.
-
-\paragraph{Granularità della corrispondenza categorie--PII.} Va fissato se una categoria di dati del ROPA mappi su un singolo \texttt{pii\_type} o su un insieme: nella pratica una voce sbrigativa («dati anagrafici») corrisponde quasi sempre a più categorie canoniche, il che suggerisce una relazione 1--N da formalizzare.
+Sul modello del ROPA, a differenza di quello della persistenza, alcune decisioni restano tuttora aperte e si riportano qui come lavoro in corso.
 
 \paragraph{Allineamento nLPD--GDPR.} Il modello parte dai campi CNIL (impianto GDPR); vanno annotate le differenze rilevanti dell'art.~12 LPD, in particolare le soglie e le eccezioni previste per le piccole e medie imprese, che incidono su quali trattamenti debbano comparire nel registro.
 
 \paragraph{ROPA non strutturato.} Il modello assume un registro già compilato in forma tabellare. Il caso di un ROPA fornito come testo libero (non nel formato CNIL) richiederebbe un passo di strutturazione più invasivo: va deciso se supportarlo e in che misura, restando entro il vincolo di non delegare all'AI la strutturazione complessiva.
+
+\section{Livello di estrazione del testo}
+\label{sec:estrazione-b3}
+
+Il blocco B3 trasforma un documento nel suo formato originale (PDF, Word, testo semplice) nella sequenza di testo normalizzato su cui opera il rilevamento. È il confine che disaccoppia i due mondi: a monte i formati eterogenei dei documenti aziendali, a valle un unico contratto testuale --- il \emph{documento normalizzato}, costituito dall'identificatore del documento e dal suo testo --- che B4 riceve senza dover conoscere il formato di provenienza (cfr.\ l'ingresso «Testo normalizzato» nella Figura~\ref{fig:b4-detection-pipeline}).
+
+\paragraph{Uno scope a stadi.} L'estrazione affronta per prima la classe di documenti \emph{born-digital}, quelli in cui il testo è già rappresentato come tale (PDF nativi, file Word): qui la lettura è diretta e priva di rumore. Restano fuori, come estensione pianificata e non come limite dell'impianto, due casi più onerosi: i documenti \emph{scansionati}, che richiedono un passo di riconoscimento ottico dei caratteri (OCR), e i \emph{layout} complessi (tabelle, testo multicolonna), che richiedono una ricostruzione della struttura di pagina. Entrambi si innestano dietro lo stesso confine --- sostituendo o arricchendo l'estrattore senza toccare il livello di rilevamento --- e sono coperti da strumenti dedicati come Docling.
+
+\paragraph{Estrazione e rilevamento come \emph{concern} separati.} Tenere l'estrazione dietro un confine netto ha una conseguenza metodologica: la qualità dell'estrazione e quella del rilevamento si possono misurare \emph{separatamente}, attribuendo un eventuale errore all'uno o all'altro stadio. È una proprietà di cui la validazione del rilevamento (Cap.~\ref{cap:test}) si avvale per isolare il costo introdotto dal passaggio attraverso l'estrazione.
+
+\section{Livello di rilevamento ibrido delle PII}
+\label{sec:rilevamento-b4}
+
+Il blocco B4 della Figura~\ref{fig:architettura-macro-blocchi} è il motore di rilevamento vero e proprio: dato il testo già estratto e normalizzato dal blocco a monte, individua le PII presenti nel documento e le consegna, unificate, al registro (B5). È un livello \emph{ibrido}, che combina due tecniche indipendenti e complementari; la sua architettura interna è dettagliata nella Figura~\ref{fig:b4-detection-pipeline}.
+
+\subsection{Due sorgenti complementari dietro un contratto unico}
+\label{sub:b4-sorgenti}
+
+Le due tecniche coprono classi di PII diverse. Le \textbf{espressioni regolari} (pattern e, in prospettiva, verifica di \emph{checksum}) riconoscono gli \emph{identificatori strutturati} --- IBAN, codice fiscale, numero di carta, indirizzo IP --- dove la forma è rigida e la precisione può essere massima. Il \textbf{riconoscimento di entità nominate} (NER) copre invece i dati meno strutturati e dipendenti dal contesto --- nomi di persona, indirizzi --- dove nessuna regola fissa è sufficiente. Entrambe sono esposte al resto del sistema attraverso un unico contratto, \texttt{PIIDetector} (nella forma \texttt{detect(testo)} $\rightarrow$ lista di candidati): l'orchestrazione dipende solo da questa forma, non dalla tecnologia sottostante, così una sorgente può essere sostituita senza toccare il resto del livello (cfr. §\ref{sec:valutazione-presidio}).
+
+\subsection{Il merge: unificazione e grado di certezza}
+\label{sub:b4-merge}
+
+Le due sorgenti producono candidati in modo autonomo; il \emph{merge} li unifica in un unico insieme di PII, decidendone il grado di certezza in base a \emph{quante} e \emph{quali} sorgenti concordano su una stessa porzione di testo. Confrontando gli span per sovrapposizione, ogni PII risultante ricade in uno di quattro casi --- un vocabolario chiuso:
+
+\begin{itemize}
+	\item \textbf{Fonte singola} --- rilevata da una sola tecnica, senza sovrapposizioni. Non viene mai scartata (cfr.\ il principio \emph{recall-first} più sotto), ma etichettata come meno certa.
+	\item \textbf{Doppia conferma} --- pattern e NER concordano sullo stesso tipo di PII su span sovrapposti. È il caso più solido: la confidenza viene rinforzata.
+	\item \textbf{Conflitto} --- gli span si sovrappongono ma le due sorgenti assegnano tipi diversi. Il merge \textbf{non arbitra}: conserva entrambe le ipotesi e demanda la risoluzione al blocco a valle, che dispone di più contesto.
+	\item \textbf{Scoperta dall'AI} --- individuata dalla passata generativa selettiva (campionata), assente dalle altre sorgenti.
+\end{itemize}
+
+\paragraph{Principio recall-first.} Nessuna sorgente scarta di propria iniziativa un candidato debole: al più lo segnala con confidenza bassa. La ragione è la finalità di conformità del sistema: un falso positivo costa al DPO una verifica in più, mentre una PII \emph{mancata} è un rischio che resta invisibile. Il merge eredita questo principio --- non elimina, ma unifica e classifica --- lasciando ogni eventuale scarto a una decisione umana o a un blocco a valle.
+
+\paragraph{Un solo modello dato.} La PII unificata prodotta dal merge non richiede un modello dati intermedio: la sua \emph{certezza} è già descritta da tre attributi che essa porta con sé --- la confidenza (quanto è forte il rilevamento), il livello di conferma appena descritto, e l'elenco delle \emph{provenienze} (quali e quanti detector concordano, ciascuno con la propria confidenza). Mantenere questi campi sul singolo oggetto, invece di duplicarli in strutture parallele, conserva un'unica fonte di verità per la PII rilevata e ne preserva la tracciabilità verso il DPO.
 
 % ============================================================================
 % Zotero — fonti da IMPORTARE prima della compilazione (NON editare il .bib a mano).
@@ -451,22 +412,96 @@ Il modello che segue è \textit{technology-agnostic}: la scelta della tecnologia
 
 \texttt{PIIChange} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra». Comprende un identificatore, il riferimento all'\texttt{PIIInstance}, il \texttt{change\_type} (vocabolario chiuso, cfr. §\ref{sub:persistenza-punti-aperti}), il riferimento alla \texttt{Scan} che ha prodotto la variazione, il riferimento alla \texttt{previous\_scan} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}.
 
-Le relazioni tra le entità sono: \texttt{Document}~(1)--(N)~\texttt{PIIInstance} (\textit{contiene}); \texttt{PIIInstance}~(1)--(N)~\texttt{PIIChange} (\textit{ha storia}); \texttt{Scan}~(1)--(N)~\texttt{PIIChange} (\textit{genera}); \texttt{PIIInstance}~(N)--(0..1)~\texttt{ProcessingActivity} (\textit{corrisponde a}, con 0 = orfana).
+Le relazioni tra le entità sono: \texttt{Document}~(1)--(N)~\texttt{PIIInstance} (\textit{contiene}); \texttt{PIIInstance}~(1)--(N)~\texttt{PIIChange} (\textit{ha storia}); \texttt{Scan}~(1)--(N)~\texttt{PIIChange} (\textit{genera}); \texttt{PIIInstance}~(N)--(0..1)~\texttt{ProcessingActivity} (\textit{corrisponde a}, con 0 = orfana). La Figura~\ref{fig:er-registro-pii} ne dà una sintesi grafica.
 
-% TODO: inserire qui il diagramma ER in TikZ (entità PIIInstance, PIIChange,
-% Document, Scan, ProcessingActivity e relative relazioni), coerente con lo
-% stile di fig:architettura-macro-blocchi. Da produrre quando i punti aperti del
-% modello (§\ref{sub:persistenza-punti-aperti}) saranno risolti.
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			entity/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			ext/.style={rectangle, draw, dashed, rounded corners, minimum width=3.2cm,
+					minimum height=1cm, align=center, fill=gray!10, font=\small},
+			rel/.style={font=\footnotesize\itshape, fill=white, inner sep=1.5pt},
+			card/.style={font=\footnotesize},
+			link/.style={thick},
+		]
+		\node (doc)  [entity] at (0, 3)    {\texttt{Document}};
+		\node (inst) [entity] at (0, 0)    {\texttt{PIIInstance}};
+		\node (chg)  [entity] at (0, -3)   {\texttt{PIIChange}};
+		\node (scan) [entity] at (5, 0)    {\texttt{Scan}};
+		\node (act)  [ext]    at (-5.5, 0) {\texttt{ProcessingActivity}\\{\footnotesize(ROPA, B1)}};
 
-\subsection{Punti aperti di progettazione}
+		% Document (1)--(N) PIIInstance : contiene
+		\draw [link] (doc) -- node[card, pos=0.15, right]{1}
+			node[rel]{contiene} node[card, pos=0.85, right]{N} (inst);
+		% PIIInstance (1)--(N) PIIChange : ha storia
+		\draw [link] (inst) -- node[card, pos=0.15, right]{1}
+			node[rel]{ha storia} node[card, pos=0.85, right]{N} (chg);
+		% Document (1)--(N) Scan : osservato in
+		\draw [link] (doc) -- node[card, pos=0.15, above]{1}
+			node[rel, pos=0.55]{osservato in} node[card, pos=0.85, above]{N} (scan);
+		% Scan (1)--(N) PIIChange : genera
+		\draw [link] (scan) -- node[card, pos=0.15, below]{1}
+			node[rel, pos=0.55]{genera} node[card, pos=0.85, below]{N} (chg);
+		% PIIInstance (N)--(0..1) ProcessingActivity : corrisponde a
+		\draw [link] (inst) -- node[card, pos=0.15, above]{N}
+			node[rel]{corrisponde a} node[card, pos=0.85, above]{0..1} (act);
+		% Document (N)--(N) ProcessingActivity : appartiene a (associazione B6, N:N)
+		\draw [link, dashed] (doc) to[out=180, in=90]
+			node[card, pos=0.08, above]{N}
+			node[rel, pos=0.5]{appartiene a (B6)}
+			node[card, pos=0.92, left]{N} (act);
+	\end{tikzpicture}
+	\caption[Diagramma ER del registro delle PII rilevate]{Diagramma entità--relazione del registro delle PII rilevate (blocco B5): lo stato corrente (\texttt{PIIInstance}) e la sua storia (\texttt{PIIChange}), legati alle scansioni (\texttt{Scan}) e ai documenti (\texttt{Document}). I legami con \texttt{ProcessingActivity} del registro ROPA (tratteggiati, blocco B1) sono due: l'associazione \emph{documento--trattamento} (N:N, blocco B6), registrata su \texttt{Document.activity\_ids} con la sua provenienza (\texttt{association\_source}); e il riferimento \emph{per singola PII} (0..1) a un trattamento giustificante, la cui assenza segnala una PII \emph{orfana}, popolato dalla verifica di conformità (B7) a partire dall'associazione stessa. Non mostrata la tabella delle regole cartella→trattamento (\texttt{registry\_folder\_rule}, B6), che alimenta l'associazione per prefisso.}
+	\label{fig:er-registro-pii}
+\end{figure}
+
+\subsection{Risoluzione dei punti aperti di progettazione}
 \label{sub:persistenza-punti-aperti}
 
-Alcune decisioni sul modello restano deliberatamente aperte: vanno risolte prima di bloccarlo definitivamente e ciascuna ha un impatto concreto. Si riportano qui come lavoro in corso.
+In fase di progettazione alcune decisioni sul modello erano state lasciate deliberatamente aperte, ciascuna con un impatto concreto sul comportamento del registro. La realizzazione del blocco B5 le ha risolte come segue; le scelte sono documentate qui perché fanno parte del \emph{modello}, non solo della sua implementazione.
 
-\paragraph{Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova più un'istanza confermata in precedenza, sono possibili due strategie. Nella modalità \textbf{esplicita} il sistema scrive attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED}: è più corretta per un log autoesplicativo (l'assenza di un dato non dovrebbe richiedere conoscenza esterna per essere interpretata), ma impone a ogni scansione un confronto attivo con lo stato precedente del documento. Nella modalità \textbf{implicita} non si registra alcun evento di rimozione e lo stato «rimossa» si deduce confrontando l'ultima variazione dell'istanza con la data dell'ultima scansione del documento: più semplice, ma il changelog da solo non basta a spiegare l'accaduto. L'ipotesi preferita è quella esplicita, più solida e compatibile con l'opzione C (il confronto attivo fa comunque parte del meccanismo di rilevazione dei delta).
+\paragraph{Registrazione della «scomparsa» di una PII: esplicita.} Quando una scansione non ritrova più un'istanza confermata in precedenza, la registrazione poteva essere \textbf{implicita} --- nessun evento, con lo stato «rimossa» dedotto confrontando l'ultima variazione dell'istanza con la data dell'ultima scansione --- oppure \textbf{esplicita}. Si è adottata la modalità \textbf{esplicita}: l'istanza viene marcata come rimossa e si registra attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED}. È la scelta più solida per un log autoesplicativo --- l'assenza di un dato non deve richiedere conoscenza esterna per essere interpretata --- e non comporta costo aggiuntivo, poiché il confronto attivo con lo stato precedente fa comunque parte del meccanismo di rilevazione dei delta dell'opzione~C. L'istanza rimossa \emph{non} viene cancellata: la riga resta, così la storia non si perde.
 
-\paragraph{Significato dell'evento «modifica».} Poiché il registro non salva i valori effettivi delle PII, un evento di «modifica» non può riferirsi al cambiamento del \textit{contenuto} della PII, mai memorizzato. Può riferirsi solo al cambio di \textbf{posizione} nel documento (evento \texttt{MOVED}) o a una \textbf{riclassificazione} del tipo. L'ipotesi di lavoro è quindi di non prevedere un generico evento \texttt{MODIFIED}, ma di scomporlo in variazioni dal significato preciso.
+\paragraph{Significato dell'evento «modifica»: scomposto, nessun \texttt{MODIFIED}.} Poiché il registro non salva i valori effettivi delle PII, un evento di «modifica» non può riferirsi al cambiamento del \textit{contenuto}, mai memorizzato. Si è quindi deciso di \textbf{non} prevedere un generico evento \texttt{MODIFIED} e di scomporlo in variazioni dal significato preciso. Il solo spostamento nel documento, a parità di tipo, è un evento \texttt{MOVED}; un cambiamento di \emph{tipo}, invece, non è modellato come riclassificazione in loco, ma emerge come \texttt{REMOVED} dell'istanza precedente più \texttt{NEW} della nuova --- coerente con il modo in cui l'identità di un'istanza è approssimata (si veda il punto seguente).
 
-\paragraph{Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{change\_type} come enumerazione chiusa: \texttt{NEW} (istanza rilevata per la prima volta), \texttt{CONFIRMED} (istanza già nota, ritrovata invariata), \texttt{MOVED} (istanza già nota, ritrovata in posizione diversa) e \texttt{REMOVED} (istanza già nota, non più presente --- dipende dalla scelta sulla scomparsa). Un insieme chiuso elimina ambiguità nel modello e nel diagramma; resta da confermare se questo set è completo per tutti i casi d'uso previsti.
+\paragraph{Vocabolario chiuso dei tipi di variazione.} Il campo \texttt{change\_type} è formalizzato come enumerazione chiusa di quattro valori: \texttt{NEW} (istanza rilevata per la prima volta), \texttt{CONFIRMED} (istanza già nota, ritrovata invariata), \texttt{MOVED} (istanza già nota, ritrovata in posizione diversa) e \texttt{REMOVED} (istanza già nota, non più presente). Poiché il valore della PII non è memorizzato, l'\textbf{identità} di un'istanza fra due scansioni non può basarsi sul contenuto: viene approssimata da \texttt{pii\_type} più \textbf{prossimità di posizione} --- stesso tipo alla stessa posizione dà \texttt{CONFIRMED}, stesso tipo alla posizione più vicina dà \texttt{MOVED}. È questa regola pragmatica a dare un significato operativo a \texttt{MOVED} in assenza dei valori. L'insieme è completo per il changelog realizzato; un'eventuale estensione (ad esempio con l'arrivo dell'associazione ai trattamenti, B6) sarebbe un'evoluzione dell'enumerazione, non una sua ambiguità residua.
 
-\paragraph{Ambito dello snapshot iniziale.} Anche in un modello delta-based serve un punto di partenza: la prima scansione di un documento non ha una «scansione precedente». Va deciso come rappresentare il \textit{bootstrap} --- l'ipotesi è di registrare tutte le istanze della prima scansione come \texttt{NEW} con \texttt{previous\_scan} nullo. Ciò è coerente con quanto nota Kleppmann sul CDC, dove il processo parte comunque da uno snapshot iniziale che fa da riferimento per la successiva cattura dei delta~\cite{kleppmannDesigningDataIntensive2017}. !!!!!!!
+\paragraph{Ambito dello snapshot iniziale: prima scansione tutta \texttt{NEW}.} Anche un modello delta-based ha bisogno di un punto di partenza: la prima scansione di un documento non ha una «scansione precedente». Il \textit{bootstrap} è risolto registrando tutte le istanze della prima scansione come \texttt{NEW}, con \texttt{previous\_scan} nullo. Ciò è coerente con quanto nota Kleppmann sul CDC, dove il processo parte comunque da uno snapshot iniziale che fa da riferimento per la successiva cattura dei delta~\cite{kleppmannDesigningDataIntensive2017}.
+
+\section{Associazione e verifica di conformità}
+\label{sec:conformita}
+
+I blocchi B6 e B7 della Figura~\ref{fig:architettura-macro-blocchi} sono il punto in cui le due metà del sistema --- il \emph{dichiarato} (il ROPA, §\ref{sec:modello-ropa}) e il \emph{rilevato} (il registro delle PII, §\ref{sec:persistenza-registro}) --- si incontrano e producono il \textbf{verdetto di conformità}. Fino a questo punto il sistema sa, separatamente, quali categorie un trattamento \emph{dichiara} e quali PII un documento \emph{contiene}; è il confronto fra i due insiemi a trasformare un rilevatore di PII in uno strumento di \emph{governance}, ed è ciò che distingue il progetto dagli strumenti di sola rilevazione (§\ref{sec:sintesi-gap}).
+
+\subsection{Associazione documento--trattamento (B6)}
+\label{sub:b6-associazione}
+
+Il confronto ha senso solo rispetto a un termine di paragone: prima di chiedersi «questo documento è conforme?», bisogna sapere \emph{a quale trattamento} il documento appartiene. È il compito del blocco B6: associare un documento a una o più \texttt{ProcessingActivity} dichiarate.
+
+L'associazione è \textbf{esplicita} --- la stabilisce il DPO, non un'inferenza automatica --- e la scelta è metodologica, non di comodo. Un'associazione \emph{per contenuto}, che attribuisse il documento al trattamento i cui dati dichiarati somigliano di più a quelli rilevati, sarebbe \textbf{circolare}: sceglierebbe per costruzione il trattamento che rende il documento «il più conforme possibile», svuotando di senso la verifica successiva. L'associazione esplicita mantiene invece il confronto \textbf{onesto}: il trattamento è deciso da un umano, e B7 misura poi, senza sconti, ciò che quel trattamento dichiara rispetto a ciò che il documento contiene. L'associazione resta comunque dietro un contratto (\texttt{ActivityAssigner}), così un proponente automatico o assistito dall'AI potrà in futuro \emph{proporre} l'attribuzione lasciando al DPO la conferma --- lo stesso schema \emph{human-in-the-loop} già adottato per la mappatura del ROPA (§\ref{sub:ropa-ai}).
+
+La relazione è \textbf{molti-a-molti}: un documento può rientrare in più trattamenti (un modulo usato tanto nella selezione del personale quanto nelle paghe) e un trattamento raccoglie molti documenti. L'insieme dei trattamenti di un documento è registrato sul documento stesso (\texttt{Document.activity\_ids}); poiché ROPA e registro delle PII vivono su basi dati separate (§\ref{sec:persistenza-registro}), gli identificatori di trattamento fanno da collegamento \emph{logico} fra i due mondi, senza chiave esterna fisica.
+
+Perché l'associazione esplicita sia \textbf{praticabile su cartelle reali} --- dove attribuire un documento alla volta è improponibile --- il DPO dispone di due modalità, entrambe \emph{decise da lui}: l'associazione \textbf{diretta} di un singolo documento e le \textbf{regole cartella→trattamento}, con cui mappa una volta un \emph{prefisso di percorso} a uno o più trattamenti; ogni documento che ricade sotto quel prefisso --- i file nuovi inclusi, alla scansione successiva --- \emph{eredita} l'associazione. Una regola non è un'inferenza per contenuto (che si è appena esclusa perché circolare): resta una scelta esplicita del DPO, solo espressa per \emph{collocazione} anziché documento per documento. La \textbf{provenienza} di ogni associazione è tracciata (\texttt{association\_source}, con valori \texttt{MANUAL} e \texttt{RULE}) e il manuale \textbf{prevale}: riapplicare le regole non sovrascrive mai un'associazione fatta a mano. Le regole si applicano come passo separato \emph{dopo} la scansione, così una scansione schedulata associa da sé i documenti nuovi --- un passo verso l'autonomia «dai una cartella e fa da solo».
+
+\subsection{Il confronto dichiarato--rilevato e il suo vocabolario (B7)}
+\label{sub:b7-vocabolario}
+
+Fissata l'associazione, la verifica di conformità è un'operazione \textbf{insiemistica}. Da un lato l'insieme dei \texttt{pii\_type} \emph{dichiarati}: l'unione delle categorie dichiarate da \emph{tutti} i trattamenti a cui il documento è associato (si contano le mappature confermate dal DPO, §\ref{sub:ropa-ai}). Dall'altro l'insieme dei \texttt{pii\_type} \emph{rilevati}: i tipi delle PII effettivamente presenti nel documento secondo il registro. Confrontando i due insiemi, ogni tipo ricade in una voce di un \textbf{vocabolario chiuso}, che è il linguaggio con cui il sistema riporta il verdetto al DPO:
+
+\begin{description}
+	\item[Coperta] un tipo \emph{rilevato} che è anche \emph{dichiarato} da almeno uno dei trattamenti associati. È il caso conforme: il dato presente è previsto dal registro.
+	\item[Orfana] un tipo \emph{rilevato} che \textbf{nessuno} dei trattamenti associati dichiara. È il segnale di conformità cardine: un dato personale presente nel documento che il ROPA non prevede --- un trattamento di fatto non dichiarato (art.~30 GDPR, art.~12 nLPD). Si dice «orfana» perché priva di un trattamento-genitore che la giustifichi.
+	\item[Mancante] un tipo \emph{dichiarato} da un trattamento associato ma \textbf{non} riscontrato nel documento. Non è di per sé una violazione: può indicare una sovra-dichiarazione, oppure semplicemente che quel documento non contiene quel dato.
+	\item[Non risolvibile] una categoria \emph{dichiarata} nel ROPA che non si risolve in alcun \texttt{pii\_type} (insieme vuoto, §\ref{sub:ropa-modello}): è dichiarata ma non rilevabile dal motore. Resta esplicita e va segnalata al DPO, invece di essere scambiata per conforme.
+\end{description}
+
+Sotto la cardinalità molti-a-molti la definizione di orfana è deliberatamente \textbf{permissiva}: un tipo è orfano solo se \emph{nessuno} dei trattamenti associati lo dichiara (unione, non intersezione). Un dato coperto anche da un solo trattamento pertinente è giustificato. Specularmente, a ogni singola PII rilevata la verifica assegna il primo trattamento associato che ne dichiara il tipo come «trattamento giustificante» (\texttt{processing\_activity\_id}), oppure nessuno se la PII è orfana: è il momento in cui il riferimento opzionale (0..1) lasciato vuoto dal registro (§\ref{sub:persistenza-modello-dati}) viene finalmente popolato.
+
+Due principi ereditati dal resto del sistema governano la lettura del verdetto. Il primo è \textbf{recall-first} (§\ref{sub:b4-merge}): il sistema preferisce segnalare un'orfana di troppo che mancarne una, perché un falso positivo costa al DPO una verifica, mentre una PII non dichiarata e non vista è un rischio invisibile. Il secondo è che il verdetto è un \textbf{segnale, non una sentenza}: un'orfana afferma «non risulta dichiarata», non «è certamente una violazione». Può infatti nascere da una violazione reale oppure da un buco di mappatura a monte --- una categoria del ROPA non ancora risolta sul tipo corrispondente. È il DPO, \emph{human-in-the-loop}, a chiudere il giudizio; il sistema gli mette davanti l'evidenza strutturata.
+
+\subsection{Verifica della conservazione}
+\label{sub:b7-retention}
+
+Alla verifica delle categorie si affianca un controllo di \textbf{conservazione} (\textit{retention}): un dato può essere legittimamente dichiarato eppure trattenuto oltre il periodo consentito. Il ROPA porta, a livello di macro-categoria, una durata massima \emph{calcolabile a macchina} (\texttt{retention\_months}, §\ref{sub:ropa-modello}); confrontandola con l'età del documento si segnala una categoria conservata oltre il limite quando un suo dato è ancora presente. La misura dell'età è, allo stato attuale, \textbf{approssimata}: si assume come data di riferimento del documento la sua ultima modifica sul file system (il \emph{mtime}). È un'approssimazione consapevole --- una data-documento più affidabile, ricavata dai metadati in fase di estrazione, è un affinamento previsto --- ma sufficiente a produrre il segnale «conservazione superata» accanto a quelli sulle categorie.
