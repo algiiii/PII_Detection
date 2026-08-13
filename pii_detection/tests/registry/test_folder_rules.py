@@ -92,3 +92,48 @@ def test_delete_rule_removes_it(tmp_path: Path) -> None:
     registry.save_rule("HR", ["payroll"])
     registry.delete_rule("HR")
     assert registry.folder_rules() == []
+
+
+def test_delete_rule_clears_the_associations_it_had_derived(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.record_scan("HR/mario.pdf", [])
+    registry.save_rule("HR", ["payroll"])
+    registry.apply_folder_rules()  # doc is now RULE-associated to payroll
+
+    result = registry.delete_rule("HR")
+
+    assert result.cleared == 1
+    doc = registry.get_document("HR/mario.pdf")
+    assert doc is not None
+    assert doc.activity_ids == []  # no dangling association left behind
+    assert doc.association_source is None
+
+
+def test_delete_rule_preserves_manual_associations(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.record_scan("HR/mario.pdf", [])
+    registry.assign_activities("HR/mario.pdf", ["chosen_by_hand"])  # MANUAL
+    registry.save_rule("HR", ["payroll"])
+
+    result = registry.delete_rule("HR")
+
+    assert result.skipped_manual == 1 and result.cleared == 0
+    doc = registry.get_document("HR/mario.pdf")
+    assert doc is not None
+    assert doc.activity_ids == ["chosen_by_hand"]  # manual survives the delete
+    assert doc.association_source is AssociationSource.MANUAL
+
+
+def test_apply_reassociates_when_only_some_rules_remain(tmp_path: Path) -> None:
+    registry = _registry(tmp_path)
+    registry.record_scan("HR/contratti/mario.pdf", [])
+    registry.save_rule("HR", ["payroll"])
+    registry.save_rule("HR/contratti", ["contracts"])
+    registry.apply_folder_rules()  # doc inherits both payroll and contracts
+
+    registry.delete_rule("HR")  # reconciles: only HR/contratti remains
+
+    doc = registry.get_document("HR/contratti/mario.pdf")
+    assert doc is not None
+    assert doc.activity_ids == ["contracts"]  # payroll dropped, contracts kept
+    assert doc.association_source is AssociationSource.RULE

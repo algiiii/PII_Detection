@@ -43,14 +43,19 @@ def match_activities(document_id: str, rules: Sequence[FolderRule]) -> list[str]
 
 @dataclass
 class ApplyRulesResult:
-    """Summary of a bulk application of the folder rules to the registry (B6).
+    """Summary of a reconciliation of the folder rules against the registry (B6).
 
     :ivar associated: documents (re)associated from a matching rule.
     :ivar skipped_manual: documents left untouched because their association was
         set by hand (manual wins over rules).
-    :ivar unmatched: documents no rule matched, left as they were.
+    :ivar cleared: documents whose stale rule-derived association was removed
+        because no rule matches them any more (e.g. after deleting or editing a
+        rule); manual associations are never cleared.
+    :ivar unmatched: documents no rule matched and that had no rule-derived
+        association to clear — left as they were.
     """
 
     associated: int = 0
     skipped_manual: int = 0
+    cleared: int = 0
     unmatched: int = 0

@@ -233,6 +233,7 @@ def rules_page(request: Request) -> HTMLResponse:
         applied = {
             "associated": request.query_params.get("associated"),
             "skipped_manual": request.query_params.get("skipped_manual"),
+            "cleared": request.query_params.get("cleared"),
             "unmatched": request.query_params.get("unmatched"),
         }
     return _TEMPLATES.TemplateResponse(
@@ -264,10 +265,17 @@ def delete_rule(request: Request, prefix: str = Form(...)) -> RedirectResponse:
 
     :param request: the incoming request, for building the redirect URL.
     :param prefix: the prefix of the rule to delete.
-    :returns: a 303 redirect back to the rules page.
+    :returns: a 303 redirect back to the rules page, with the reconciliation
+        summary (deleting a rule clears the associations it had derived).
     """
-    get_registry().delete_rule(prefix)
-    return RedirectResponse(url=str(request.url_for("rules_page")), status_code=303)
+    applied = get_registry().delete_rule(prefix)
+    url = request.url_for("rules_page").include_query_params(
+        associated=applied.associated,
+        skipped_manual=applied.skipped_manual,
+        cleared=applied.cleared,
+        unmatched=applied.unmatched,
+    )
+    return RedirectResponse(url=str(url), status_code=303)
 
 
 @app.post("/rules/apply")
@@ -284,6 +292,7 @@ def apply_rules(request: Request) -> RedirectResponse:
     url = request.url_for("rules_page").include_query_params(
         associated=applied.associated,
         skipped_manual=applied.skipped_manual,
+        cleared=applied.cleared,
         unmatched=applied.unmatched,
     )
     return RedirectResponse(url=str(url), status_code=303)

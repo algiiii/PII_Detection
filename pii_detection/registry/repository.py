@@ -280,15 +280,48 @@ class PIIRepository:
             session.refresh(rule)
             return rule
 
-    def delete_rule(self, prefix: str) -> None:
+    def delete_rule(self, prefix: str) -> ApplyRulesResult:
+        """Delete a folder rule and reconcile the associations it had derived (B6).
+
+        Removing the rule row is not enough: documents it had associated still
+        carry its ``RULE``-sourced :attr:`~pii_detection.registry.types.Document.activity_ids`.
+        After deleting, the rule-derived associations are therefore recomputed
+        against the *remaining* rules (:meth:`apply_folder_rules`), so a document
+        no longer covered by any rule is cleared instead of keeping a dangling
+        association. Manual associations are preserved.
+
+        :param prefix: the prefix of the rule to delete (normalized like
+            :meth:`save_rule`); a no-op if no such rule exists.
+        :returns: the reconciliation summary
+            (:class:`~pii_detection.registry.folder_rules.ApplyRulesResult`).
+        """
         normalized = prefix.strip().strip("/")
         with Session(self.engine) as session:
             rule = session.get(FolderRule, normalized)
             if rule is not None:
                 session.delete(rule)
                 session.commit()
+        return self.apply_folder_rules()
 
     def apply_folder_rules(self) -> ApplyRulesResult:
+        """Reconcile every document's rule-derived association with the rules (B6).
+
+        For each document, except those associated **by hand**
+        (:attr:`~pii_detection.registry.types.AssociationSource.MANUAL`, manual
+        wins): the activities it inherits are recomputed from the current rules
+        (:func:`~pii_detection.registry.folder_rules.match_activities`). A document
+        that matches at least one rule is (re)associated with source ``RULE``; a
+        document that matches none but still carries a stale ``RULE`` association
+        is **cleared** (empty ids, source back to ``None``), so deleting or
+        shrinking a rule removes the associations it had produced. Documents that
+        match nothing and had no rule association are left untouched.
+
+        Run as a separate step after a scan (keeping the scan pure) and on demand
+        from the web UI; being a full reconciliation makes it idempotent.
+
+        :returns: the counts of the reconciliation
+            (:class:`~pii_detection.registry.folder_rules.ApplyRulesResult`).
+        """
         rules = self.folder_rules()
         result = ApplyRulesResult()
         with Session(self.engine) as session:
@@ -301,6 +334,10 @@ class PIIRepository:
                     document.activity_ids = activity_ids
                     document.association_source = AssociationSource.RULE
                     result.associated += 1
+                elif document.association_source == AssociationSource.RULE:
+                    document.activity_ids = []
+                    document.association_source = None
+                    result.cleared += 1
                 else:
                     result.unmatched += 1
             session.commit()
