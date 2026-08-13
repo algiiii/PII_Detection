@@ -104,3 +104,49 @@ def test_run_applies_folder_rules(client: TestClient, tmp_path: Path) -> None:
     assert job.rules_applied.associated == 2  # both scanned docs matched the root rule
     doc = registry.get_document("a.txt")
     assert doc is not None and doc.activity_ids == ["catch_all"]
+
+
+def _wait_done(job_id: str) -> scan_jobs.ScanJob:
+    for _ in range(100):
+        job = get_job(job_id)
+        if job is not None and job.state != "running":
+            break
+        time.sleep(0.05)
+    job = get_job(job_id)
+    assert job is not None
+    return job
+
+
+def test_scan_form_offers_browser_upload(client: TestClient) -> None:
+    body = client.get("/scan").text
+    assert "upload-form" in body  # the browser file/folder upload form
+    assert "/scan/upload" in body  # the fetch target
+
+
+def test_upload_single_file_is_scanned(client: TestClient) -> None:
+    resp = client.post("/scan/upload", files=[("files", ("nota.txt", b"ciao", "text/plain"))])
+    assert resp.status_code == 200  # followed the 303 to the status page
+    job = _wait_done(resp.url.path.rsplit("/", 1)[-1])
+    assert job.state == "done"
+    assert job.result is not None and job.result.scanned == 1
+
+
+def test_upload_folder_preserves_relative_ids(client: TestClient) -> None:
+    resp = client.post(
+        "/scan/upload",
+        files=[
+            ("files", ("docs/a.txt", b"ciao", "text/plain")),
+            ("files", ("docs/sub/b.txt", b"ciao", "text/plain")),
+        ],
+    )
+    assert resp.status_code == 200
+    job = _wait_done(resp.url.path.rsplit("/", 1)[-1])
+    assert job.state == "done"
+    assert job.result is not None and job.result.scanned == 2
+    ids = {document.document_id for document in PIIRepository().documents()}
+    assert {"docs/a.txt", "docs/sub/b.txt"} <= ids
+
+
+def test_upload_rejects_path_traversal(client: TestClient) -> None:
+    resp = client.post("/scan/upload", files=[("files", ("../evil.txt", b"x", "text/plain"))])
+    assert resp.status_code == 400  # no valid file written

@@ -15,14 +15,17 @@ the same image runs locally and inside a container. Writes follow Post/Redirect/
 from __future__ import annotations
 
 import os
+import shutil
+import tempfile
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from pii_detection.compliance.checker import check_document
+from pii_detection.extraction import supported_suffixes
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.scan_folder import plan_folder
 from pii_detection.ropa.repository import ROPARepository
@@ -136,12 +139,15 @@ def assign_document(
 
 @app.get("/scan", response_class=HTMLResponse)
 def scan_form(request: Request) -> HTMLResponse:
-    """Show the folder-scan form (a server-side path + a GLiNER toggle).
+    """Show the scan form: a server-side path and a browser file/folder upload.
 
     :param request: the incoming request.
-    :returns: the rendered form.
+    :returns: the rendered form, with the supported file suffixes for the
+        client-side upload filter.
     """
-    return _TEMPLATES.TemplateResponse(request, "scan.html", {})
+    return _TEMPLATES.TemplateResponse(
+        request, "scan.html", {"supported": sorted(supported_suffixes())}
+    )
 
 
 @app.get("/scan/preview", response_class=HTMLResponse)
@@ -184,6 +190,61 @@ def scan_run(
     if not Path(path).is_dir():
         raise HTTPException(status_code=400, detail=f"not a directory: {path}")
     job_id = start_scan_job(path, use_gliner=gliner)
+    url = request.url_for("scan_status", job_id=job_id)
+    return RedirectResponse(url=str(url), status_code=303)
+
+
+def _safe_relative_path(filename: str | None) -> PurePosixPath | None:
+    """Validate an uploaded file's relative path, rejecting traversal.
+
+    :param filename: the multipart part filename (a client-provided relative path).
+    :returns: the sanitized relative path, or ``None`` if it is empty, absolute, or
+        escapes the target directory (contains a ``..`` segment).
+    """
+    if not filename:
+        return None
+    candidate = PurePosixPath(filename)
+    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+        return None
+    parts = [part for part in candidate.parts if part not in ("", ".")]
+    return PurePosixPath(*parts) if parts else None
+
+
+@app.post("/scan/upload")
+async def scan_upload(
+    request: Request, files: list[UploadFile] = File(...), gliner: bool = Form(False)
+) -> RedirectResponse:
+    """Scan files uploaded from the browser — a single file or a whole folder.
+
+    The browser's native picker runs on the client; the selected files are uploaded
+    here, each with its relative path as the part filename (the client sends
+    ``webkitRelativePath`` for a folder, the plain name for a single file). They are
+    written under a temporary directory, preserving the tree, and scanned by the same
+    background job as a server-side folder — with ``prune`` off (a partial upload must
+    not remove the rest of the registry) and the temp dir cleaned up when the job ends.
+
+    :param request: the incoming request, for building the redirect URL.
+    :param files: the uploaded files; each ``filename`` is a relative path.
+    :param gliner: use GLiNER for the NER.
+    :returns: a 303 redirect to the job status page.
+    :raises HTTPException: 400 if no valid file is uploaded.
+    """
+    temp_dir = Path(tempfile.mkdtemp(prefix="scan_upload_"))
+    written = 0
+    for upload in files:
+        relative = _safe_relative_path(upload.filename)
+        if relative is None:
+            continue
+        destination = temp_dir.joinpath(*relative.parts)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(await upload.read())
+        written += 1
+    if written == 0:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail="nessun file valido caricato")
+    job_id = start_scan_job(
+        str(temp_dir), use_gliner=gliner, prune=False, cleanup_dir=str(temp_dir)
+    )
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
 

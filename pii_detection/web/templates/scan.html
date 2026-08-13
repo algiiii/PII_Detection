@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Scansione{% endblock %}
 {% block content %}
-  <h1>Scansiona una cartella</h1>
+  <h1>Scansiona</h1>
+
+  <h2>Dal server (percorso)</h2>
   <p class="muted">
-    Indica un percorso sul server (dentro il container, es. <code>/app/corpus/documents</code>).
-    La scansione è <strong>ricorsiva</strong> (sotto-cartelle incluse). Prima di avviarla
-    vedrai l'anteprima dei file coinvolti.
+    Indica un percorso sul server (dentro il container, es. <code>/app/corpus/documents</code>);
+    adatto a volumi montati / cartelle grandi. Scansione <strong>ricorsiva</strong>, con anteprima.
   </p>
   <form method="get" action="{{ url_for('scan_preview') }}" class="stack">
     <label>Percorso della cartella
@@ -16,4 +17,92 @@
     </label>
     <div class="actions"><button type="submit">Anteprima</button></div>
   </form>
+
+  <h2>Dal browser (file o cartella)</h2>
+  <p class="muted">
+    Seleziona un <strong>file singolo</strong> o un'intera <strong>cartella</strong> dal tuo
+    computer: i file vengono caricati e scansionati. Adatto a casi ridotti (per share aziendali
+    grandi usa il percorso sul server).
+  </p>
+  <form id="upload-form" class="stack">
+    <div class="checks">
+      <label><input type="radio" name="mode" value="file" checked> File singolo</label>
+      <label><input type="radio" name="mode" value="dir"> Cartella</label>
+    </div>
+    <label>Selezione
+      <input type="file" id="upload-input" name="files">
+    </label>
+    <label class="checks-inline">
+      <input type="checkbox" id="upload-gliner"> Usa GLiNER (NER migliore; solo container)
+    </label>
+    <p id="upload-preview" class="muted">Nessun file selezionato.</p>
+    <div class="actions">
+      <button type="submit" id="upload-submit" disabled>Avvia scansione</button>
+    </div>
+  </form>
+
+  <script>
+    const SUPPORTED = {{ supported | tojson }};
+    const input = document.getElementById('upload-input');
+    const preview = document.getElementById('upload-preview');
+    const submit = document.getElementById('upload-submit');
+
+    function isSupported(file) {
+      const name = file.name.toLowerCase();
+      return SUPPORTED.some(function (ext) { return name.endsWith(ext); });
+    }
+    function selectedSupported() {
+      return Array.from(input.files || []).filter(isSupported);
+    }
+    function refresh() {
+      const total = (input.files || []).length;
+      const ok = selectedSupported().length;
+      if (total === 0) {
+        preview.textContent = 'Nessun file selezionato.';
+        submit.disabled = true;
+      } else {
+        preview.textContent = ok + ' file supportati su ' + total + ' selezionati.';
+        submit.disabled = ok === 0;
+      }
+    }
+    document.querySelectorAll('input[name="mode"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        if (this.value === 'dir') {
+          input.setAttribute('webkitdirectory', '');
+          input.setAttribute('directory', '');
+        } else {
+          input.removeAttribute('webkitdirectory');
+          input.removeAttribute('directory');
+        }
+        input.value = '';
+        refresh();
+      });
+    });
+    input.addEventListener('change', refresh);
+
+    document.getElementById('upload-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const files = selectedSupported();
+      if (files.length === 0) return;
+      const data = new FormData();
+      files.forEach(function (f) { data.append('files', f, f.webkitRelativePath || f.name); });
+      data.append('gliner', document.getElementById('upload-gliner').checked ? 'true' : 'false');
+      submit.disabled = true;
+      submit.textContent = 'Caricamento…';
+      fetch('{{ url_for("scan_upload") }}', { method: 'POST', body: data })
+        .then(function (r) {
+          if (r.ok) { window.location = r.url; }
+          else {
+            submit.disabled = false;
+            submit.textContent = 'Avvia scansione';
+            preview.textContent = 'Caricamento rifiutato (nessun file valido).';
+          }
+        })
+        .catch(function () {
+          submit.disabled = false;
+          submit.textContent = 'Avvia scansione';
+          preview.textContent = 'Errore durante il caricamento.';
+        });
+    });
+  </script>
 {% endblock %}
