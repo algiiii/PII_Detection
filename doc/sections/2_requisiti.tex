@@ -307,17 +307,30 @@ La tracciabilità è condizione necessaria per consentire al DPO di verificare c
 \section{Requisiti di interfaccia}
 \label{sec:requisiti-interfaccia}
 
-\subsection{Interfaccia a riga di comando (CLI)}
-\label{sub:cli}
-Il sistema deve esporre un'interfaccia a riga di comando (CLI) come modalità primaria di interazione. La CLI deve consentire almeno le seguenti operazioni:
+\subsection{Interfaccia web come modalità primaria}
+\label{sub:interfaccia-web}
+Il sistema deve esporre un'interfaccia web come modalità primaria di interazione, servita dal sistema stesso su una porta di rete e raggiungibile da browser senza installazione lato client. L'interfaccia deve consentire almeno le seguenti operazioni:
 \begin{itemize}
-	\item specificare i percorsi dei documenti da analizzare e i pattern di esclusione;
-	\item fornire il/i ROPA in input;
-	\item selezionare il formato di output del report (es.~JSON, PDF, CSV);
-	\item avviare l'analisi e monitorarne lo stato di avanzamento.
+	\item avviare l'analisi di una cartella, indicandone il percorso o selezionandola dal browser, con anteprima dei file che verranno analizzati e visualizzazione dello stato di avanzamento;
+	\item fornire il/i ROPA in input e revisionare le categorie di dati riconosciute (cfr.~\ref{sub:ingestione-ropa});
+	\item consultare il registro delle PII rilevate e il verdetto di conformità per ciascun documento (cfr.~\ref{sub:registro-pii});
+	\item gestire l'associazione tra documenti e attività di trattamento (cfr.~\ref{sub:confronto-ropa}).
 \end{itemize} \medskip
 
-L'interfaccia deve produrre messaggi di log strutturati e progressivi che consentano di monitorare l'avanzamento dell'elaborazione e di diagnosticare eventuali errori.
+\textbf{Razionale.} Il destinatario del sistema è il DPO, figura non necessariamente tecnica, e il sistema è distribuito come container (cfr.~\ref{sub:facilita-installazione}): un'interfaccia servita dal container stesso è operabile senza accesso alla shell dell'host e senza conoscenza dei comandi, a differenza di una CLI. \medskip
+
+\textbf{Criterio di verifica.} Il requisito è soddisfatto se, a partire dal solo avvio del container, un utente è in grado di importare un ROPA, avviare una scansione e consultare il verdetto di conformità senza ricorrere alla riga di comando.
+
+\subsection{Interfaccia a riga di comando (CLI)}
+\label{sub:cli}
+Il sistema deve esporre, come modalità secondaria, interfacce a riga di comando destinate all'automazione e alla diagnosi. La CLI è il punto di aggancio per l'esecuzione periodica non presidiata (cfr.~\ref{sec:posizionamento-art32}) e per l'ispezione dei singoli stadi dell'elaborazione. Deve consentire almeno:
+\begin{itemize}
+	\item l'ingestione di un ROPA e la mappatura delle sue categorie;
+	\item la scansione di un singolo documento o di un albero di cartelle, con aggiornamento del registro interno;
+	\item la verifica di conformità e la stampa del relativo verdetto.
+\end{itemize} \medskip
+
+Non è richiesto che tali operazioni siano esposte da un unico comando orchestratore: è ammessa una CLI per stadio dell'elaborazione, purché ciascuna sia componibile in uno script di schedulazione. L'interfaccia deve produrre messaggi di log progressivi che consentano di monitorare l'avanzamento e di diagnosticare gli errori.
 
 \subsection{Formato di output del report}
 \label{sub:formato-output}
