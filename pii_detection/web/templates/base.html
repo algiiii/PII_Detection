@@ -47,11 +47,12 @@
   {% block head %}{% endblock %}
 </head>
 <body>
+  {# shared nav — keep in sync with pii_detection/ropa/review/templates/base.html #}
   <header>
     <span class="brand">PII Discovery</span>
-    <a href="{{ url_for('documents') }}">Conformità</a>
-    <a href="{{ url_for('scan_form') }}">Scansione</a>
-    <a href="{{ url_for('rules_page') }}">Regole</a>
+    <a href="/">Conformità</a>
+    <a href="/scan">Scansione</a>
+    <a href="/rules">Regole</a>
     <a href="/ropa/">Trattamenti (ROPA)</a>
   </header>
   <main>{% block content %}{% endblock %}</main>

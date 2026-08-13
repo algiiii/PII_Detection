@@ -13,8 +13,11 @@
     }
     header {
       background: #1f2937; color: #fff; padding: .9rem 1.5rem;
+      display: flex; gap: 1.4rem; align-items: baseline;
     }
-    header a { color: #fff; text-decoration: none; font-weight: 600; }
+    header .brand { font-weight: 700; }
+    header a { color: #cbd5e1; text-decoration: none; font-weight: 600; }
+    header a.active, header a:hover { color: #fff; }
     main { max-width: 980px; margin: 0 auto; padding: 1.5rem; }
     h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
     h2 { font-size: 1.1rem; margin: 1.8rem 0 .6rem; border-bottom: 1px solid #e5e7eb; padding-bottom: .3rem; }
@@ -55,7 +58,14 @@
   </style>
 </head>
 <body>
-  <header><a href="{{ url_for('index') }}">ROPA · Registro dei trattamenti</a></header>
+  {# shared nav — keep in sync with pii_detection/web/templates/base.html #}
+  <header>
+    <span class="brand">PII Discovery</span>
+    <a href="/">Conformità</a>
+    <a href="/scan">Scansione</a>
+    <a href="/rules">Regole</a>
+    <a href="/ropa/">Trattamenti (ROPA)</a>
+  </header>
   <main>{% block content %}{% endblock %}</main>
 </body>
 </html>
