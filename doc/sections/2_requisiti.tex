@@ -77,9 +77,11 @@ Ogni anomalia rilevata deve essere classificata secondo una tipologia predefinit
 
 \subsection{Generazione report per DPO}
 \label{sub:generazione-report}
-Il sistema deve produrre, come output finale, un report strutturato e leggibile destinato al Data Protection Officer (DPO), contenente le anomalie di conformità rilevate. \medskip
+Il sistema deve produrre, come esito dell'analisi, un report di conformità destinato al Data Protection Officer (DPO), che raccolga le anomalie rilevate e sia consultabile senza competenze tecniche. \medskip
 
-Il report deve includere, per ciascuna anomalia: tipologia, documento/i coinvolti, attività di trattamento di riferimento (se presente) e la motivazione del rilevamento.
+Il report deve includere, per ciascuna anomalia: tipologia, documento/i coinvolti, attività di trattamento di riferimento (se presente) e la motivazione del rilevamento. Deve inoltre essere organizzato \textbf{per documento}, in modo che il DPO possa passare dal quadro d'insieme del corpus documentale al dettaglio del singolo file, delle sue PII e del suo verdetto. \medskip
+
+\textbf{Vincolo di minimizzazione.} Il report deve descrivere le PII rilevate come \textit{riferimenti} --- categoria, posizione, provenienza del rilevamento --- e non deve in nessun caso riportare il valore del dato personale rilevato (cfr.~\ref{sub:minimizzazione}).
 
 \subsection{Persistenza e aggiornamento del registro delle PII rilevate}
 \label{sub:registro-pii}
@@ -201,7 +203,7 @@ Il vincolo si applica a tutte le componenti del sistema, inclusi:
 	\item i modelli di AI e NLP (cfr.~\ref{sub:vincolo-ai});
 	\item i moduli di estrazione del testo (cfr.~\ref{sub:estrazione-testo});
 	\item il registro interno delle PII (cfr.~\ref{sub:registro-pii});
-	\item la generazione del report finale (cfr.~\ref{sub:generazione-report}).
+	\item la generazione e la presentazione del report di conformità (cfr.~\ref{sub:generazione-report}).
 \end{itemize} \medskip
 
 \textbf{Criterio di verifica.} Il requisito è soddisfatto se, durante l'esecuzione del sistema, non viene effettuata alcuna connessione di rete in uscita per la trasmissione di dati documentali o derivati. La verifica può essere condotta tramite analisi del traffico di rete o ispezione del codice sorgente.
@@ -332,16 +334,16 @@ Il sistema deve esporre, come modalità secondaria, interfacce a riga di comando
 
 Non è richiesto che tali operazioni siano esposte da un unico comando orchestratore: è ammessa una CLI per stadio dell'elaborazione, purché ciascuna sia componibile in uno script di schedulazione. L'interfaccia deve produrre messaggi di log progressivi che consentano di monitorare l'avanzamento e di diagnosticare gli errori.
 
-\subsection{Formato di output del report}
+\subsection{Fruizione del report}
 \label{sub:formato-output}
-Il report generato dal sistema deve essere disponibile in almeno due formati complementari:
+Il report di conformità (cfr.~\ref{sub:generazione-report}) deve essere fruibile in due modi complementari:
 \begin{itemize}
-	\item \textbf{Formato strutturato} (es.~JSON, CSV): leggibile meccanicamente, destinato all'integrazione con sistemi di governance, risk e compliance (GRC) o con strumenti di analisi già in uso nell'organizzazione;
-	\item \textbf{Formato leggibile} (es.~PDF, HTML): destinato alla consultazione diretta da parte del DPO, con impaginazione, indice delle anomalie e possibilità di navigazione per documento o per attività di trattamento.
+	\item \textbf{consultazione interattiva}: l'interfaccia web (cfr.~\ref{sub:interfaccia-web}) deve presentare il report al DPO in forma navigabile --- elenco dei documenti analizzati, dettaglio delle PII rilevate e verdetto per documento --- senza richiedere un passo di esportazione né strumenti esterni;
+	\item \textbf{lettura meccanica}: il contenuto del report deve poggiare sul registro interno persistente (cfr.~\ref{sub:registro-pii}), in un formato strutturato e interrogabile, così da restare accessibile a strumenti di governance, risk e compliance (GRC) o di analisi già in uso nell'organizzazione.
 \end{itemize} \medskip
 
-\textbf{Razionale.} Il DPO necessita di un documento consultabile e presentabile (es.~in sede di audit o di comunicazione con l'autorità di controllo), mentre l'integrazione con sistemi GRC richiede un formato parsabile automaticamente. I due formati rispondono a esigenze distinte e complementari. \medskip
+\textbf{Razionale.} Il report non è un artefatto separato ma una \textit{vista} sui dati che il sistema già mantiene: il registro è la fonte di verità, l'interfaccia ne è la presentazione. Un file di report generato a fine analisi sarebbe invece una fotografia che invecchia --- disallineata alla prima ri-scansione --- e duplicherebbe in un secondo formato informazioni già persistite, con l'onere di mantenerli coerenti. La consultazione dal browser garantisce inoltre che il DPO veda sempre lo stato corrente del corpus documentale, e l'assenza di file di report esportati è coerente con il vincolo di minimizzazione (cfr.~\ref{sub:minimizzazione}): non si moltiplicano le copie del quadro delle PII dell'organizzazione. \medskip
 
-Entrambi i formati devono contenere le medesime informazioni e devono essere generati contestualmente al termine dell'analisi, senza richiedere esecuzioni separate. \medskip
+\textbf{Ambito futuro.} L'esportazione del report in file autonomi --- strutturati (es.~JSON, CSV) per l'integrazione con sistemi GRC, o impaginati (es.~PDF, HTML) per la presentazione in sede di audit --- non rientra nel perimetro del prototipo: è una resa aggiuntiva sopra i medesimi dati, che non aggiunge capacità di analisi né di verifica. \medskip
 
-\textbf{Criterio di verifica.} Il requisito è soddisfatto se, al termine di un'analisi di test, il sistema produce entrambi i formati e il contenuto informativo è equivalente tra i due.
+\textbf{Criterio di verifica.} Il requisito è soddisfatto se, al termine di un'analisi di test, il DPO può consultare dal browser l'elenco dei documenti analizzati e il verdetto di ciascuno, e se il medesimo contenuto informativo è ricavabile dal registro interno mediante interrogazione diretta, senza passare dall'interfaccia.
