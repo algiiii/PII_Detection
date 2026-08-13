@@ -9,6 +9,7 @@ stay unaware of the source format (Adapter).
 
 from pathlib import Path
 from openpyxl import load_workbook
+from odf.office import Annotation
 from odf.opendocument import load as load_ods
 from odf.table import Table, TableRow, TableCell
 from odf.text import P
@@ -43,6 +44,12 @@ def read_sheet(path: str | Path, sheet_name: str) -> list[list[str]]:
     Dispatches on the file extension: ``.ods`` via odfpy, ``.xlsx``/``.xlsm``
     via openpyxl. Both back-ends yield the same shape, so the normalizer is
     format-agnostic.
+
+    Cell **comments/annotations** (the CNIL template's "red triangle" help notes)
+    are excluded from the cell text: in ODS they live in an ``<office:annotation>``
+    inside the cell, so reading them verbatim would glue the note in front of the
+    real value (e.g. ``"Cf. Article 87...Social Security Number"``); Excel keeps
+    comments out of the value already.
 
     :param path: path to the ``.ods`` or ``.xlsx``/``.xlsm`` workbook.
     :param sheet_name: name of the sheet to read.
@@ -84,7 +91,10 @@ def _read_ods(path: str | Path, sheet_name: str) -> list[list[str]]:
             cells = []
             for tc in tr.getElementsByType(TableCell):
                 rep = int(tc.getAttribute("numbercolumnsrepeated") or 1)
-                text = "".join(str(p) for p in tc.getElementsByType(P)).strip()
+                # Skip <text:p> living inside an <office:annotation> (cell comment):
+                # only the paragraphs that are the cell's own value count.
+                commented = {p for a in tc.getElementsByType(Annotation) for p in a.getElementsByType(P)}
+                text = "".join(str(p) for p in tc.getElementsByType(P) if p not in commented).strip()
                 cells.extend([text] * min(rep, 40))
             while cells and cells[-1] == "":
                 cells.pop()
