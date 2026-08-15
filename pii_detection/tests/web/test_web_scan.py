@@ -150,3 +150,20 @@ def test_upload_folder_preserves_relative_ids(client: TestClient) -> None:
 def test_upload_rejects_path_traversal(client: TestClient) -> None:
     resp = client.post("/scan/upload", files=[("files", ("../evil.txt", b"x", "text/plain"))])
     assert resp.status_code == 400  # no valid file written
+    assert resp.json()["detail"]
+
+
+def test_upload_rejection_always_carries_a_reason(client: TestClient) -> None:
+    """A rejected upload must say *why*: the page shows the server's ``detail``.
+
+    Selecting a folder with more parts than the multipart parser accepts is
+    refused before the route runs, so the reason is not "no valid file" — and
+    the page must not claim it is.
+    """
+    too_many = [
+        ("files", (f"docs/f{i}.txt", b"ciao", "text/plain"))
+        for i in range(1001)  # Starlette's Request.form() caps files at 1000
+    ]
+    resp = client.post("/scan/upload", files=too_many)
+    assert resp.status_code == 400
+    assert "files" in resp.json()["detail"].lower()

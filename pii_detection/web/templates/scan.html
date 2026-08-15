@@ -91,12 +91,15 @@
       submit.textContent = 'Caricamento…';
       fetch('{{ url_for("scan_upload") }}', { method: 'POST', body: data })
         .then(function (r) {
-          if (r.ok) { window.location = r.url; }
-          else {
+          if (r.ok) { window.location = r.url; return; }
+          // Show the reason the server gave: a rejected upload is not always an
+          // empty selection (the multipart parser caps how many parts it reads).
+          return r.json().catch(function () { return {}; }).then(function (body) {
             submit.disabled = false;
             submit.textContent = 'Avvia scansione';
-            preview.textContent = 'Caricamento rifiutato (nessun file valido).';
-          }
+            preview.textContent =
+              'Caricamento rifiutato: ' + (body.detail || ('errore ' + r.status)) + '.';
+          });
         })
         .catch(function () {
           submit.disabled = false;
