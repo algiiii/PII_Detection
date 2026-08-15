@@ -72,8 +72,18 @@ def render_docx(text: str, path: Path) -> None:
     document.save(str(path))
 
 
-def _gold_for(document_id: str, annotated: str) -> dict[str, object]:
-    """Build the value-based gold record of one document from its annotation."""
+def gold_record(document_id: str, annotated: str) -> dict[str, object]:
+    """Build the value-based gold record of one document from its annotation.
+
+    The record is one line of a ``gold.jsonl`` file, in the shape
+    :func:`load_gold` reads back. A document with no PII yields an empty
+    ``"pii"`` list — a legitimate record, not a missing one.
+
+    :param document_id: identifier the record is keyed by (a file stem, or a
+        path relative to the scanned root for tree-shaped corpora).
+    :param annotated: the document text with ``{{pii_type:value}}`` markers.
+    :returns: the JSON-serialisable gold record.
+    """
     parsed = parse_annotated_text(document_id, annotated)
     return {
         "document_id": document_id,
@@ -115,7 +125,7 @@ def render_corpus(out_dir: Path, n: int, seed: int, *, formats: Iterable[str]) -
                 render_pdf(clean, out_dir / f"{doc_id}.pdf")
             if "docx" in formats:
                 render_docx(clean, out_dir / f"{doc_id}.docx")
-            gold_file.write(json.dumps(_gold_for(doc_id, annotated), ensure_ascii=False) + "\n")
+            gold_file.write(json.dumps(gold_record(doc_id, annotated), ensure_ascii=False) + "\n")
     return gold_path
 
 
@@ -163,6 +173,7 @@ if __name__ == "__main__":
 __all__ = [
     "render_pdf",
     "render_docx",
+    "gold_record",
     "render_corpus",
     "load_gold",
     "default_rendered_dir",

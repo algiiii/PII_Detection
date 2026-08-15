@@ -173,8 +173,17 @@ class PIIValueFactory:
         )
 
 
-def _ann(pii_type: str, value: str) -> str:
-    """Wrap a value in the ``{{pii_type:value}}`` annotation marker."""
+def annotate(pii_type: str, value: str) -> str:
+    """Wrap a value in the ``{{pii_type:value}}`` annotation marker.
+
+    The inverse of :func:`~pii_detection.evaluation.corpus.parse_annotated_text`:
+    a generator that emits its PII through this function gets its ground truth
+    for free, since the loader derives the gold spans from the markers.
+
+    :param pii_type: category id from the catalog, e.g. ``"iban"``.
+    :param value: the PII value to mark.
+    :returns: the annotated fragment, ready to interpolate in a document body.
+    """
     return "{{" + pii_type + ":" + value + "}}"
 
 
@@ -182,11 +191,11 @@ def _tpl_bank_letter(f: PIIValueFactory) -> str:
     """Bank/utility letter: email, iban, italian_id, ip_address."""
     return (
         "Gentile cliente,\n\n"
-        f"la contattiamo all'indirizzo {_ann('email', f.email())} in merito al "
-        f"bonifico sull'IBAN {_ann('iban', f.iban())} (pratica n. {f.rng.randint(10000, 99999)}).\n"
-        f"Per la fatturazione risulta il codice fiscale {_ann('italian_id', f.italian_id())}.\n"
+        f"la contattiamo all'indirizzo {annotate('email', f.email())} in merito al "
+        f"bonifico sull'IBAN {annotate('iban', f.iban())} (pratica n. {f.rng.randint(10000, 99999)}).\n"
+        f"Per la fatturazione risulta il codice fiscale {annotate('italian_id', f.italian_id())}.\n"
         f"L'ultimo accesso al portale proviene dall'indirizzo IP "
-        f"{_ann('ip_address', f.ip_address())}.\n\n"
+        f"{annotate('ip_address', f.ip_address())}.\n\n"
         "Cordiali saluti,\nServizio Clienti"
     )
 
@@ -195,11 +204,11 @@ def _tpl_hr_record(f: PIIValueFactory) -> str:
     """HR onboarding record: person_name, date_of_birth, italian_id, address, phone, email."""
     return (
         "Scheda di assunzione\n\n"
-        f"Dipendente: {_ann('person_name', f.person_name())}\n"
-        f"Nato/a il: {_ann('date_of_birth', f.date_of_birth())}\n"
-        f"Codice fiscale: {_ann('italian_id', f.italian_id())}\n"
-        f"Residenza: {_ann('address', f.address())}\n"
-        f"Recapito: {_ann('phone', f.phone())} — {_ann('email', f.email())}\n"
+        f"Dipendente: {annotate('person_name', f.person_name())}\n"
+        f"Nato/a il: {annotate('date_of_birth', f.date_of_birth())}\n"
+        f"Codice fiscale: {annotate('italian_id', f.italian_id())}\n"
+        f"Residenza: {annotate('address', f.address())}\n"
+        f"Recapito: {annotate('phone', f.phone())} — {annotate('email', f.email())}\n"
         f"Matricola interna: {f.rng.randint(1000, 9999)}"
     )
 
@@ -208,12 +217,12 @@ def _tpl_clinic_note(f: PIIValueFactory) -> str:
     """Clinical note: person_name, date_of_birth, health_data, italian_id, phone."""
     return (
         "Referto ambulatoriale\n\n"
-        f"Paziente {_ann('person_name', f.person_name())}, "
-        f"nato/a il {_ann('date_of_birth', f.date_of_birth())} "
-        f"(CF {_ann('italian_id', f.italian_id())}).\n"
-        f"Diagnosi: {_ann('health_data', f.health_data())}. "
+        f"Paziente {annotate('person_name', f.person_name())}, "
+        f"nato/a il {annotate('date_of_birth', f.date_of_birth())} "
+        f"(CF {annotate('italian_id', f.italian_id())}).\n"
+        f"Diagnosi: {annotate('health_data', f.health_data())}. "
         f"Si consiglia controllo tra sei mesi.\n"
-        f"Per appuntamenti contattare il numero {_ann('phone', f.phone())}."
+        f"Per appuntamenti contattare il numero {annotate('phone', f.phone())}."
     )
 
 
@@ -221,10 +230,10 @@ def _tpl_support_ticket(f: PIIValueFactory) -> str:
     """Support ticket / access log: email, ip_address, credit_card, phone."""
     return (
         f"Ticket #{f.rng.randint(100000, 999999)} — pagamento non riuscito\n\n"
-        f"Utente {_ann('email', f.email())} segnala l'addebito sulla carta "
-        f"{_ann('credit_card', f.credit_card())} non andato a buon fine.\n"
-        f"Tentativo registrato dall'IP {_ann('ip_address', f.ip_address())}. "
-        f"Richiamare al {_ann('phone', f.phone())} in orario d'ufficio."
+        f"Utente {annotate('email', f.email())} segnala l'addebito sulla carta "
+        f"{annotate('credit_card', f.credit_card())} non andato a buon fine.\n"
+        f"Tentativo registrato dall'IP {annotate('ip_address', f.ip_address())}. "
+        f"Richiamare al {annotate('phone', f.phone())} in orario d'ufficio."
     )
 
 
@@ -232,10 +241,10 @@ def _tpl_cross_border(f: PIIValueFactory) -> str:
     """Swiss cross-border context: person_name, swiss_avs, iban, address."""
     return (
         "Notifica frontaliere\n\n"
-        f"Il/la lavoratore/trice {_ann('person_name', f.person_name())} "
-        f"(n. AVS {_ann('swiss_avs', f.swiss_avs())}) percepisce lo stipendio "
-        f"sull'IBAN {_ann('iban', f.iban())}.\n"
-        f"Domicilio dichiarato: {_ann('address', f.address())}."
+        f"Il/la lavoratore/trice {annotate('person_name', f.person_name())} "
+        f"(n. AVS {annotate('swiss_avs', f.swiss_avs())}) percepisce lo stipendio "
+        f"sull'IBAN {annotate('iban', f.iban())}.\n"
+        f"Domicilio dichiarato: {annotate('address', f.address())}."
     )
 
 
@@ -244,8 +253,8 @@ def _tpl_registry_rows(f: PIIValueFactory) -> str:
     lines = ["Estratto del registro dipendenti (export CSV):", ""]
     for _ in range(3):
         lines.append(
-            f"{_ann('person_name', f.person_name())}; {_ann('email', f.email())}; "
-            f"{_ann('phone', f.phone())}; CF {_ann('italian_id', f.italian_id())}; "
+            f"{annotate('person_name', f.person_name())}; {annotate('email', f.email())}; "
+            f"{annotate('phone', f.phone())}; CF {annotate('italian_id', f.italian_id())}; "
             f"matricola {f.rng.randint(1000, 9999)}"
         )
     return "\n".join(lines)
@@ -357,6 +366,7 @@ if __name__ == "__main__":
 
 __all__ = [
     "PIIValueFactory",
+    "annotate",
     "generate_documents",
     "write_corpus",
     "validate_factory",

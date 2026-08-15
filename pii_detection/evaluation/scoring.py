@@ -150,18 +150,21 @@ def evaluate(
         fp_by.update(fp)
         fn_by.update(fn)
 
-    return _report_from_counters(tp_by, fp_by, fn_by)
+    return report_from_counters(tp_by, fp_by, fn_by)
 
 
-def _report_from_counters(
+def report_from_counters(
     tp_by: Counter[str], fp_by: Counter[str], fn_by: Counter[str]
 ) -> EvaluationReport:
     """Assemble an :class:`EvaluationReport` from per-category tp/fp/fn counters.
 
-    Shared by the span scorer (:func:`evaluate`) and the value scorer
-    (:func:`evaluate_values`): both only differ in how they count, not in how the
-    report is built.
+    Shared by the span scorer (:func:`evaluate`), the value scorer
+    (:func:`evaluate_values`) and the registry check of the enterprise corpus:
+    they only differ in how they count, not in how the report is built.
 
+    :param tp_by: true positives per ``pii_type``.
+    :param fp_by: false positives per ``pii_type``.
+    :param fn_by: false negatives per ``pii_type``.
     :returns: overall (micro-averaged) plus per-category metrics.
     """
     categories = set(tp_by) | set(fp_by) | set(fn_by)
@@ -244,7 +247,7 @@ def evaluate_values(
         tp_by.update(tp)
         fp_by.update(fp)
         fn_by.update(fn)
-    return _report_from_counters(tp_by, fp_by, fn_by)
+    return report_from_counters(tp_by, fp_by, fn_by)
 
 
 def format_report(report: EvaluationReport) -> str:
@@ -277,6 +280,7 @@ __all__ = [
     "DEFAULT_MIN_OVERLAP",
     "Metrics",
     "EvaluationReport",
+    "report_from_counters",
     "evaluate",
     "evaluate_values",
     "format_report",
