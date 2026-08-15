@@ -3,7 +3,7 @@
 
 \section{Background tecnologico} % 1
 \label{sec:background-tecnologico}
-Questa sezione è speficificamente indicata per inserire definizioni e spiegazioni su argomenti discussi successivamente.
+Questa sezione è specificamente indicata per inserire definizioni e spiegazioni su argomenti discussi successivamente.
 
 \subsection{Spiegazione supervised vs unsupervised}
 \label{sub:supervised-unsupervised}
@@ -19,7 +19,7 @@ Nel contesto specifico della NER, l'approccio supervisionato mostra migliorament
 
 \subsection{Pre-tuning vs fine-tuning}
 \label{sub:pretuning-finetuning}
-Il paradigma pre-training/fine-tuning è stato reso centrale nell'NLP moderno dal lavoro di Devlin \cite{devlinBERTPretrainingDeep2019}, che lo applicano al modello BERT (Bidirectional Encored Representations from Transformers). Le due fasi si articolano come segue:
+Il paradigma pre-training/fine-tuning è stato reso centrale nell'NLP moderno dal lavoro di Devlin \cite{devlinBERTPretrainingDeep2019}, che lo applicano al modello BERT (Bidirectional Encoder Representations from Transformers). Le due fasi si articolano come segue:
 
 \begin{itemize}
 	\item per \textbf{pre-training} si intende la fase iniziale di addestramento in cui il modello apprende rappresentazioni linguistiche generali a partire da grandi quantità di testo non etichettato, tramite obiettivi di tipo \textit{self-supervised} (ad esempio indovinare delle parole mascherate casualmente all'interno di una frase). In questa fase il modello non è ancora specializzato su alcun compito specifico: l'obiettivo è costruire una rappresentazione del linguaggio sufficientemente generale per poter essere riutilizzata per molteplici task.
@@ -37,29 +37,26 @@ A differenza dei paradigmi supervised e unsupervised descritti in \ref{sub:super
 
 \section{Definizione e inquadramento del problema: Dalla Data Anonymization alla Data Governance} % 2
 \label{sec:definizione}
-\underline{da capire cosa mettere in questa sezione, per non essere ripetitivo con quella del contesto}\\
-Da definire il problema tecnico dell'astrazione. (pensiero grezzo)
 I documenti non strutturati soffrono del problema del "Domain-Silo" \cite{jhaPIIBenchUnifiedMultiSource2026}: i sistemi di detection falliscono perché addestrati su dati specifici e non riescono a generalizzare su testi eterogenei. Il problema centrale non è "leggere" il documento, ma togliere le ambiguità dalle informazioni in base al contesto in cui si trovano.
-\textit{RIFORMULARE PER UNIRE TUTTO}
 
 \section{Compliance checking automatizzato} % 3
 \label{sec:compliance-checking}
-Sezione contenente metodi per confrontare il ROPA con i dati effettivamente all'interno dei dati.\cite{amaralNLPbasedAutomatedCompliance2023} \textbf{MAGARI DA SPOSTARE}
+Sezione contenente metodi per confrontare il ROPA con i dati effettivamente all'interno dei dati.\cite{amaralNLPbasedAutomatedCompliance2023}
 
 \section{Approcci tecnici di PII detection}
 \label{sec:approcci-PII-detection}
-Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse in studi accademici. Ognuna di queste ha dei punti di forza e di debolezza, infatti esiste una area di problemi dove ogni singola opzione diventa la migliore, riducendo o addirittura annullando gli effetti negativi. (Approfondimento al capitolo 10 [DA LINKARE NEL DOCUMENTO]) \medskip
+Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse in studi accademici. Ognuna di queste ha dei punti di forza e di debolezza, infatti esiste una area di problemi dove ogni singola opzione diventa la migliore, riducendo o addirittura annullando gli effetti negativi. \medskip
 
 Le soluzioni in questione sono:
 \subsection{Recognition rule-based}
 \label{sub:rule-based}
-Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...). Non appena i testi diventano liberi e non strutturati, allora l'accuratezza crolla. \cite[Sezione 5.2]{jhaPIIBenchUnifiedMultiSource2026} Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: [da capire se mettere lista oppure lasciare testo] categorie nettamente più difficili da trovare (nomi propri per esempio, in quanto si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi (es. lettera maiuscola) [IDEA: libreria per checkare se una parola sia nel dizionario italiano/inglese. SE NO, ALLORA NOME PROPRIO])\\
+Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...). Non appena i testi diventano liberi e non strutturati, allora l'accuratezza crolla. \cite[Sezione 5.2]{jhaPIIBenchUnifiedMultiSource2026} Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: categorie nettamente più difficili da trovare (i nomi propri, per esempio, si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi, come la sola lettera maiuscola).\\
 \textbf{Vantaggio}: più veloce in assoluto tra tutte le soluzioni.
 
 \subsection{Recognition con NLP - NER}
-I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognition (NER), classificano le entità testuali analizzando la struttura logica della frase. Architetture basate su Transformers (es. BERT) superando i limiti delle regole, comprendendo il contesto e raggiungendo accuratezze fino al 99.55\% \cite{PDFDetectingPersonally2026}. \medskip
+I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognition (NER), classificano le entità testuali analizzando la struttura logica della frase. Architetture basate su Transformers (es. BERT) superano i limiti delle regole, comprendono il contesto e raggiungono accuratezze fino al 99.55\% \cite{PDFDetectingPersonally2026}. \medskip
 
-\textbf{Vantaggio}: eccellente bilanciamento tra comprensione del testo ed efficienza computazoinale.\\
+\textbf{Vantaggio}: eccellente bilanciamento tra comprensione del testo ed efficienza computazionale.\\
 \textbf{Svantaggio}: Rischio di calo prestazionale su dati aziendali particolarmente specifici senza fare fine-tuning su dataset simili.
 
 \subsection{Recognition con AI generativa}
@@ -70,15 +67,15 @@ Tuttavia, gli LLM hanno un vantaggio unico per quanto riguarda un aspetto fondam
 \subsection{Limitazioni nella soluzione}
 Come visto nella sezione precedente, la soluzione parzialmente migliore sembrerebbe essere la detection con NLP. Questo perché riesce ad avere una percentuale di matching particolarmente alta, senza aver bisogno della quantità ingestibilmente alta di risorse dell'AI generativa.\medskip
 
-Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti [LINK AI REQUISITI], il nostro sistema di detection deve essere ready-to-use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
+Tuttavia, questa soluzione diventa praticamente insignificante se teniamo in considerazione l'aspetto dello "\textbf{Zero training}". Infatti, da requisiti (cfr.~\ref{sub:zero-training}), il nostro sistema di detection deve essere ready-to-use non appena installato, garantendo una buona percentuale di detection senza aver bisogno dei dati su cui sta lavorando. Le metodologie NLP - NER hanno alla base proprio la knowledge dei dati che si stanno analizzando.
 
 \subsection{Soluzioni ibride}
-Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesa di risorse del'AI generativa e la rigidità dei sistemi rule-basd, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
+Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanciando l'elevata richiesta di risorse dell'AI generativa e la rigidità dei sistemi rule-based, lo \textbf{standard industriale} prevede un'architettura ibrida (es. Microsoft Presidio) \cite{PDFEnterpriseScalePII2026}
 
 \subsection{Confronto empirico degli approcci}
 \label{sub:confronto-empirico}
 
-Le sezioni precedenti presentano ciascun approccio in termini qualitativi. Per motivare la scelta architetturale in modo rigoroso, è necessario un confronto quantitativo basato su evidenze empiriche dalla letteratura recente. Le metriche considerate sono precisione~(P), recall~(R), F1-score, costo energetico di inferencee necessità di dati annotati.
+Le sezioni precedenti presentano ciascun approccio in termini qualitativi. Per motivare la scelta architetturale in modo rigoroso, è necessario un confronto quantitativo basato su evidenze empiriche dalla letteratura recente. Le metriche considerate sono precisione~(P), recall~(R), F1-score, costo energetico di inferenza e necessità di dati annotati.
 
 \subsubsection{Prestazioni dei sistemi rule-based}
 
@@ -91,7 +88,7 @@ La letteratura di survey su NER conferma il pattern: per i metodi rule-based la 
 
 \subsubsection{Prestazioni dei modelli NER supervisionati}
 
-Con corpus annotati adeguati, i modelli encoder fine-tuned raggiungono le prestazioni più elevate in assoluto tra tutti gli approcci considerati. In un benchmark comparativo su documenti clinici, BERT, ModernBERT e ClinicalBERT raggiungono tutti P\,=\,0.99 e R\,=\,0.99 (CIRE\,$\approx$\,0.99), con throughput di 1528--2446 token/secondo e costo energetico di inference nettamente inferiore ai modelli generativi
+Con corpus annotati adeguati, i modelli encoder fine-tuned raggiungono le prestazioni più elevate in assoluto tra tutti gli approcci considerati. In un benchmark comparativo su documenti clinici, BERT, ModernBERT e ClinicalBERT raggiungono tutti P\,=\,0.99 e R\,=\,0.99 (CIRE\,$\approx$\,0.99), con throughput di 1528--2446 token/secondo e costo energetico di inferenza nettamente inferiore ai modelli generativi
 \cite{zambareFairEfficientDeidentification2026}. % Zotero: arXiv:2602.15869 — Mayer et al. "Towards Fair and Efficient De-identification" 5 (Metrics)
 Un modello DeBERTa fine-tuned sul dataset \textit{ai4privacy} raggiunge F1\,=\,0.9757 su un benchmark PII multi-dominio
 \cite{DeBERTaai4privacy}. % https://grepture.com/blog/best-open-source-models-pii-redaction | Standout models
@@ -99,9 +96,9 @@ Un modello DeBERTa fine-tuned sul dataset \textit{ai4privacy} raggiunge F1\,=\,0
 Su documenti finanziari non strutturati (audit report, fatture), una pipeline ibrida NLP rule-based + ML + NER custom raggiunge P\,=\,94.7\%, R\,=\,89.4\%, F1\,=\,91.1\% su dataset sintetici, con il 93\% di accuratezza su documenti reali
 \cite{mishraHybridRulebasedNLP2025}. % Zotero: DOI:10.1038/s41598-025-04971-9 — Mazzarino et al. Scientific Reports | First section
 
-Il principale ostacolo non è il costo di inference(basso dopo il training) ma il costo di annotazione del corpus: le soluzioni supervisionate richiedono tipicamente un corpus annotato di grandi dimensioni
+Il principale ostacolo non è il costo di inferenza (basso dopo il training) ma il costo di annotazione del corpus: le soluzioni supervisionate richiedono tipicamente un corpus annotato di grandi dimensioni
 \cite{africanoPIIDetectionLowResource2024}. % Zotero: DOI:10.1145/3675888.3676036 — Africano et al. ACM IC3 2024 | Introduction
-Questo costo è però da sostenersi una tantum (fine-tuning), non per ogni documento analizzato (distinzione fondamentale rispetto all'inference LLM, ricorrente).
+Questo costo è però da sostenersi una tantum (fine-tuning), non per ogni documento analizzato (distinzione fondamentale rispetto all'inferenza LLM, ricorrente).
 
 \subsubsection{Prestazioni dei modelli NER zero-shot}
 
@@ -124,7 +121,7 @@ Su benchmark strutturati multi-task (PII-Bench), GPT-4o con metodi avanzati (Sel
 \cite{jhaPIIBenchUnifiedMultiSource2026}. % Zotero: arXiv:2502.18545 — PII-Bench
 
 Il problema principale per il contesto di questa tesi è il \textbf{costo energetico ricorrente}. Luccioni, Jernite e Strubell mostrano una distinzione netta tra modelli discriminativi task-specific --- con emissioni molto inferiori --- e modelli generativi decoder-only: la generazione di testo richiede circa 0.047\,kWh per 1000 query
-\cite{luccioniPowerHungryProcessing2024}. % Zotero: DOI:10.1145/3630106.3658542 — Luccioni et al. "Power Hungry Processing" FAccT 2024 | Task specific model analysis
+\cite{luccioni2024energy}. % Zotero: DOI:10.1145/3630106.3658542 — Luccioni et al. "Power Hungry Processing" FAccT 2024 | Task specific model analysis
 Questo costo si moltiplica per ogni documento analizzato nel filesystem aziendale ed è ricorrente (ogni nuova analisi, ogni re-scan), mentre il fine-tuning di un encoder è un costo one-shot. A parità di F1, RoBERTa costa circa \$0.044 per 1000 esempi contro \$13.50 di GPT-4 --- un rapporto di circa 300:1
 \cite{yuOpenClosedSmall2023}. % Zotero: arXiv:2308.10092 — Hu et al. "Open, Closed, or Small LMs for Text Classification?" | Observation 5
 
@@ -137,7 +134,7 @@ Un sistema ibrido indipendente (CHPDA) documenta lo stesso principio: le regex e
 \cite{koliDecodingComplexityIntelligent2025}. % Zotero: arXiv:2502.07815 — CHPDA
 
 La letteratura non esclude l'AI generativa in assoluto, ma ne circoscrive il ruolo: l'impiego su casi ambigui come supervisor di una pipeline ibrida è documentato come cost-effective
-\cite{rajgarhiaEvaluationStudyHybrid2025}. L'esclusione riguarda l'inferencesistematica su tutto il corpus, non l'impiego selettivo su un sottoinsieme di casi irrisolti.
+\cite{rajgarhiaEvaluationStudyHybrid2025}. L'esclusione riguarda l'inferenza sistematica su tutto il corpus, non l'impiego selettivo su un sottoinsieme di casi irrisolti.
 
 \subsubsection{Matrice di confronto sintetica}
 
@@ -169,9 +166,9 @@ La Tabella~\ref{tab:confronto-approcci} riassume le evidenze empiriche discusse 
 
 	\raggedright\scriptsize
 	\textsuperscript{a}\,Il fine-tuning di un encoder richiede $\sim$44\,h GPU totali su A100; il costo è one-shot e non ricorrente~\cite{zambareFairEfficientDeidentification2026}.\quad
-	\textsuperscript{b}\,Dati misurati su A100: text classification $\sim$0.002\,kWh/1k inf., text generation $\sim$0.047\,kWh/1k inf.~\cite{luccioniPowerHungryProcessing2024}.\quad
+	\textsuperscript{b}\,Dati misurati su A100: text classification $\sim$0.002\,kWh/1k inf., text generation $\sim$0.047\,kWh/1k inf.~\cite{luccioni2024energy}.\quad
 	\textsuperscript{c}\,GLiNER usa un encoder pre-addestrato senza fine-tuning task-specific~\cite{zaratianaGLiNER2PIIMultilingualModel2026}.\quad
-	\textsuperscript{d}\,Il pre-training di LLM generativi richiede ordini di grandezza più energia dell'inference; la parità training/inference si raggiunge dopo 200--590\,M query~\cite{luccioniPowerHungryProcessing2024}.\quad
+	\textsuperscript{d}\,Il pre-training di LLM generativi richiede ordini di grandezza più energia dell'inferenza; la parità training/inferenza si raggiunge dopo 200--590\,M query~\cite{luccioni2024energy}.\quad
 	\textsuperscript{e}\,Regex + NER encoder con LLM solo su casi ambigui: il costo è dominato dalla componente NER~\cite{rajgarhiaEvaluationStudyHybrid2025}.
 \end{table}
 
@@ -190,7 +187,7 @@ Il paradigma tradizionale prevede l'utilizzo di un modello linguistico pre-addes
 	\item \textbf{Perdita di generalizzazione (Catastrophic Forgetting)}: la specializzazione spinta su un singolo formato documentale può compromettere la capacità del modello di generalizzare su testi imprevisti.
 \end{itemize}
 
-Questi vincoli risultano particolarmente critici in ambienti operativi ristretti. Come evidenziato dallo studio di Zhang et al. \cite{zhangPersonallyIdentifiableInformation2025} sul rilevamento di PII in architetture \textit{smart edge computing}, l'esigenza di eseguire inferencelocale e decentralizzata richiede modelli estremamente robusti che non obblighino a continui cicli di riaddestramento per coprire nuove categorie di dati sensibili.
+Questi vincoli risultano particolarmente critici in ambienti operativi ristretti. Come evidenziato dallo studio di Zhang et al. \cite{zhangPersonallyIdentifiableInformation2025} sul rilevamento di PII in architetture \textit{smart edge computing}, l'esigenza di eseguire inferenza locale e decentralizzata richiede modelli estremamente robusti che non obblighino a continui cicli di riaddestramento per coprire nuove categorie di dati sensibili.
 
 \subsection{Span-matching e Zero-shot (Il paradigma GLiNER)}
 Per superare i colli di bottiglia del fine-tuning, la letteratura ha esplorato modelli capaci di identificare entità senza addestramento pregresso sulle etichette specifiche (Zero-shot). Architetture recenti, come GLiNER \cite{zaratianaGLiNER2PIIMultilingualModel2026}, sfruttano encoder bidirezionali leggeri per eseguire uno \textit{span-matching}. In questa modalità, al modello viene passato sia il documento da analizzare sia le descrizioni testuali delle PII da trovare (es. ``Numero di previdenza sociale'').
@@ -211,7 +208,7 @@ Spiegno di altre tecnolgie (che ora non ricordo)
 
 \section{Panoramica dei sistemi esistenti} % 5
 \label{sec:panoramica-sistemi}
-L'analisi dello stato dell'arte evidenzia una profonda spaccatura tra gli strumenti open-source, spesso focalizzati su un singolo task tecnici (anonimizzare o estrazione bruta), e le suite commerciali, ricche di feature ma close-source e inaccessibili.
+L'analisi dello stato dell'arte evidenzia una profonda spaccatura tra gli strumenti open-source, spesso focalizzati su un singolo task tecnico (anonimizzare o estrazione bruta), e le suite commerciali, ricche di feature ma close-source e inaccessibili.
 \subsection{Sistemi open-source}
 
 \begin{itemize}
@@ -220,32 +217,33 @@ L'analisi dello stato dell'arte evidenzia una profonda spaccatura tra gli strume
 	\item \textbf{GLiNER}: architettura Zero-Shot basata su Transformers, in grado di identificare PII passandole dinamicamente come query, senza addestramento. Le sue iterazioni recenti (GLiNER2-PII) mostrano prestazioni eccellenti in contesti multilingua \cite{zaratianaGLiNER2PIIMultilingualModel2026}. \\
 	      \textbf{Limiti}: è esclusivamente un "motore algoritmico". Prende stringhe in input ed estrae etichette. Non implementa il parsing di documenti (PDF/Word), non genera reportistiche strutturate e non possiede alcuna logica di compliance (ROPA). \cite{zaratianaGLiNERGeneralistModel2023}
 	\item \textbf{Scrubadub / Datafog}: strutture open-source modulari. Scrubadub utilizza un'architettura a \textit{Detector} multipli (Regex, detector predefiniti, NLP esterni) \cite{LeapBeyondScrubadub2026}. \\
-	      \textbf{Limiti}: sono fortemente legati al test-masking e all'oscuramento. Spesso si affidano pesantemente al pattern matching deterministico (Regex) (cfr:\ref{sub:rule-based}), una tecnologia ormai insufficiente da sola per gestire docuenti destrutturati e ambigui.
+	      \textbf{Limiti}: sono fortemente legati al test-masking e all'oscuramento. Spesso si affidano pesantemente al pattern matching deterministico (Regex) (cfr:\ref{sub:rule-based}), una tecnologia ormai insufficiente da sola per gestire documenti destrutturati e ambigui.
 \end{itemize}
 
 \subsection{Sistemi commerciali}
-L'analisi dei player di mercato è fondamentale per comprendere quali caratteristiche vengono ricercare dalle aziende per quanto riguarda la compliance. Le soluzioni commerciali offrono architetture olistiche, ma a costi e confizioni strutturali spesso incompatibili con le Piccole e Medie imprese o con vincoli stretti di privacy locale.
+L'analisi dei player di mercato è fondamentale per comprendere quali caratteristiche vengono ricercate dalle aziende per quanto riguarda la compliance. Le soluzioni commerciali offrono architetture olistiche, ma a costi e condizioni strutturali spesso incompatibili con le Piccole e Medie imprese o con vincoli stretti di privacy locale.
 
 \begin{itemize}
-	\item \textbf{Varonis}: piattaforma leader mondiale per la Data Security Posture Management (DSPM). Implementa un motore ibrido che vanta un'accuratezza del \textbf{98\%} su dati strutturati e non strutturati (SharePoint, OneDrive, NAS) senza necessità di training sui dati del cliente \cite{OverviewVaronisAIPowereda}. Tra le feature distintive spicca la User and Entity Behavior Analytics (UEBA), che monitora pattern anomili di accesso ai file sensibili \cite{DataClassificationBuyers}, unita a scansioni \textit{incrementali} per abbattere i costi computazionali. \\
+	\item \textbf{Varonis}: piattaforma leader mondiale per la Data Security Posture Management (DSPM). Implementa un motore ibrido che vanta un'accuratezza del \textbf{98\%} su dati strutturati e non strutturati (SharePoint, OneDrive, NAS) senza necessità di training sui dati del cliente \cite{OverviewVaronisAIPowereda}. Tra le feature distintive spicca la User and Entity Behavior Analytics (UEBA), che monitora pattern anomali di accesso ai file sensibili \cite{DataClassificationBuyers}, unita a scansioni \textit{incrementali} per abbattere i costi computazionali. \\
 	      \textbf{Limiti}: Si tratta di un sistema massiccio focalizzato sul \textit{controllo degli accessi} e la Data Security delle reti aziendali. I costi (circa 80.000 CHF/anno \cite{VaronisSoftwarePricing}) e la sua architettura chiusa lo rendono sovradimensionato e inadatto allo scope del progetto.
-	\item \textbf{}: piattaforma di altissimo livello per la Data Privacy e Governance. Il suo punto di forza risiede nell'\textbf{Identity-aware discovery}: non si limita a trovare un dato sensibile, ma correla i record a specifiche persone fisiche (Data Subjects) incrociando diverse fonti \cite{BigIDPersonIdentification}. Utilizza una tecnologia proprietaria (\textit{Hyperscan}) per prioritizzare lo scanning tramite Machine Learning. Soprattutto, supporta la \textbf{gestione dei ROPA automatizzata}, mappando i dati scoperti contro la conformità normativa e gestendo le poliy di retention (cancellando dati "redundant, obsolete, trivial" o semplicemente scaduti) \cite{BigIDPrivacySuite}. \\
-	      \textbf{Limiti}: struttura enterprise dai costi preclusivi su preventivo. Per molte operazioni di classificazione si affida ad architetture Cloud o Ibride \c, che sollevano importanti problematiche di Data Sovereignity, scontrandosi con il vincolo del progetto di mantenere tutta l'inference all'interno dell'infrastruttura aziendale cliente.
+	\item \textbf{BigID}: piattaforma di altissimo livello per la Data Privacy e Governance. Il suo punto di forza risiede nell'\textbf{Identity-aware discovery}: non si limita a trovare un dato sensibile, ma correla i record a specifiche persone fisiche (Data Subjects) incrociando diverse fonti \cite{BigIDPersonIdentification}. Utilizza una tecnologia proprietaria (\textit{Hyperscan}) per prioritizzare lo scanning tramite Machine Learning. Soprattutto, supporta la \textbf{gestione dei ROPA automatizzata}, mappando i dati scoperti contro la conformità normativa e gestendo le policy di retention (cancellando dati "redundant, obsolete, trivial" o semplicemente scaduti) \cite{BigIDPrivacySuite}. \\
+	      \textbf{Limiti}: struttura enterprise dai costi preclusivi su preventivo. Per molte operazioni di classificazione si affida ad architetture Cloud o Ibride, che sollevano importanti problematiche di Data Sovereignty, scontrandosi con il vincolo del progetto di mantenere tutta l'inferenza all'interno dell'infrastruttura aziendale cliente.
 	\item \textbf{PII Tools}: soluzione verticale sulla singola PII detection. Offre un approccio Machine Learning che, secondo l'azienda, riduce i falsi positivi delle classiche Regex assicurando maggiore comprensione del contesto \cite{PIIToolsPDFPII}. Risulta particolarmente interessante per le PMI poiché distribuibile interamente \textbf{on-premise via Docker in pochi minuti} e garantisce una mappatura che indica la localizzazione spaziale esatta del dato all'interno del documento \cite{PIIToolsDiscover}. \\
-	      \textbf{Limiti}: pur essendo leggero, resta un software \textit{black-box} a pagamento. Manda di trasparenza e non offre flessibilità per scambiare il odello AI sottostante qualora se ne presentasse uno migliore.
+	      \textbf{Limiti}: pur essendo leggero, resta un software \textit{black-box} a pagamento. Manca di trasparenza e non offre flessibilità per scambiare il modello AI sottostante qualora se ne presentasse uno migliore.
 \end{itemize}
 
 \section{Sintesi del gap e posizionamento del progetto}
 \label{sec:sintesi-gap}
-Alla luce di questa panoramica, il \textbf{gap nel mercato} risulta evidente. Le organizzazioni, in particolare le PMI svizzere, si riscontrano con un panorama fortemente polarizzato:
+Alla luce di questa panoramica, il \textbf{gap nel mercato} risulta evidente. Le organizzazioni, in particolare le PMI svizzere, si confrontano con un panorama fortemente polarizzato:
 
 \begin{enumerate}
 	\item \textbf{Soluzioni open-source}: Rilevano i dati in locale ma lo fanno con l'ottica prioritaria dell'\textit{anonimizzazione} (Presidio), oppure offrono solo modelli potenti linguistici disconnessi da qualsiasi logica di governance e reportistica aziendale (GLiNER).
-	\item \textbf{Soluzioni Commerciali}: Dimostrano quali siano le reali necessità delle aziende, introducendo l'Identity-aware discovery, l'automazione dei ROPA, lo scanning incrementale e le dashboard per DPO. Tuttavia, lo fanno imponendo ecosistemi Black-box, costi esorbitanti e massicce dipendenze da Cloud/API di terze parti, con conseguenti problematiche di \textit{Data Sovereignity}.
+	\item \textbf{Soluzioni Commerciali}: Dimostrano quali siano le reali necessità delle aziende, introducendo l'Identity-aware discovery, l'automazione dei ROPA, lo scanning incrementale e le dashboard per DPO. Tuttavia, lo fanno imponendo ecosistemi Black-box, costi esorbitanti e massicce dipendenze da Cloud/API di terze parti, con conseguenti problematiche di \textit{Data Sovereignty}.
 \end{enumerate}
 
-\phantomsection{Posizionamneto del progetto}: il software proposto si inserisce al centro di questo divario. L'obiettivo è fornire uno strumento open-source ed eseguibile \textbf{esclusivamente in locale} (on-premise), rispondendo all'esigenza di confidenzialità totale. Abbandonando il paradigma dell'anonimizzazione dei tool, il \dots \\
-Sfruttando parser moderni (cfr.\ref{sec:elaborazione-parsing}) per affrontare dati strutturati e motori NLP Zero-Shot (cfr.\ref{sub:zero-shot}) per eliminare i costri di training descritti precedentemente. Il sistema non si limiterà a scoprire le PII, ma fungerà da ponte tra il dato reale e le policy aziendali (ROPA), fornendo un quadro clinico dell'aderenza normativa aziendale.
+\paragraph{Posizionamento del progetto}
+Il software proposto si inserisce al centro di questo divario. L'obiettivo è fornire uno strumento open-source ed eseguibile \textbf{esclusivamente in locale} (on-premise), rispondendo all'esigenza di confidenzialità totale. Abbandonando il paradigma dell'anonimizzazione dei tool, il \dots \\
+Sfruttando parser moderni (cfr.\ref{sec:elaborazione-parsing}) per affrontare dati strutturati e motori NLP Zero-Shot (cfr.\ref{sub:zero-shot}) per eliminare i costi di training descritti precedentemente. Il sistema non si limiterà a scoprire le PII, ma fungerà da ponte tra il dato reale e le policy aziendali (ROPA), fornendo un quadro clinico dell'aderenza normativa aziendale.
 
 
 da inserire tabella riassuntiva (o paragrafo comparativo) che fa capire cosa "fanno gli altri" e "cosa manca".
