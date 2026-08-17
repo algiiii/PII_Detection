@@ -46,6 +46,13 @@ Composite detector (``detection.composite``)
    :members:
    :member-order: bysource
 
+AI detector (``detection.ai_detector``)
+---------------------------------------
+
+.. automodule:: pii_detection.detection.ai_detector
+   :members:
+   :member-order: bysource
+
 Merge engine (``detection.pipeline``)
 -------------------------------------
 

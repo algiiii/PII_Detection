@@ -58,8 +58,8 @@ class BaseDetector:
     """*Optional* concrete base with utilities common to the real detectors.
 
     It is not abstract and does not implement :meth:`~PIIDetector.detect`: the
-    subclasses (``RegexDetector``, ``PresidioDetector``, ``SelectiveAIDetector``)
-    do. Inheriting it is a convenience, not a contract requirement.
+    subclasses (``RegexDetector``, ``PresidioDetector``, ``LLMDetector``) do.
+    Inheriting it is a convenience, not a contract requirement.
 
     :ivar detector_id: identifier of the instance.
     :ivar detector_kind: technique implemented.
