@@ -13,6 +13,12 @@ services:
       # Services are reached by name on the compose network (no hardcoded hosts).
       OLLAMA_HOST: http://ollama:11434
       ROPA_LLM_MODEL: phi4-mini
+      # Model for the AI detection second opinion (B4), kept separate from the ROPA
+      # mapper's model so the two AI tasks can differ. Pull it first (see ollama below).
+      PII_LLM_MODEL: phi4-mini
+      # 1-in-N sampling of the AI second opinion during batch scans (0/absent = off).
+      # The /scan checkbox still escalates to every document regardless of this.
+      PII_AI_SAMPLING_RATE: "10"
       # Canonical store: the host ./data dir, reached at /app/data via the repo
       # bind-mount below (relative sqlite URL). Same file locally and in-container.
       ROPA_DB_URL: sqlite:///data/ropa.db
@@ -30,6 +36,15 @@ services:
       - ollama-models:/root/.ollama   # pulled LLM models persist here
     ports:
       - "11434:11434"
+    # Models are pulled manually once (they persist in the volume above):
+    #   docker compose exec ollama ollama pull phi4-mini
+    # Before running the multi-model benchmark, also pull the other tiers:
+    #   docker compose exec ollama ollama pull qwen3:4b
+    #   docker compose exec ollama ollama pull gemma3:4b
+    #   docker compose exec ollama ollama pull qwen2.5:7b
+    #   docker compose exec ollama ollama pull gemma3:12b   # several GB — check volume space
+    # No healthcheck here (the base image ships no curl/wget); the detector degrades
+    # gracefully if Ollama is unreachable, so a missing model never aborts a scan.
 
 volumes:
   hf-cache:
