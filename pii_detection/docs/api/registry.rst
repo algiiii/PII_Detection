@@ -19,6 +19,17 @@ Folder rules (``registry.folder_rules``)
    :members:
    :member-order: bysource
 
+File stamp (``registry.freshness``)
+----------------------------------------
+
+Whether a file changed since the registry last analysed it — the technical
+counterpart of the semantic reference date, kept deliberately cheap (modification
+time and size, one ``stat``).
+
+.. automodule:: pii_detection.registry.freshness
+   :members:
+   :member-order: bysource
+
 Delta (``registry.diff``)
 ----------------------------------------
 

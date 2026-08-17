@@ -4,7 +4,7 @@ Run after scanning a generated corpus::
 
     python -m pii_detection.evaluation.enterprise.verify corpus/generated
 
-Two things are checked, and one deliberately is not.
+Three things are checked, and one deliberately is not.
 
 **Detection, by type count.** The registry stores only references — type,
 position, provenance — and never the PII *value* (minimization, block B5). So
@@ -20,6 +20,13 @@ annotated text kept under ``source/``, via
 the scan had to do with it: a ``scannable`` file must be in the registry, a
 ``skipped`` or ``error`` one must not. Any mismatch is reported by name.
 
+**Retention, by folder.** When the corpus was built against a real register
+(``--profile ropa``), ``expected_violations.json`` names the archive folders whose
+documents are older than the term their activity declares. Each of them must
+produce at least one breach in the retention overview — and, just as importantly,
+the recent folders must produce none: a check that flags everything is as useless
+as one that flags nothing, and only the second half of the assertion can catch it.
+
 The numbers are only as good as the detectors that produced them: with the
 lightweight local stack ``health_data`` and most names are simply not detectable
 (they need GLiNER), so a run outside the container will show recall gaps that
@@ -29,10 +36,12 @@ say something about the deployment, not about the corpus.
 from __future__ import annotations
 
 import argparse
+import json
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from pii_detection.compliance.overview import retention_overview
 from pii_detection.evaluation.enterprise.builder import load_manifest
 from pii_detection.evaluation.render import load_gold
 from pii_detection.evaluation.scoring import (
@@ -41,6 +50,7 @@ from pii_detection.evaluation.scoring import (
     report_from_counters,
 )
 from pii_detection.registry.repository import PIIRepository
+from pii_detection.ropa.repository import ROPARepository
 
 
 @dataclass(frozen=True)
@@ -114,6 +124,60 @@ def check_handling(
     return HandlingReport(dict(expected), tuple(missing), tuple(unexpected))
 
 
+@dataclass(frozen=True)
+class RetentionCheck:
+    """Whether the planted retention breaches came back.
+
+    :ivar silent: prefixes that were expected to be overdue and produced no
+        breach at all — the check missed what the corpus planted.
+    :ivar unexpected: document ids flagged as overdue although they live outside
+        every expected prefix — the check complained about something recent.
+    :ivar found: number of documents correctly reported as overdue.
+    """
+
+    silent: tuple[str, ...]
+    unexpected: tuple[str, ...]
+    found: int
+
+    @property
+    def clean(self) -> bool:
+        """:returns: ``True`` when nothing was missed and nothing over-reported."""
+        return not self.silent and not self.unexpected
+
+
+def check_retention(
+    expectations: list[dict[str, object]],
+    *,
+    registry: PIIRepository,
+    ropa: ROPARepository,
+) -> RetentionCheck:
+    """Compare the retention overview with what the corpus planted.
+
+    :param expectations: the ``retention_overdue`` entries of
+        ``expected_violations.json``.
+    :param registry: the registry the scan wrote into.
+    :param ropa: the register the corpus was built against.
+    :returns: the :class:`RetentionCheck`.
+    """
+    prefixes = [str(entry["prefix"]) for entry in expectations]
+    overdue = [
+        row.document_id
+        for row in retention_overview(ropa=ropa, registry=registry)
+        if row.flags
+    ]
+    silent = [
+        prefix
+        for prefix in prefixes
+        if not any(document_id.startswith(f"{prefix}/") for document_id in overdue)
+    ]
+    unexpected = [
+        document_id
+        for document_id in overdue
+        if not any(document_id.startswith(f"{prefix}/") for prefix in prefixes)
+    ]
+    return RetentionCheck(tuple(silent), tuple(unexpected), len(overdue))
+
+
 def main(argv: list[str] | None = None) -> None:
     """CLI entry point: score a scanned corpus against its own gold.
 
@@ -124,6 +188,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("root", type=Path, help="corpus root (holds gold.jsonl)")
     parser.add_argument("--db-url", default=None, help="registry database URL")
+    parser.add_argument(
+        "--ropa-db-url",
+        default=None,
+        help="ROPA database URL, for the retention expectations of the 'ropa' profile",
+    )
     args = parser.parse_args(argv)
 
     repository = PIIRepository(args.db_url) if args.db_url else PIIRepository()
@@ -141,9 +210,32 @@ def main(argv: list[str] | None = None) -> None:
         for document_id in handling.unexpected:
             print(f"UNEXPECTED (should not be in the registry): {document_id}")
 
+    expected_file = args.root / "expected_violations.json"
+    if expected_file.exists():
+        planted = json.loads(expected_file.read_text(encoding="utf-8"))
+        entries = planted.get("retention_overdue", [])
+        if entries:
+            ropa = ROPARepository(args.ropa_db_url) if args.ropa_db_url else ROPARepository()
+            retention = check_retention(entries, registry=repository, ropa=ropa)
+            print()
+            print(f"retention: {retention.found} documents reported overdue")
+            if retention.clean:
+                print("retention: every planted breach was found, and only those")
+            for prefix in retention.silent:
+                print(f"SILENT (planted overdue, not reported): {prefix}")
+            for document_id in retention.unexpected:
+                print(f"OVER-REPORTED (not planted as overdue): {document_id}")
+
 
 if __name__ == "__main__":
     main()
 
 
-__all__ = ["HandlingReport", "check_handling", "compare_types", "main"]
+__all__ = [
+    "HandlingReport",
+    "RetentionCheck",
+    "check_handling",
+    "check_retention",
+    "compare_types",
+    "main",
+]

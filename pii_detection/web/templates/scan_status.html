@@ -3,7 +3,7 @@
 {% block head %}{% if job.state == "running" %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
 {% block content %}
   <h1>Scansione</h1>
-  <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}</p>
+  <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}{% if not job.incremental %} · rianalisi completa{% endif %}</p>
 
   {% if job.state == "running" %}
     <p><span class="badge warn">in corso</span> &nbsp; {{ job.done }} / {{ job.total }} file</p>
@@ -17,6 +17,7 @@
     <p><span class="badge ok">completata</span></p>
     <div class="card">
       <p><strong>{{ r.scanned }}</strong> documenti scansionati.</p>
+      {% if r.unchanged %}<p class="muted">invariati (già aggiornati, non riletti): {{ r.unchanged|length }}</p>{% endif %}
       {% if r.skipped %}<p class="muted">saltati (formato non supportato): {{ r.skipped|length }}</p>{% endif %}
       {% if r.removed %}<p class="muted">rimossi (spariti dalla cartella): {{ r.removed|length }}</p>{% endif %}
       {% if r.errors %}<p class="muted">errori: {{ r.errors|length }}</p>{% endif %}

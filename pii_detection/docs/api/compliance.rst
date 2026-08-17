@@ -29,3 +29,14 @@ Check (``compliance.checker``)
 .. automodule:: pii_detection.compliance.checker
    :members:
    :member-order: bysource
+
+Retention overview (``compliance.overview``)
+--------------------------------------------
+
+The same verdict, asked of the whole registry instead of one document: everything
+kept past its declared term, worst first. Read-only — looking at the corpus never
+writes to it.
+
+.. automodule:: pii_detection.compliance.overview
+   :members:
+   :member-order: bysource

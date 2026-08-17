@@ -7,14 +7,16 @@ per-document pipeline (:func:`~pii_detection.registry.ingest.ingest_document`) t
 already exists, adding only the tree walk, a per-file identity and the
 reconciliation of files that disappeared::
 
-    python -m pii_detection.registry.scan_folder path/to/folder [--gliner] [--no-prune]
+    python -m pii_detection.registry.scan_folder path/to/folder [--gliner] [--no-prune] [--full]
 
 Each file is recorded under a ``document_id`` equal to its path relative to the
 scanned folder (POSIX, e.g. ``HR/contratti/mario.pdf``), so equally named files in
 different sub-folders do not collide. ``--gliner`` swaps spaCy for GLiNER (heavy,
 container only). By default a document already in the registry but no longer under
 the folder is reconciled as gone (its PII marked ``REMOVED``); ``--no-prune``
-disables it.
+disables it. Also by default the scan is **incremental**: a file whose modification
+time and size are unchanged since its last scan, and whose scan ran with the same
+detection engine, is not read again; ``--full`` re-analyses everything.
 """
 
 from __future__ import annotations
@@ -28,8 +30,46 @@ from pathlib import Path
 from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.extraction import supported_suffixes
+from pii_detection.extraction.dates import as_utc
+from pii_detection.registry.freshness import (
+    FileStamp,
+    detector_signature,
+    needs_rescan,
+    stamp_for,
+)
 from pii_detection.registry.ingest import ingest_document
 from pii_detection.registry.repository import PIIRepository
+
+
+def _changed(
+    repository: PIIRepository, path: Path, document_id: str, signature: str | None
+) -> bool:
+    """Whether a file must be analysed again, against what the registry recorded.
+
+    A file the registry cannot vouch for — never seen, or seen without a stamp —
+    is always analysed: the incremental path must never *invent* a reason to skip.
+
+    :param repository: the registry holding the previous observation.
+    :param path: the file on disk.
+    :param document_id: its identity in the registry.
+    :param signature: fingerprint of the detection engine about to run, or ``None``
+        to ignore engine changes (the preview, which does not know the engine yet).
+    :returns: ``True`` when the document must be re-analysed.
+    """
+    document = repository.get_document(document_id)
+    recorded = (
+        FileStamp(modified_at=as_utc(document.source_mtime), size=document.source_size)
+        if document is not None
+        and document.source_mtime is not None
+        and document.source_size is not None
+        else None
+    )
+    return needs_rescan(
+        stamp_for(path),
+        recorded,
+        signature=signature,
+        recorded_signature=document.detector_signature if document else None,
+    )
 
 
 @dataclass
@@ -37,6 +77,8 @@ class FolderScanResult:
     """Summary of scanning the files in a folder into the registry.
 
     :ivar scanned: number of files successfully ingested.
+    :ivar unchanged: document ids skipped because the file did not change since the
+        last scan — distinct from :attr:`skipped`, which is about file *formats*.
     :ivar skipped: paths skipped because their extension is not supported.
     :ivar errors: ``(path, message)`` for files that failed to ingest.
     :ivar removed: document ids reconciled as gone from the folder (PII ``REMOVED``).
@@ -45,6 +87,7 @@ class FolderScanResult:
     """
 
     scanned: int = 0
+    unchanged: list[str] = field(default_factory=list)
     skipped: list[Path] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
@@ -88,6 +131,27 @@ def plan_folder(folder: str | Path) -> FolderPlan:
     return plan
 
 
+def count_unchanged(plan: FolderPlan, repository: PIIRepository) -> int:
+    """How many of a plan's files an incremental scan would skip.
+
+    Answers the preview's question — "how much of this is already done?" — using
+    the very same predicate the scan uses, so the page cannot promise one thing and
+    the run do another. The engine signature is deliberately **not** considered
+    here: the preview does not know which detectors the run will use, and counting
+    a file as unchanged that the run then re-analyses is the honest direction of
+    the two errors.
+
+    :param plan: the enumeration produced by :func:`plan_folder`.
+    :param repository: the registry holding the previous observations.
+    :returns: the number of files that would be skipped as unchanged.
+    """
+    return sum(
+        1
+        for path, document_id in plan.scannable
+        if not _changed(repository, path, document_id, signature=None)
+    )
+
+
 def ingest_folder(
     folder: str | Path,
     pattern: PIIDetector,
@@ -96,6 +160,7 @@ def ingest_folder(
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
     prune: bool = True,
+    incremental: bool = True,
     progress: Callable[[int, int], None] | None = None,
 ) -> FolderScanResult:
     """Ingest every supported document under ``folder``, recursively (batch scan).
@@ -105,10 +170,17 @@ def ingest_folder(
     file is isolated: one that fails to extract is recorded in ``errors`` and the
     scan continues. Re-scanning updates each document through the B5 delta.
 
+    When ``incremental`` is set (the default), a file whose stamp matches what the
+    registry recorded — and that was analysed by the same detection engine — is
+    **not** read again: it lands in ``unchanged``. Re-reading a share that has not
+    moved is the dominant cost of a periodic scan and buys nothing.
+
     When ``prune`` is set, documents already in the registry that were **not** seen
     in this scan and still have present PII are reconciled as gone: recording an
     empty scan marks their instances ``REMOVED``. This assumes the registry watches
-    a single folder tree (one registry per monitored folder).
+    a single folder tree (one registry per monitored folder). "Seen" here means
+    **enumerated on disk**, not "ingested": a file skipped as unchanged, or one that
+    failed to extract, is still on disk and must not be reported as removed.
 
     :param folder: root directory to scan recursively.
     :param pattern: the pattern/regex detector.
@@ -116,8 +188,10 @@ def ingest_folder(
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine reused across files; a default one when omitted.
     :param prune: reconcile documents gone from the folder as removed.
+    :param incremental: skip files unchanged since their last scan; set ``False`` to
+        force a full re-analysis.
     :param progress: optional callback invoked ``progress(done, total)`` after each
-        file (whether ingested or errored), for a UI progress bar.
+        file actually analysed, for a UI progress bar.
     :returns: a :class:`FolderScanResult` summary, including the folder-wide inventory.
     :raises NotADirectoryError: if ``folder`` is not a directory.
     """
@@ -126,9 +200,22 @@ def ingest_folder(
 
     plan = plan_folder(folder)
     result = FolderScanResult(skipped=list(plan.skipped))
+    signature = detector_signature([pattern.detector_id, ner.detector_id])
+
+    # "Seen" is every file the enumeration found on disk, whatever happened to it
+    # afterwards: it is what protects the prune below from removing documents that
+    # are still there.
     seen: set[str] = set()
-    total = len(plan.scannable)
-    for done, (path, document_id) in enumerate(plan.scannable, start=1):
+    todo: list[tuple[Path, str]] = []
+    for path, document_id in plan.scannable:
+        seen.add(document_id)
+        if incremental and not _changed(repository, path, document_id, signature):
+            result.unchanged.append(document_id)
+        else:
+            todo.append((path, document_id))
+
+    total = len(todo)
+    for done, (path, document_id) in enumerate(todo, start=1):
         try:
             ingest_document(
                 path,
@@ -137,11 +224,11 @@ def ingest_folder(
                 document_id=document_id,
                 repository=repository,
                 merge=merge,
+                detector_signature=signature,
             )
         except Exception as exc:  # noqa: BLE001 — one bad file must not abort the batch
             result.errors.append((path, str(exc)))
         else:
-            seen.add(document_id)
             result.scanned += 1
         if progress is not None:
             progress(done, total)
@@ -155,7 +242,7 @@ def ingest_folder(
                 result.removed.append(document.document_id)
 
     counts: Counter[str] = Counter()
-    for document_id in seen:
+    for document_id in seen:  # includes the unchanged ones: they still hold their PII
         for instance in repository.instances_for(document_id):
             counts[instance.pii_type] += 1
     result.by_type = dict(counts)
@@ -183,6 +270,12 @@ def main(argv: list[str] | None = None) -> None:
         help="do not mark documents gone from the folder as removed",
     )
     parser.add_argument(
+        "--full",
+        dest="incremental",
+        action="store_false",
+        help="re-analyse every file, including those unchanged since the last scan",
+    )
+    parser.add_argument(
         "--no-apply-rules",
         dest="apply_rules",
         action="store_false",
@@ -196,10 +289,17 @@ def main(argv: list[str] | None = None) -> None:
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
     repository = PIIRepository()
     result = ingest_folder(
-        args.folder, pattern, ner, repository=repository, prune=args.prune
+        args.folder,
+        pattern,
+        ner,
+        repository=repository,
+        prune=args.prune,
+        incremental=args.incremental,
     )
 
     print(f"Scanned {result.scanned} documents in '{args.folder}'.")
+    if result.unchanged:
+        print(f"  unchanged (skipped, already up to date): {len(result.unchanged)}")
     if result.skipped:
         print(f"  skipped (unsupported): {len(result.skipped)}")
     if result.removed:
@@ -227,4 +327,11 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["FolderScanResult", "FolderPlan", "plan_folder", "ingest_folder", "main"]
+__all__ = [
+    "FolderScanResult",
+    "FolderPlan",
+    "plan_folder",
+    "count_unchanged",
+    "ingest_folder",
+    "main",
+]

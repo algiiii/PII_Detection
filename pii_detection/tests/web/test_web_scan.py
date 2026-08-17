@@ -12,7 +12,7 @@ import pii_detection.web.scan_jobs as scan_jobs
 from pii_detection.detection.types import DetectorKind, PIICandidate
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.web.app import app
-from pii_detection.web.scan_jobs import get_job
+from pii_detection.web.scan_jobs import ScanJob, get_job
 
 
 class _FakeDetector:
@@ -77,7 +77,7 @@ def test_run_starts_background_job_and_completes(client: TestClient, tmp_path: P
     assert job is not None
     assert job.state == "done"
     assert job.result is not None
-    assert job.result.scanned == 2  # a.txt, sub/b.txt (skip.bin skipped)
+    assert job.result is not None and job.result.scanned == 2  # a.txt, sub/b.txt (skip.bin skipped)
     assert "completata" in client.get(f"/scan/status/{job_id}").text
 
 
@@ -167,3 +167,66 @@ def test_upload_rejection_always_carries_a_reason(client: TestClient) -> None:
     resp = client.post("/scan/upload", files=too_many)
     assert resp.status_code == 400
     assert "files" in resp.json()["detail"].lower()
+
+
+# --- incremental scan from the browser ---------------------------------------
+
+
+def _wait(job_id: str) -> ScanJob:
+    for _ in range(100):  # wait for the background thread (<=5s)
+        job = get_job(job_id)
+        if job is not None and job.state != "running":
+            break
+        time.sleep(0.05)
+    job = get_job(job_id)
+    assert job is not None and job.result is not None, f"job {job_id} did not finish"
+    return job
+
+
+def _run_scan(client: TestClient, folder: Path, **data: str) -> ScanJob:
+    resp = client.post("/scan/run", data={"path": str(folder), **data})
+    return _wait(resp.url.path.rsplit("/", 1)[-1])
+
+
+def test_second_run_skips_unchanged_files(client: TestClient, tmp_path: Path) -> None:
+    folder = _make_tree(tmp_path)
+    _run_scan(client, folder)
+
+    job = _run_scan(client, folder)
+
+    assert job.result is not None and job.result.scanned == 0
+    assert len(job.result.unchanged) == 2
+    assert job.result is not None and job.result.removed == []  # skipped is not gone
+
+
+def test_full_run_reanalyses_everything(client: TestClient, tmp_path: Path) -> None:
+    folder = _make_tree(tmp_path)
+    _run_scan(client, folder)
+
+    job = _run_scan(client, folder, full="true")
+
+    assert job.result is not None and job.result.scanned == 2
+    assert job.result is not None and job.result.unchanged == []
+
+
+def test_preview_announces_how_much_is_already_done(
+    client: TestClient, tmp_path: Path
+) -> None:
+    # The preview must state it before the run, not explain it afterwards.
+    folder = _make_tree(tmp_path)
+    body = client.get("/scan/preview", params={"path": str(folder)}).text
+    assert "0</span> invariati" in body.replace('class="badge ok">', "")
+
+    _run_scan(client, folder)
+    body = client.get("/scan/preview", params={"path": str(folder)}).text
+    assert "2</span> invariati" in body.replace('class="badge ok">', "")
+
+
+def test_upload_is_always_a_full_scan(client: TestClient) -> None:
+    # Uploaded files carry the upload time as their mtime, so no stamp of theirs
+    # would mean anything: the job must not pretend it can skip them.
+    files = [("files", ("nota.txt", b"IBAN IT60X0542811101000000123456", "text/plain"))]
+    resp = client.post("/scan/upload", files=files)
+    job = _wait(resp.url.path.rsplit("/", 1)[-1])
+    assert job.incremental is False
+    assert job.result is not None and job.result.scanned == 1

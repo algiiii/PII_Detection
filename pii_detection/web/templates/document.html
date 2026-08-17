@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "macros.html" import reference_date %}
 {% block title %}{{ document.document_id }}{% endblock %}
 {% block content %}
   <p><a href="{{ url_for('documents') }}">← Tutti i documenti</a></p>
   <h1>{{ document.document_id }}</h1>
   <p class="muted">{{ document.path or "—" }}</p>
+  <p style="margin:.2rem 0 0">
+    <span class="muted">Data del documento:</span> {{ reference_date(document) }}
+  </p>
 
   <h2>Verdetto di conformità</h2>
   {% if report %}
@@ -34,10 +38,16 @@
         <p style="margin:.6rem 0 .2rem"><strong>Conservazione superata</strong></p>
         {% for f in report.retention_flags %}
           <p class="muted" style="margin:.1rem 0">
+            <span class="badge bad">+{{ f.overdue_months }} mesi</span>
             «{{ f.category }}» [{{ f.activity_id }}]: {{ f.pii_types|join(", ") }} —
             età ~{{ f.age_months }} mesi &gt; limite {{ f.retention_months }} mesi
           </p>
         {% endfor %}
+      {% endif %}
+      {% if report.retention_unresolved %}
+        <p style="margin:.6rem 0 .2rem"><strong>Conservazione non verificabile</strong>
+          <span class="muted">(il registro dichiara un criterio, non una durata)</span></p>
+        <div>{% for c in report.retention_unresolved %}<span class="badge warn">{{ c }}</span> {% endfor %}</div>
       {% endif %}
     </div>
     <p class="muted">Il verdetto considera sia le mappature confermate dal DPO sia quelle proposte.</p>

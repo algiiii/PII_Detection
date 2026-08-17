@@ -82,9 +82,26 @@ class Document(SQLModel, table=True):
         (:class:`AssociationSource`), or ``None`` if the document has no
         association yet. Rule application skips documents set to
         :attr:`AssociationSource.MANUAL` (manual wins over folder rules).
-    :ivar source_modified_at: last-modified time of the source file at ingestion
-        (its ``mtime``), used as the document's reference date for the approximate
-        retention check (B7); a *reference*, not a PII value. ``None`` if unknown.
+    :ivar reference_date: the date the document is assumed to date from — read
+        from inside the file when it carries one, from the file system otherwise
+        (see :func:`~pii_detection.extraction.dates.reference_date`). It is the
+        *semantic* age used by the approximate retention check (B7); a
+        *reference*, not a PII value. ``None`` if unknown.
+    :ivar reference_date_source: provenance of :attr:`reference_date`, a
+        :class:`~pii_detection.extraction.dates.DateSource` value, so the verdict
+        can say how much the estimate is worth (``file_mtime`` is a weak signal:
+        any bulk copy resets it). ``None`` if unknown.
+    :ivar source_mtime: the file's modification time as observed at the last scan
+        — the *technical* stamp used to decide whether the file changed and must
+        be analysed again, never the age of its content.
+    :ivar source_size: the file size in bytes at the last scan, the second half of
+        that stamp.
+    :ivar last_scanned_at: when the document was last actually analysed (a scan it
+        was skipped for does not count).
+    :ivar detector_signature: fingerprint of the detection engine that produced the
+        current instances (see
+        :func:`~pii_detection.registry.freshness.detector_signature`), so a change
+        of detectors or of the pattern configuration invalidates the skip.
     :ivar instances: the PII instances contained in this document.
     """
 
@@ -95,7 +112,12 @@ class Document(SQLModel, table=True):
     first_seen: datetime = Field(default_factory=_utcnow)
     activity_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     association_source: AssociationSource | None = None
-    source_modified_at: datetime | None = None
+    reference_date: datetime | None = None
+    reference_date_source: str | None = None
+    source_mtime: datetime | None = None
+    source_size: int | None = None
+    last_scanned_at: datetime | None = None
+    detector_signature: str | None = None
 
     instances: list["PIIInstance"] = Relationship(
         back_populates="document",

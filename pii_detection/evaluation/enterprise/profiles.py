@@ -14,8 +14,8 @@ planted on purpose —
   and ``health_data``) dropped into folders that *are* covered by a rule, so the
   document is associated yet holds something nobody declared;
 * **expired retention**: documents older than the retention their activity
-  declares, via the modification time the registry reads back as
-  ``source_modified_at``;
+  declares, via the modification time the registry reads back as the document's
+  ``reference_date``;
 * **uncovered folders**: PII-bearing documents under prefixes no folder rule
   reaches, which must stay unassociated.
 
@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Sequence
+from datetime import date
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -92,6 +93,36 @@ REALISTIC_FOLDERS: tuple[FolderSpec, ...] = (
 
 
 @dataclass(frozen=True)
+class DeclaredRegister:
+    """What a real register declares, reduced to what the corpus needs.
+
+    :ivar types: ``{activity_id: (pii_type, ...)}``.
+    :ivar retention_months: ``{activity_id: months}`` — the **shortest** duration
+        the activity declares, i.e. the first term that can be exceeded, or
+        ``None`` when it states only criteria and nothing can be computed.
+    """
+
+    types: dict[str, tuple[str, ...]]
+    retention_months: dict[str, int | None]
+
+
+@dataclass(frozen=True)
+class RetentionExpectation:
+    """A folder that must make the retention check complain.
+
+    :ivar prefix: folder prefix whose documents are old enough to be overdue.
+    :ivar activity_id: the activity the folder rule associates them with.
+    :ivar retention_months: the term declared by that activity.
+    :ivar age_months: the approximate age the planted documents will have.
+    """
+
+    prefix: str
+    activity_id: str
+    retention_months: int
+    age_months: int
+
+
+@dataclass(frozen=True)
 class RopaLayout:
     """The tree built around a register, plus what it must make the check say.
 
@@ -100,12 +131,23 @@ class RopaLayout:
         :meth:`~pii_detection.registry.repository.PIIRepository.save_rule`.
     :ivar orphan_types: ``pii_type`` ids the register never declares, planted in
         covered folders so the compliance check must report them as orphan.
+    :ivar retention: the folders whose documents must come back overdue. An
+        activity that declares no computable duration contributes **no**
+        expectation: the corpus states what it can prove, it does not guess.
     """
 
     folders: tuple[FolderSpec, ...]
     rules: tuple[tuple[str, tuple[str, ...]], ...]
     orphan_types: tuple[str, ...]
+    retention: tuple[RetentionExpectation, ...] = ()
 
+
+#: Nominal year of the archive folders, and the age that follows from it. Old
+#: enough that any declared term shorter than this must be exceeded — which is
+#: what makes the expectation below provable rather than hopeful.
+_ARCHIVE_YEAR = 2019
+_ARCHIVE_FOLDER = f"Archivio {_ARCHIVE_YEAR}"
+_ARCHIVE_AGE_MONTHS = (date.today().year - _ARCHIVE_YEAR) * 12
 
 #: Archetypes carrying the categories a register typically leaves undeclared,
 #: by ``pii_type``. Planting an orphan means putting one of these documents in a
@@ -148,7 +190,30 @@ def declared_types(activities: Sequence[ProcessingActivity]) -> dict[str, tuple[
     return declared
 
 
-def read_ropa(path: Path) -> dict[str, tuple[str, ...]]:
+def declared_retentions(
+    activities: Sequence[ProcessingActivity],
+) -> dict[str, int | None]:
+    """Map each activity id to the shortest retention it declares, in months.
+
+    The shortest term is the one that trips first, so it is the one an aged
+    document is guaranteed to exceed.
+
+    :param activities: the normalized processing activities of a register.
+    :returns: ``{activity_id: months}``, ``None`` when the activity declares no
+        computable duration (only criteria).
+    """
+    shortest: dict[str, int | None] = {}
+    for activity in activities:
+        durations = [
+            macro.retention_months
+            for macro in activity.macro_categories
+            if macro.retention_months is not None
+        ]
+        shortest[activity.id] = min(durations) if durations else None
+    return shortest
+
+
+def read_ropa(path: Path) -> DeclaredRegister:
     """Read a register file and return what each of its activities declares.
 
     Reuses the DPO's own ingestion path — sheets are normalized, then the
@@ -156,7 +221,7 @@ def read_ropa(path: Path) -> dict[str, tuple[str, ...]]:
     against a throwaway database, so nothing of the caller's state is touched.
 
     :param path: the ``.ods``/``.xlsx`` register.
-    :returns: ``{activity_id: (pii_type, ...)}``.
+    :returns: what the register declares: categories and retention per activity.
     :raises FileNotFoundError: if the register file does not exist.
     :raises ValueError: if the workbook holds no processing-activity sheet.
     """
@@ -173,10 +238,14 @@ def read_ropa(path: Path) -> dict[str, tuple[str, ...]]:
             raise ValueError(f"no processing activity found in {path}")
         repository = ROPARepository(db_url)
         map_categories(repository, build_mapper("dictionary"))
-        return declared_types(repository.load())
+        activities = repository.load()
+        return DeclaredRegister(
+            types=declared_types(activities),
+            retention_months=declared_retentions(activities),
+        )
 
 
-def ropa_layout(declared: dict[str, tuple[str, ...]]) -> RopaLayout:
+def ropa_layout(declared: DeclaredRegister) -> RopaLayout:
     """Build the instrumented tree around what a register declares.
 
     One covered folder per activity (its declared categories inside), one
@@ -184,19 +253,23 @@ def ropa_layout(declared: dict[str, tuple[str, ...]]) -> RopaLayout:
     under the same covered prefix, so the document *is* associated), plus an
     explicitly uncovered branch no rule reaches.
 
-    :param declared: ``{activity_id: (pii_type, ...)}``, from :func:`read_ropa`.
-    :returns: folders, folder rules and the orphan types planted.
+    :param declared: what the register declares, from :func:`read_ropa`.
+    :returns: folders, folder rules, the orphan types planted and the retention
+        breaches the check must report.
     """
     catalog_file = default_config_dir() / "categories.yaml"
     catalog = {category.id for category in load_category_catalog(catalog_file)}
-    all_declared = {pii_type for types in declared.values() for pii_type in types}
+    all_declared = {
+        pii_type for types in declared.types.values() for pii_type in types
+    }
     orphan_types = tuple(
         pii_type for pii_type in _ORPHAN_CARRIERS if pii_type in catalog - all_declared
     )
 
     folders: list[FolderSpec] = []
     rules: list[tuple[str, tuple[str, ...]]] = []
-    for activity_id, types in sorted(declared.items()):
+    retention: list[RetentionExpectation] = []
+    for activity_id, types in sorted(declared.types.items()):
         prefix = _folder_name(activity_id)
         kinds = tuple(
             kind
@@ -209,8 +282,8 @@ def ropa_layout(declared: dict[str, tuple[str, ...]]) -> RopaLayout:
         )
         # Old enough to trip the retention check of any activity that declares one.
         folders.append(
-            FolderSpec(f"{prefix}/Archivio 2019", tuple(dict.fromkeys(kinds)),
-                       ("pdf", "docx"), weight=2, year=2019)
+            FolderSpec(f"{prefix}/{_ARCHIVE_FOLDER}", tuple(dict.fromkeys(kinds)),
+                       ("pdf", "docx"), weight=2, year=_ARCHIVE_YEAR)
         )
         # Covered, associated, and holding no PII at all: the case where every
         # declared category comes back "never found" in the verdict.
@@ -228,6 +301,16 @@ def ropa_layout(declared: dict[str, tuple[str, ...]]) -> RopaLayout:
                 )
             )
         rules.append((prefix, (activity_id,)))
+        term = declared.retention_months.get(activity_id)
+        if term is not None and _ARCHIVE_AGE_MONTHS > term:
+            retention.append(
+                RetentionExpectation(
+                    prefix=f"{prefix}/{_ARCHIVE_FOLDER}",
+                    activity_id=activity_id,
+                    retention_months=term,
+                    age_months=_ARCHIVE_AGE_MONTHS,
+                )
+            )
     folders.append(
         FolderSpec("Varie/Senza regola", ("client_letter", "hr_record"),
                    ("pdf", "docx", "txt"), weight=3)
@@ -235,7 +318,9 @@ def ropa_layout(declared: dict[str, tuple[str, ...]]) -> RopaLayout:
     folders.append(
         FolderSpec("Varie/Documentazione", ("tech_manual", "policy"), ("pdf",), weight=2)
     )
-    return RopaLayout(tuple(folders) + HOSTILE_FOLDERS, tuple(rules), orphan_types)
+    return RopaLayout(
+        tuple(folders) + HOSTILE_FOLDERS, tuple(rules), orphan_types, tuple(retention)
+    )
 
 
 def _folder_name(activity_id: str) -> str:
@@ -246,7 +331,10 @@ def _folder_name(activity_id: str) -> str:
 
 __all__ = [
     "REALISTIC_FOLDERS",
+    "DeclaredRegister",
+    "RetentionExpectation",
     "RopaLayout",
+    "declared_retentions",
     "declared_types",
     "read_ropa",
     "ropa_layout",

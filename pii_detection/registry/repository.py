@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 
 from sqlmodel import Session, SQLModel, col, create_engine, select
 
 from pii_detection.detection.types import PIIMatch
+from pii_detection.extraction.dates import ReferenceDate
 from pii_detection.registry.diff import diff_scan
 from pii_detection.registry.folder_rules import ApplyRulesResult, match_activities
+from pii_detection.registry.freshness import FileStamp
 from pii_detection.registry.types import (
     AssociationSource,
     ChangeType,
@@ -87,7 +88,9 @@ class PIIRepository:
         matches: Sequence[PIIMatch],
         *,
         path: str | None = None,
-        source_modified_at: datetime | None = None,
+        reference_date: ReferenceDate | None = None,
+        stamp: FileStamp | None = None,
+        detector_signature: str | None = None,
         replace: bool = False,
     ) -> Scan:
         """Persist one scan of a document, computing the delta against its state.
@@ -103,9 +106,13 @@ class PIIRepository:
         :param document_id: identifier of the scanned document (its file stem).
         :param matches: the unified PII of this scan; their ``text`` is never stored.
         :param path: original document path, kept for reference.
-        :param source_modified_at: last-modified time of the source file, stored on
-            the document as the reference date for the retention check (B7); updated
-            on every scan when provided.
+        :param reference_date: the date the document is assumed to date from, with
+            its provenance, for the retention check (B7); refreshed on every scan
+            that provides one.
+        :param stamp: the file's observed state (modification time and size), kept
+            so a later scan can tell whether the file changed; refreshed likewise.
+        :param detector_signature: fingerprint of the engine that produced these
+            matches, so a later scan can tell the engine itself changed.
         :param replace: if ``True``, wipe the document's history first and record
             this scan as a fresh bootstrap (all ``NEW``).
         :returns: the created scan.
@@ -113,15 +120,16 @@ class PIIRepository:
         with Session(self.engine, expire_on_commit=False) as session:
             document = session.get(Document, document_id)
             if document is None:
-                session.add(
-                    Document(
-                        document_id=document_id,
-                        path=path,
-                        source_modified_at=source_modified_at,
-                    )
-                )
-            elif source_modified_at is not None:
-                document.source_modified_at = source_modified_at
+                document = Document(document_id=document_id, path=path)
+                session.add(document)
+            if reference_date is not None:
+                document.reference_date = reference_date.value
+                document.reference_date_source = reference_date.source.value
+            if stamp is not None:
+                document.source_mtime = stamp.modified_at
+                document.source_size = stamp.size
+            if detector_signature is not None:
+                document.detector_signature = detector_signature
 
             all_instances = session.exec(
                 select(PIIInstance).where(PIIInstance.document_id == document_id)
@@ -141,6 +149,7 @@ class PIIRepository:
             scan = Scan(document_id=document_id)
             session.add(scan)
             session.flush()  # assign scan.id
+            document.last_scanned_at = scan.created_at
 
             current = [instance for instance in all_instances if not instance.removed]
             delta = diff_scan(current, matches)

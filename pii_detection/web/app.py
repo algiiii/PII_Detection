@@ -25,9 +25,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from pii_detection.compliance.checker import check_document
+from pii_detection.compliance.overview import retention_overview
 from pii_detection.extraction import supported_suffixes
 from pii_detection.registry.repository import PIIRepository
-from pii_detection.registry.scan_folder import plan_folder
+from pii_detection.registry.scan_folder import count_unchanged, plan_folder
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.review.app import app as ropa_app
 from pii_detection.web.scan_jobs import get_job, start_scan_job
@@ -137,6 +138,25 @@ def assign_document(
     return RedirectResponse(url=str(url), status_code=303)
 
 
+@app.get("/retention", response_class=HTMLResponse)
+def retention_page(request: Request) -> HTMLResponse:
+    """List every document kept past its declared retention, worst first (B7).
+
+    The corpus-wide counterpart of the per-document verdict: the DPO's real
+    question about a file share is "what is overdue?", which cannot be answered by
+    opening documents one at a time. Read-only, like the document page.
+
+    :param request: the incoming request.
+    :returns: the rendered retention overview.
+    """
+    rows = retention_overview(ropa=get_ropa(), registry=get_registry())
+    return _TEMPLATES.TemplateResponse(
+        request,
+        "retention.html",
+        {"rows": rows, "breaches": sum(1 for row in rows if row.flags)},
+    )
+
+
 @app.get("/scan", response_class=HTMLResponse)
 def scan_form(request: Request) -> HTMLResponse:
     """Show the scan form: a server-side path and a browser file/folder upload.
@@ -151,15 +171,20 @@ def scan_form(request: Request) -> HTMLResponse:
 
 
 @app.get("/scan/preview", response_class=HTMLResponse)
-def scan_preview(request: Request, path: str, gliner: bool = False) -> HTMLResponse:
+def scan_preview(
+    request: Request, path: str, gliner: bool = False, full: bool = False
+) -> HTMLResponse:
     """Preview the files a recursive scan of ``path`` would cover, before running.
 
     Enumerates only (no detection), so it is fast: lists the scannable files
-    grouped by format and the skipped (unsupported) ones.
+    grouped by format, the skipped (unsupported) ones, and — since the scan is
+    incremental by default — how many are already up to date and would not be read
+    again. The preview has to state that *before* the run, not explain it after.
 
     :param request: the incoming request.
     :param path: server-side directory to preview.
     :param gliner: carried through to the run form.
+    :param full: preview a forced full re-analysis (nothing counts as unchanged).
     :returns: the rendered preview with a confirm button.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
@@ -168,28 +193,41 @@ def scan_preview(request: Request, path: str, gliner: bool = False) -> HTMLRespo
     except NotADirectoryError:
         raise HTTPException(status_code=400, detail=f"not a directory: {path}") from None
     by_format = Counter(Path(doc_id).suffix.lower() for _path, doc_id in plan.scannable)
+    unchanged = 0 if full else count_unchanged(plan, get_registry())
     return _TEMPLATES.TemplateResponse(
         request,
         "scan_preview.html",
-        {"path": path, "gliner": gliner, "plan": plan, "by_format": sorted(by_format.items())},
+        {
+            "path": path,
+            "gliner": gliner,
+            "full": full,
+            "plan": plan,
+            "by_format": sorted(by_format.items()),
+            "unchanged": unchanged,
+            "to_scan": len(plan.scannable) - unchanged,
+        },
     )
 
 
 @app.post("/scan/run")
 def scan_run(
-    request: Request, path: str = Form(...), gliner: bool = Form(False)
+    request: Request,
+    path: str = Form(...),
+    gliner: bool = Form(False),
+    full: bool = Form(False),
 ) -> RedirectResponse:
     """Start a background scan of ``path`` and redirect to its status page.
 
     :param request: the incoming request, for building the redirect URL.
     :param path: server-side directory to scan.
     :param gliner: use GLiNER for the NER.
+    :param full: re-analyse every file, including those unchanged since last time.
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
     if not Path(path).is_dir():
         raise HTTPException(status_code=400, detail=f"not a directory: {path}")
-    job_id = start_scan_job(path, use_gliner=gliner)
+    job_id = start_scan_job(path, use_gliner=gliner, incremental=not full)
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
 
@@ -242,8 +280,15 @@ async def scan_upload(
     if written == 0:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail="nessun file valido caricato")
+    # Always a full analysis: the materialized files carry the upload time as their
+    # modification time, not the original one, so no file stamp here would mean
+    # anything and every document would look modified regardless.
     job_id = start_scan_job(
-        str(temp_dir), use_gliner=gliner, prune=False, cleanup_dir=str(temp_dir)
+        str(temp_dir),
+        use_gliner=gliner,
+        prune=False,
+        incremental=False,
+        cleanup_dir=str(temp_dir),
     )
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)

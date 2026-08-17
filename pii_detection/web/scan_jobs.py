@@ -28,6 +28,9 @@ class ScanJob:
     :ivar use_gliner: whether GLiNER is used for the NER.
     :ivar prune: reconcile documents gone from the folder as removed; ``False`` for
         uploads (a partial upload must not prune the rest of the registry).
+    :ivar incremental: skip files unchanged since their last scan; ``False`` for
+        uploads, whose files carry the upload time as their modification time and
+        would therefore all look modified anyway.
     :ivar state: ``"running"``, ``"done"`` or ``"error"``.
     :ivar done: files processed so far.
     :ivar total: files to process.
@@ -42,6 +45,7 @@ class ScanJob:
     folder: str
     use_gliner: bool
     prune: bool = True
+    incremental: bool = True
     state: str = "running"
     done: int = 0
     total: int = 0
@@ -75,7 +79,12 @@ def get_job(job_id: str) -> ScanJob | None:
 
 
 def start_scan_job(
-    folder: str, *, use_gliner: bool, prune: bool = True, cleanup_dir: str | None = None
+    folder: str,
+    *,
+    use_gliner: bool,
+    prune: bool = True,
+    incremental: bool = True,
+    cleanup_dir: str | None = None,
 ) -> str:
     """Start a folder scan in a background thread and return its job id.
 
@@ -83,6 +92,8 @@ def start_scan_job(
     :param use_gliner: use GLiNER for the NER.
     :param prune: reconcile documents gone from the folder as removed; pass ``False``
         for uploads so a partial upload does not prune the rest of the registry.
+    :param incremental: skip files unchanged since their last scan; pass ``False``
+        to force a full re-analysis.
     :param cleanup_dir: a temporary directory to delete when the job ends (uploads);
         ``None`` leaves the folder in place.
     :returns: the new job id, to poll via :func:`get_job`.
@@ -92,6 +103,7 @@ def start_scan_job(
         folder=folder,
         use_gliner=use_gliner,
         prune=prune,
+        incremental=incremental,
         cleanup_dir=cleanup_dir,
     )
     with _LOCK:
@@ -111,7 +123,13 @@ def _run(job: ScanJob) -> None:
         pattern, ner = _build_detectors(job.use_gliner)
         repository = PIIRepository()
         result = ingest_folder(
-            job.folder, pattern, ner, repository=repository, prune=job.prune, progress=_progress
+            job.folder,
+            pattern,
+            ner,
+            repository=repository,
+            prune=job.prune,
+            incremental=job.incremental,
+            progress=_progress,
         )
         applied = repository.apply_folder_rules()
         with _LOCK:

@@ -15,13 +15,13 @@ re-scan, until the Step-2 delta lands).
 from __future__ import annotations
 
 import argparse
-import os
 from collections import Counter
-from datetime import datetime, timezone
 from pathlib import Path
 
 from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
+from pii_detection.extraction.dates import reference_date
+from pii_detection.registry.freshness import stamp_for
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.types import Scan
 from pii_detection.scan import scan_document
@@ -34,6 +34,7 @@ def ingest_document(
     *,
     document_id: str | None = None,
     replace: bool = False,
+    detector_signature: str | None = None,
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
 ) -> Scan:
@@ -46,18 +47,21 @@ def ingest_document(
         file stem. A batch scan passes the path relative to its root, so documents
         with the same name in different folders do not collide.
     :param replace: drop the document's existing instances first.
+    :param detector_signature: fingerprint of the detection engine in use, stored
+        with the document so a later scan can tell the engine changed.
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine to use; a default one is built when omitted.
     :returns: the created scan.
     """
     repository = repository if repository is not None else PIIRepository()
     matches = scan_document(path, pattern, ner, merge=merge)
-    modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
     return repository.record_scan(
         document_id if document_id is not None else Path(path).stem,
         matches,
         path=str(path),
-        source_modified_at=modified_at,
+        reference_date=reference_date(path),
+        stamp=stamp_for(path),
+        detector_signature=detector_signature,
         replace=replace,
     )
 

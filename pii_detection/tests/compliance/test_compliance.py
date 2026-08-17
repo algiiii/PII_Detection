@@ -9,11 +9,14 @@ in-memory SQLite databases, verifying the coverage is persisted.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from pii_detection.compliance.checker import build_report, check_document
+from pii_detection.extraction.dates import reference_date
+from pii_detection.registry.freshness import stamp_for
 from pii_detection.detection.types import (
     ConfirmationLevel,
     DetectionProvenance,
@@ -71,9 +74,9 @@ def _instance(instance_id: int, pii_type: str) -> PIIInstance:
     )
 
 
-def _document(activity_ids: Sequence[str], *, source_modified_at: datetime | None = None) -> Document:
+def _document(activity_ids: Sequence[str], *, reference_date: datetime | None = None) -> Document:
     return Document(
-        document_id="doc", activity_ids=list(activity_ids), source_modified_at=source_modified_at
+        document_id="doc", activity_ids=list(activity_ids), reference_date=reference_date
     )
 
 
@@ -139,7 +142,7 @@ def test_unknown_activity_id_is_reported() -> None:
 def test_retention_breach_when_document_too_old() -> None:
     activity = _activity("A", [_macro([_category(["iban"])], retention_months=12)])
     old = _NOW - timedelta(days=400)  # ~13 months
-    document = _document(["A"], source_modified_at=old)
+    document = _document(["A"], reference_date=old)
     instances = [_instance(1, "iban")]
 
     result = build_report(document, [activity], [], instances, now=_NOW)
@@ -152,10 +155,77 @@ def test_retention_breach_when_document_too_old() -> None:
     assert result.report.compliant is False
 
 
+def test_overdue_months_measures_severity() -> None:
+    activity = _activity("A", [_macro([_category(["iban"])], retention_months=12)])
+    document = _document(["A"], reference_date=_NOW - timedelta(days=365 * 5))
+    result = build_report(document, [activity], [], [_instance(1, "iban")], now=_NOW)
+
+    (flag,) = result.report.retention_flags
+    assert flag.overdue_months == flag.age_months - 12
+    assert flag.overdue_months > 45  # ~5 years kept against a 1-year limit
+
+
+def test_criterion_retention_is_reported_as_unverifiable() -> None:
+    # The register states a criterion ("for the duration of the relationship"), so
+    # retention_months is None and no comparison is possible. Before, the check
+    # simply skipped it and the document came out clean: the case nobody verified
+    # looked exactly like the case that passed.
+    activity = _activity("A", [_macro([_category(["iban"])], retention_months=None)])
+    document = _document(["A"], reference_date=_NOW - timedelta(days=4000))
+    result = build_report(document, [activity], [], [_instance(1, "iban")], now=_NOW)
+
+    assert result.report.retention_flags == ()
+    assert result.report.retention_unresolved == ("macro",)
+    # Informational, like `unresolved`: it does not condemn the document by itself.
+    assert result.report.compliant is True
+
+
+def test_criterion_retention_is_silent_when_its_data_is_absent() -> None:
+    # Nothing of that category is in the document: there is nothing to keep too
+    # long, so flagging it would be noise.
+    activity = _activity("A", [_macro([_category(["iban"])], retention_months=None)])
+    document = _document(["A"], reference_date=_NOW - timedelta(days=4000))
+    result = build_report(document, [activity], [], [], now=_NOW)
+
+    assert result.report.retention_unresolved == ()
+
+
+def test_unverifiable_retention_does_not_need_a_document_date() -> None:
+    # A missing reference date disables the age comparison, not the report of what
+    # cannot be verified: that gap is in the register, not in the document.
+    activity = _activity("A", [_macro([_category(["iban"])], retention_months=None)])
+    document = _document(["A"], reference_date=None)
+    result = build_report(document, [activity], [], [_instance(1, "iban")], now=_NOW)
+
+    assert result.report.retention_unresolved == ("macro",)
+
+
+def test_proposed_mapping_does_not_trigger_a_breach_when_excluded() -> None:
+    # The coverage comparison ignores PROPOSED mappings by default; the retention
+    # check used to count them anyway, so the same category was "not declared" for
+    # one half of the verdict and "declared, and overdue" for the other.
+    activity = _activity(
+        "A",
+        [_macro([_category(["iban"], state=MappingState.PROPOSED)], retention_months=12)],
+    )
+    document = _document(["A"], reference_date=_NOW - timedelta(days=400))
+    instances = [_instance(1, "iban")]
+
+    strict = build_report(document, [activity], [], instances, now=_NOW)
+    assert strict.report.retention_flags == ()
+    assert strict.report.orphan == ("iban",)  # not declared, as far as this verdict goes
+
+    lenient = build_report(
+        document, [activity], [], instances, include_proposed=True, now=_NOW
+    )
+    assert len(lenient.report.retention_flags) == 1
+    assert lenient.report.covered == ("iban",)
+
+
 def test_no_retention_breach_when_recent() -> None:
     activity = _activity("A", [_macro([_category(["iban"])], retention_months=12)])
     recent = _NOW - timedelta(days=90)  # ~3 months
-    document = _document(["A"], source_modified_at=recent)
+    document = _document(["A"], reference_date=recent)
     instances = [_instance(1, "iban")]
 
     result = build_report(document, [activity], [], instances, now=_NOW)
@@ -194,3 +264,35 @@ def test_check_document_persists_coverage(tmp_path: Path) -> None:
     assert report.orphan == ("health_data",)
     coverage = {i.pii_type: i.processing_activity_id for i in registry.instances_for("doc")}
     assert coverage == {"iban": "paghe", "health_data": None}
+
+
+def test_check_document_reports_retention_end_to_end(tmp_path: Path) -> None:
+    # The whole chain, not just the pure function: a real file dated years back,
+    # ingested through the registry, checked against a register that declares a
+    # one-year retention. `now` is injected, so the outcome does not depend on when
+    # the suite runs.
+    ropa = ROPARepository(url=f"sqlite:///{tmp_path}/ropa.db")
+    registry = PIIRepository(url=f"sqlite:///{tmp_path}/pii.db")
+    ropa.save([_activity("paghe", [_macro([_category(["iban"])], retention_months=12)])])
+
+    source = tmp_path / "vecchio.txt"
+    source.write_text("IBAN in archivio.", encoding="utf-8")
+    old = _NOW - timedelta(days=365 * 4)
+    os.utime(source, (old.timestamp(), old.timestamp()))
+    registry.record_scan(
+        "Archivio/vecchio.txt",
+        [_match(0, 10, "iban")],
+        path=str(source),
+        reference_date=reference_date(source),
+        stamp=stamp_for(source),
+    )
+    registry.assign_activities("Archivio/vecchio.txt", ["paghe"])
+
+    report = check_document(
+        "Archivio/vecchio.txt", ropa=ropa, registry=registry, now=_NOW
+    )
+
+    (flag,) = report.retention_flags
+    assert flag.retention_months == 12
+    assert flag.overdue_months > 30
+    assert report.compliant is False

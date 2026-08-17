@@ -17,6 +17,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:  # avoid a cycle: profiles imports this module
+    from pii_detection.evaluation.enterprise.profiles import RetentionExpectation
 
 
 class SizeClass(StrEnum):
@@ -113,8 +118,9 @@ class DocumentSpec:
         extension without the dot.
     :ivar annotated_text: the body with ``{{pii_type:value}}`` markers; empty
         for noise files, whose bytes are produced by the noise module instead.
-    :ivar modified_at: modification time to stamp on the file, which block B7
-        reads back as ``source_modified_at`` for the retention check.
+    :ivar modified_at: modification time to stamp on the file, which the registry
+        reads back as the document's ``reference_date`` for the retention check
+        (these formats carry no internal date, so the file system is the source).
     :ivar expectation: what a scan must do with this file.
     """
 
@@ -137,6 +143,9 @@ class CorpusPlan:
     :ivar folder_rules: ``(prefix, activity_ids)`` pairs ready for
         :meth:`~pii_detection.registry.repository.PIIRepository.save_rule`;
         empty outside the ``ropa`` profile.
+    :ivar expected_retention: folder prefixes whose documents must come back as
+        retention breaches, with the term they exceed — the expectation the
+        planted archive folders exist to produce.
     :ivar expected_orphans: ``pii_type`` ids planted in covered folders while no
         associated activity declares them, so the compliance check must report
         them as orphan; empty outside the ``ropa`` profile.
@@ -147,6 +156,7 @@ class CorpusPlan:
     documents: tuple[DocumentSpec, ...]
     folder_rules: tuple[tuple[str, tuple[str, ...]], ...] = ()
     expected_orphans: tuple[str, ...] = ()
+    expected_retention: tuple[RetentionExpectation, ...] = ()
 
     def scannable(self) -> tuple[DocumentSpec, ...]:
         """:returns: the documents a scan must ingest (noise excluded)."""
