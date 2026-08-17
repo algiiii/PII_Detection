@@ -53,6 +53,30 @@ class _EmptyDetector:
         return []
 
 
+class _AIDetector:
+    """Fake AI detector: finds each ``(pii_type, value)`` as a substring, kind AI."""
+
+    detector_id = "ai.fake"
+    detector_kind = DetectorKind.AI
+
+    def __init__(self, targets: list[tuple[str, str]]) -> None:
+        self._targets = targets
+
+    def detect(self, text: str) -> list[PIICandidate]:
+        found: list[PIICandidate] = []
+        for pii_type, value in self._targets:
+            index = text.find(value)
+            if index >= 0:
+                found.append(
+                    PIICandidate(
+                        span=TextSpan(index, index + len(value)),
+                        text=value,
+                        provenance=DetectionProvenance("ai.fake", DetectorKind.AI, pii_type, 0.6),
+                    )
+                )
+        return found
+
+
 def test_scan_txt_returns_matches_in_order(tmp_path: Path) -> None:
     path = tmp_path / "note.txt"
     path.write_text(
@@ -69,6 +93,29 @@ def test_scan_txt_returns_matches_in_order(tmp_path: Path) -> None:
         ("iban", "IT60X0542811101000000123456"),
     }
     assert [m.span.start for m in matches] == sorted(m.span.start for m in matches)
+
+
+def test_ai_candidates_reach_the_output(tmp_path: Path) -> None:
+    """An AI detector passed to scan_document contributes its discoveries."""
+    path = tmp_path / "note.txt"
+    path.write_text("Il paziente ha una cardiopatia nota.", encoding="utf-8")
+    ai = _AIDetector([("health_data", "cardiopatia")])
+
+    matches = scan_document(path, _EmptyDetector(), _EmptyDetector(), ai)
+
+    discovered = [m for m in matches if m.confirmation_level is ConfirmationLevel.AI_DISCOVERED]
+    assert len(discovered) == 1
+    assert discovered[0].pii_type == "health_data"
+
+
+def test_no_ai_detector_means_no_ai_candidates(tmp_path: Path) -> None:
+    """Without an AI detector, no AI_DISCOVERED match appears (default off)."""
+    path = tmp_path / "note.txt"
+    path.write_text("Il paziente ha una cardiopatia nota.", encoding="utf-8")
+
+    matches = scan_document(path, _EmptyDetector(), _EmptyDetector())
+
+    assert all(m.confirmation_level is not ConfirmationLevel.AI_DISCOVERED for m in matches)
 
 
 def test_format_matches_lists_type_value_and_level() -> None:

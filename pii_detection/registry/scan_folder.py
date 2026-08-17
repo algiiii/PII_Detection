@@ -7,16 +7,18 @@ per-document pipeline (:func:`~pii_detection.registry.ingest.ingest_document`) t
 already exists, adding only the tree walk, a per-file identity and the
 reconciliation of files that disappeared::
 
-    python -m pii_detection.registry.scan_folder path/to/folder [--gliner] [--no-prune] [--full]
+    python -m pii_detection.registry.scan_folder path/to/folder [--gliner] [--ai] [--no-prune] [--full]
 
 Each file is recorded under a ``document_id`` equal to its path relative to the
 scanned folder (POSIX, e.g. ``HR/contratti/mario.pdf``), so equally named files in
 different sub-folders do not collide. ``--gliner`` swaps spaCy for GLiNER (heavy,
-container only). By default a document already in the registry but no longer under
-the folder is reconciled as gone (its PII marked ``REMOVED``); ``--no-prune``
-disables it. Also by default the scan is **incremental**: a file whose modification
-time and size are unchanged since its last scan, and whose scan ran with the same
-detection engine, is not read again; ``--full`` re-analyses everything.
+container only). ``--ai`` runs the local LLM second opinion on **every** document
+(needs Ollama); without it, the ``PII_AI_SAMPLING_RATE`` environment variable can
+still enable the sampled 1-in-N pass. By default a document already in the registry
+but no longer under the folder is reconciled as gone (its PII marked ``REMOVED``);
+``--no-prune`` disables it. Also by default the scan is **incremental**: a file whose
+modification time and size are unchanged since its last scan, and whose scan ran with
+the same detection engine, is not read again; ``--full`` re-analyses everything.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pii_detection.detection.ai_detector import AITriggerPolicy
 from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.extraction import supported_suffixes
@@ -82,6 +85,8 @@ class FolderScanResult:
     :ivar skipped: paths skipped because their extension is not supported.
     :ivar errors: ``(path, message)`` for files that failed to ingest.
     :ivar removed: document ids reconciled as gone from the folder (PII ``REMOVED``).
+    :ivar ai_documents: number of files that also ran the generative-AI pass (all of
+        them under ``--ai``, the sampled subset under a sampling policy).
     :ivar by_type: current PII count per ``pii_type`` across the scanned files —
         the folder-wide inventory.
     """
@@ -91,6 +96,7 @@ class FolderScanResult:
     skipped: list[Path] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
     removed: list[str] = field(default_factory=list)
+    ai_documents: int = 0
     by_type: dict[str, int] = field(default_factory=dict)
 
 
@@ -156,12 +162,14 @@ def ingest_folder(
     folder: str | Path,
     pattern: PIIDetector,
     ner: PIIDetector,
+    ai: PIIDetector | None = None,
     *,
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
     prune: bool = True,
     incremental: bool = True,
     progress: Callable[[int, int], None] | None = None,
+    ai_policy: AITriggerPolicy | None = None,
 ) -> FolderScanResult:
     """Ingest every supported document under ``folder``, recursively (batch scan).
 
@@ -182,9 +190,17 @@ def ingest_folder(
     **enumerated on disk**, not "ingested": a file skipped as unchanged, or one that
     failed to extract, is still on disk and must not be reported as removed.
 
+    The optional ``ai`` detector runs the generative-AI second opinion. Which files
+    get it is decided by ``ai_policy``: with no policy every analysed file runs it
+    (the manual "AI on everything" mode); with an :class:`AITriggerPolicy` only the
+    sampled ones do (``index`` taken over the **full** enumeration ``plan.scannable``,
+    so the sample is stable regardless of which files the incremental pass skips).
+
     :param folder: root directory to scan recursively.
     :param pattern: the pattern/regex detector.
     :param ner: the NER detector.
+    :param ai: optional generative-AI detector for the second-opinion pass; when
+        ``None`` no AI runs, whatever ``ai_policy`` says.
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine reused across files; a default one when omitted.
     :param prune: reconcile documents gone from the folder as removed.
@@ -192,6 +208,8 @@ def ingest_folder(
         force a full re-analysis.
     :param progress: optional callback invoked ``progress(done, total)`` after each
         file actually analysed, for a UI progress bar.
+    :param ai_policy: sampling policy selecting which files get the AI pass; ``None``
+        means every analysed file gets it (when ``ai`` is set).
     :returns: a :class:`FolderScanResult` summary, including the folder-wide inventory.
     :raises NotADirectoryError: if ``folder`` is not a directory.
     """
@@ -204,24 +222,27 @@ def ingest_folder(
 
     # "Seen" is every file the enumeration found on disk, whatever happened to it
     # afterwards: it is what protects the prune below from removing documents that
-    # are still there.
+    # are still there. The sampling index is the file's position in the full
+    # enumeration, so the AI sample is stable across incremental runs.
     seen: set[str] = set()
-    todo: list[tuple[Path, str]] = []
-    for path, document_id in plan.scannable:
+    todo: list[tuple[Path, str, int]] = []
+    for index, (path, document_id) in enumerate(plan.scannable):
         seen.add(document_id)
         if incremental and not _changed(repository, path, document_id, signature):
             result.unchanged.append(document_id)
         else:
-            todo.append((path, document_id))
+            todo.append((path, document_id, index))
 
     total = len(todo)
-    for done, (path, document_id) in enumerate(todo, start=1):
+    for done, (path, document_id, index) in enumerate(todo, start=1):
+        use_ai = ai if ai is not None and (ai_policy is None or ai_policy.selects(index)) else None
         try:
             ingest_document(
                 path,
                 pattern,
                 ner,
                 document_id=document_id,
+                ai=use_ai,
                 repository=repository,
                 merge=merge,
                 detector_signature=signature,
@@ -230,6 +251,8 @@ def ingest_folder(
             result.errors.append((path, str(exc)))
         else:
             result.scanned += 1
+            if use_ai is not None:
+                result.ai_documents += 1
         if progress is not None:
             progress(done, total)
 
@@ -264,6 +287,11 @@ def main(argv: list[str] | None = None) -> None:
         help="use GLiNER for the NER instead of spaCy (heavy; container only)",
     )
     parser.add_argument(
+        "--ai",
+        action="store_true",
+        help="run the local LLM second opinion on every document (needs Ollama)",
+    )
+    parser.add_argument(
         "--no-prune",
         dest="prune",
         action="store_false",
@@ -287,17 +315,36 @@ def main(argv: list[str] | None = None) -> None:
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
+    # AI second opinion: --ai runs it on every document (no policy); otherwise the
+    # sampling policy from the environment decides, and the detector is built only
+    # when that policy is actually enabled (PII_AI_SAMPLING_RATE > 0).
+    ai = None
+    ai_policy: AITriggerPolicy | None = None
+    if args.ai:
+        from pii_detection.detection.ai_detector import build_ai_detector
+
+        ai = build_ai_detector()
+    else:
+        ai_policy = AITriggerPolicy.from_env()
+        if ai_policy.enabled:
+            from pii_detection.detection.ai_detector import build_ai_detector
+
+            ai = build_ai_detector()
     repository = PIIRepository()
     result = ingest_folder(
         args.folder,
         pattern,
         ner,
+        ai,
         repository=repository,
         prune=args.prune,
         incremental=args.incremental,
+        ai_policy=ai_policy,
     )
 
     print(f"Scanned {result.scanned} documents in '{args.folder}'.")
+    if result.ai_documents:
+        print(f"  AI second opinion: {result.ai_documents} documents")
     if result.unchanged:
         print(f"  unchanged (skipped, already up to date): {len(result.unchanged)}")
     if result.skipped:

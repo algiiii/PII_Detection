@@ -35,6 +35,7 @@ def ingest_document(
     document_id: str | None = None,
     replace: bool = False,
     detector_signature: str | None = None,
+    ai: PIIDetector | None = None,
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
 ) -> Scan:
@@ -49,12 +50,14 @@ def ingest_document(
     :param replace: drop the document's existing instances first.
     :param detector_signature: fingerprint of the detection engine in use, stored
         with the document so a later scan can tell the engine changed.
+    :param ai: optional generative-AI detector run as a second opinion; forwarded
+        to :func:`~pii_detection.scan.scan_document`. When ``None`` no AI pass runs.
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine to use; a default one is built when omitted.
     :returns: the created scan.
     """
     repository = repository if repository is not None else PIIRepository()
-    matches = scan_document(path, pattern, ner, merge=merge)
+    matches = scan_document(path, pattern, ner, ai, merge=merge)
     return repository.record_scan(
         document_id if document_id is not None else Path(path).stem,
         matches,
@@ -85,13 +88,23 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="drop the document's existing instances before recording this scan",
     )
+    parser.add_argument(
+        "--ai",
+        action="store_true",
+        help="add the local LLM as a second-opinion detector (needs Ollama)",
+    )
     args = parser.parse_args(argv)
     # Lazy import: pulls Presidio only when actually running the CLI.
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
+    ai = None
+    if args.ai:
+        from pii_detection.detection.ai_detector import build_ai_detector
+
+        ai = build_ai_detector()
     repository = PIIRepository()
-    ingest_document(args.path, pattern, ner, replace=args.replace, repository=repository)
+    ingest_document(args.path, pattern, ner, replace=args.replace, ai=ai, repository=repository)
 
     instances = repository.instances_for(args.path.stem)
     counts = Counter(instance.pii_type for instance in instances)

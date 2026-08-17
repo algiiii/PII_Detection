@@ -36,9 +36,19 @@ def _detect_values(
     ner: PIIDetector,
     merge: MergeEngine,
     document_id: str,
+    ai: PIIDetector | None = None,
 ) -> list[tuple[str, str]]:
-    """Run the pattern+NER detectors, merge, and return the ``(pii_type, value)`` pairs."""
-    matches = merge.merge(pattern.detect(text), ner.detect(text), document_id=document_id)
+    """Run the pattern+NER (+optional AI) detectors, merge, and return ``(pii_type, value)``.
+
+    The ``ai`` slot lets the benchmark (Step 6) score the union pipeline including
+    the generative pass; when ``None`` the merge receives no AI candidates.
+    """
+    matches = merge.merge(
+        pattern.detect(text),
+        ner.detect(text),
+        ai.detect(text) if ai is not None else (),
+        document_id=document_id,
+    )
     return [(match.pii_type, match.text) for match in matches]
 
 

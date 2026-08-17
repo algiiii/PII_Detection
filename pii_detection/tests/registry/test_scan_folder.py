@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pii_detection.detection.ai_detector import AITriggerPolicy
 from pii_detection.detection.types import (
     DetectionProvenance,
     DetectorKind,
@@ -52,6 +53,20 @@ class _EmptyDetector:
     detector_kind = DetectorKind.NER
 
     def detect(self, text: str) -> list[PIICandidate]:
+        return []
+
+
+class _CountingAIDetector:
+    """Fake AI detector that records how many documents it was asked to analyse."""
+
+    detector_id = "ai.counting"
+    detector_kind = DetectorKind.AI
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def detect(self, text: str) -> list[PIICandidate]:
+        self.calls += 1
         return []
 
 
@@ -113,6 +128,52 @@ def test_ingest_folder_reports_progress(tmp_path: Path) -> None:
     # one call per scannable file (a.txt, b.txt, bad.txt, sub/c.txt), in order
     assert [done for done, _ in calls] == [1, 2, 3, 4]
     assert calls[-1] == (4, 4)
+
+
+def _four_file_folder(tmp_path: Path) -> Path:
+    folder = tmp_path / "docs"
+    folder.mkdir()
+    for i in range(4):  # names sort as 0,1,2,3 -> stable sampling indices
+        (folder / f"{i}.txt").write_text(f"file {i} IBAN {_IBAN}", encoding="utf-8")
+    return folder
+
+
+def test_ai_runs_on_every_document_without_policy(tmp_path: Path) -> None:
+    """No policy: the AI detector is run on every analysed file."""
+    ai = _CountingAIDetector()
+    result = ingest_folder(
+        _four_file_folder(tmp_path), _pattern(), _EmptyDetector(), ai, repository=_repo(tmp_path)
+    )
+    assert ai.calls == 4
+    assert result.ai_documents == 4
+
+
+def test_ai_sampling_selects_one_in_n(tmp_path: Path) -> None:
+    """Sampling rate 2 over four files runs the AI on indices 0 and 2 only."""
+    ai = _CountingAIDetector()
+    result = ingest_folder(
+        _four_file_folder(tmp_path),
+        _pattern(),
+        _EmptyDetector(),
+        ai,
+        repository=_repo(tmp_path),
+        ai_policy=AITriggerPolicy(sampling_rate=2),
+    )
+    assert ai.calls == 2
+    assert result.ai_documents == 2
+
+
+def test_no_ai_detector_never_runs_ai(tmp_path: Path) -> None:
+    """``ai=None`` runs no AI even when the policy would select every file."""
+    result = ingest_folder(
+        _four_file_folder(tmp_path),
+        _pattern(),
+        _EmptyDetector(),
+        None,
+        repository=_repo(tmp_path),
+        ai_policy=AITriggerPolicy(sampling_rate=1),
+    )
+    assert result.ai_documents == 0
 
 
 def test_unsupported_and_unreadable_are_handled(tmp_path: Path) -> None:
