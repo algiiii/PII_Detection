@@ -11,6 +11,8 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from pii_detection.detection.types import (
     ConfirmationLevel,
     DetectionProvenance,
@@ -161,6 +163,41 @@ def test_rescan_shifted_pii_is_moved(tmp_path: Path) -> None:
     (instance,) = repo.instances_for("doc")
     assert (instance.start, instance.end) == (5, 15)  # position updated in place
     assert _changes(instance) == [ChangeType.NEW, ChangeType.MOVED]
+
+
+def test_rescan_confirming_refreshes_certainty(tmp_path: Path) -> None:
+    """A CONFIRMED re-scan (same span) refreshes confidence/level/sources, so a new
+    AI agreement on an existing instance does not stay invisible."""
+    repo = _repo(tmp_path)
+    single = PIIMatch(
+        span=TextSpan(0, 10),
+        text="?",
+        pii_type="iban",
+        confidence=0.6,
+        confirmation_level=ConfirmationLevel.SINGLE_SOURCE,
+        sources=[DetectionProvenance("regex.x", DetectorKind.REGEX, "iban", 0.6)],
+        document_id="ignored",
+    )
+    repo.record_scan("doc", [single])
+    doubled = PIIMatch(
+        span=TextSpan(0, 10),
+        text="?",
+        pii_type="iban",
+        confidence=0.9,
+        confirmation_level=ConfirmationLevel.DOUBLE_CONFIRMED,
+        sources=[
+            DetectionProvenance("regex.x", DetectorKind.REGEX, "iban", 0.6),
+            DetectionProvenance("ai.m", DetectorKind.AI, "iban", 0.6),
+        ],
+        document_id="ignored",
+    )
+    repo.record_scan("doc", [doubled])
+
+    (instance,) = repo.instances_for("doc")
+    assert instance.confirmation_level == ConfirmationLevel.DOUBLE_CONFIRMED.value
+    assert set(instance.sources) == {"regex.x", "ai.m"}
+    assert instance.confidence == pytest.approx(0.9)
+    assert _changes(instance) == [ChangeType.NEW, ChangeType.CONFIRMED]  # identity unchanged
 
 
 def test_ingest_document_persists_detected_pii(tmp_path: Path) -> None:

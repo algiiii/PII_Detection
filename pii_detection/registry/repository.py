@@ -98,8 +98,9 @@ class PIIRepository:
         Creates the :class:`~pii_detection.registry.types.Document` if new and a
         new :class:`~pii_detection.registry.types.Scan`, then compares the matches
         with the document's current instances (:func:`diff_scan`) and applies the
-        outcome: ``CONFIRMED`` (touch the last scan), ``MOVED`` (update position),
-        ``NEW`` (create instance) and ``REMOVED`` (mark the instance gone). Every
+        outcome: ``CONFIRMED`` (same position; refresh confidence/level/sources),
+        ``MOVED`` (update position too), ``NEW`` (create instance) and ``REMOVED``
+        (mark the instance gone). Every
         change links to the previous scan of the same document (``None`` on the
         first scan). Instances never store the PII value (minimization).
 
@@ -154,7 +155,14 @@ class PIIRepository:
             current = [instance for instance in all_instances if not instance.removed]
             delta = diff_scan(current, matches)
 
-            for instance, _match in delta.confirmed:
+            for instance, match in delta.confirmed:
+                # Same identity (pii_type + position), but the certainty may have
+                # changed: a re-scan where the AI now confirms an existing instance
+                # keeps the span (hence CONFIRMED, not MOVED) yet must refresh
+                # confidence/level/sources, or the new agreement stays invisible.
+                instance.confidence = match.confidence
+                instance.confirmation_level = match.confirmation_level.value
+                instance.sources = [p.detector_id for p in match.sources]
                 instance.last_scan_id = scan.id
                 self._log(session, instance, ChangeType.CONFIRMED, scan.id, previous_scan_id)
 
