@@ -16,6 +16,10 @@
       <input type="checkbox" name="gliner" value="true"> Usa GLiNER (NER migliore; solo container)
     </label>
     <label class="checks-inline">
+      <input type="checkbox" name="ai" value="true"> Secondo parere AI su ogni documento
+      <span class="muted">(più lento; richiede il modello locale)</span>
+    </label>
+    <label class="checks-inline">
       <input type="checkbox" name="full" value="true"> Rianalizza tutto
       <span class="muted">(di norma i file non modificati dall'ultima scansione non vengono riletti)</span>
     </label>
@@ -38,6 +42,10 @@
     </label>
     <label class="checks-inline">
       <input type="checkbox" id="upload-gliner"> Usa GLiNER (NER migliore; solo container)
+    </label>
+    <label class="checks-inline">
+      <input type="checkbox" id="upload-ai"> Secondo parere AI su ogni documento
+      <span class="muted">(più lento; richiede il modello locale)</span>
     </label>
     <p id="upload-preview" class="muted">Nessun file selezionato.</p>
     <div class="actions">
@@ -91,6 +99,7 @@
       const data = new FormData();
       files.forEach(function (f) { data.append('files', f, f.webkitRelativePath || f.name); });
       data.append('gliner', document.getElementById('upload-gliner').checked ? 'true' : 'false');
+      data.append('ai', document.getElementById('upload-ai').checked ? 'true' : 'false');
       submit.disabled = true;
       submit.textContent = 'Caricamento…';
       fetch('{{ url_for("scan_upload") }}', { method: 'POST', body: data })

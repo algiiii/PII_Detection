@@ -31,7 +31,7 @@ from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.scan_folder import count_unchanged, plan_folder
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.review.app import app as ropa_app
-from pii_detection.web.scan_jobs import get_job, start_scan_job
+from pii_detection.web.scan_jobs import get_job, start_document_ai_job, start_scan_job
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 
@@ -138,6 +138,32 @@ def assign_document(
     return RedirectResponse(url=str(url), status_code=303)
 
 
+@app.post("/document/{document_id:path}/scan-ai")
+def scan_document_ai(request: Request, document_id: str) -> RedirectResponse:
+    """Re-analyse one document with the AI in the background (per-document trigger).
+
+    The AI pass on a long document can take minutes, so it does not run inside this
+    request: a background :class:`~pii_detection.web.scan_jobs.ScanJob` is started and
+    the browser is redirected to its status page. The user can navigate away while the
+    model runs; when the job finishes, the document page shows the new
+    ``AI_DISCOVERED``/``DOUBLE_CONFIRMED`` instances.
+
+    :param request: the incoming request, for building the redirect URL.
+    :param document_id: identifier of an already-recorded document.
+    :returns: a 303 redirect to the job status page.
+    :raises HTTPException: 404 if the document is unknown, 400 if it has no stored path
+        to re-extract from.
+    """
+    document = get_registry().get_document(document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail=f"unknown document: {document_id}")
+    if not document.path:
+        raise HTTPException(status_code=400, detail="document has no stored path to re-scan")
+    job_id = start_document_ai_job(document_id, document.path)
+    url = request.url_for("scan_status", job_id=job_id)
+    return RedirectResponse(url=str(url), status_code=303)
+
+
 @app.get("/retention", response_class=HTMLResponse)
 def retention_page(request: Request) -> HTMLResponse:
     """List every document kept past its declared retention, worst first (B7).
@@ -172,7 +198,7 @@ def scan_form(request: Request) -> HTMLResponse:
 
 @app.get("/scan/preview", response_class=HTMLResponse)
 def scan_preview(
-    request: Request, path: str, gliner: bool = False, full: bool = False
+    request: Request, path: str, gliner: bool = False, full: bool = False, ai: bool = False
 ) -> HTMLResponse:
     """Preview the files a recursive scan of ``path`` would cover, before running.
 
@@ -185,6 +211,7 @@ def scan_preview(
     :param path: server-side directory to preview.
     :param gliner: carried through to the run form.
     :param full: preview a forced full re-analysis (nothing counts as unchanged).
+    :param ai: carried through to the run form (run the AI second opinion).
     :returns: the rendered preview with a confirm button.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
@@ -201,6 +228,7 @@ def scan_preview(
             "path": path,
             "gliner": gliner,
             "full": full,
+            "ai": ai,
             "plan": plan,
             "by_format": sorted(by_format.items()),
             "unchanged": unchanged,
@@ -215,6 +243,7 @@ def scan_run(
     path: str = Form(...),
     gliner: bool = Form(False),
     full: bool = Form(False),
+    ai: bool = Form(False),
 ) -> RedirectResponse:
     """Start a background scan of ``path`` and redirect to its status page.
 
@@ -222,12 +251,13 @@ def scan_run(
     :param path: server-side directory to scan.
     :param gliner: use GLiNER for the NER.
     :param full: re-analyse every file, including those unchanged since last time.
+    :param ai: run the AI second opinion on every document of the scan.
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
     if not Path(path).is_dir():
         raise HTTPException(status_code=400, detail=f"not a directory: {path}")
-    job_id = start_scan_job(path, use_gliner=gliner, incremental=not full)
+    job_id = start_scan_job(path, use_gliner=gliner, use_ai=ai, incremental=not full)
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
 
@@ -250,7 +280,10 @@ def _safe_relative_path(filename: str | None) -> PurePosixPath | None:
 
 @app.post("/scan/upload")
 async def scan_upload(
-    request: Request, files: list[UploadFile] = File(...), gliner: bool = Form(False)
+    request: Request,
+    files: list[UploadFile] = File(...),
+    gliner: bool = Form(False),
+    ai: bool = Form(False),
 ) -> RedirectResponse:
     """Scan files uploaded from the browser — a single file or a whole folder.
 
@@ -264,6 +297,7 @@ async def scan_upload(
     :param request: the incoming request, for building the redirect URL.
     :param files: the uploaded files; each ``filename`` is a relative path.
     :param gliner: use GLiNER for the NER.
+    :param ai: run the AI second opinion on every uploaded document.
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if no valid file is uploaded.
     """
@@ -286,6 +320,7 @@ async def scan_upload(
     job_id = start_scan_job(
         str(temp_dir),
         use_gliner=gliner,
+        use_ai=ai,
         prune=False,
         incremental=False,
         cleanup_dir=str(temp_dir),

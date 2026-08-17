@@ -1,26 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Stato scansione{% endblock %}
+{% block title %}{% if job.document_id %}Analisi AI{% else %}Stato scansione{% endif %}{% endblock %}
 {% block head %}{% if job.state == "running" %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
 {% block content %}
-  <h1>Scansione</h1>
-  <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}{% if not job.incremental %} · rianalisi completa{% endif %}</p>
+  {% if job.document_id %}
+    <h1>Analisi AI del documento</h1>
+    <p class="muted"><code>{{ job.document_id }}</code></p>
+  {% else %}
+    <h1>Scansione</h1>
+    <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}{% if job.use_ai %} · secondo parere AI{% elif job.ai_sampling %} · AI campionata (1 ogni {{ job.ai_sampling }}){% endif %}{% if not job.incremental %} · rianalisi completa{% endif %}</p>
+  {% endif %}
 
   {% if job.state == "running" %}
-    <p><span class="badge warn">in corso</span> &nbsp; {{ job.done }} / {{ job.total }} file</p>
-    <p class="muted">La pagina si aggiorna automaticamente…</p>
+    {% if job.document_id %}
+      <p><span class="badge warn">in corso</span> &nbsp; il modello sta analizzando il documento…</p>
+      <p class="muted">La pagina si aggiorna automaticamente; puoi intanto usare il resto del sistema.</p>
+    {% else %}
+      <p><span class="badge warn">in corso</span> &nbsp; {{ job.done }} / {{ job.total }} file</p>
+      <p class="muted">La pagina si aggiorna automaticamente…</p>
+    {% endif %}
   {% elif job.state == "error" %}
     <p><span class="badge bad">errore</span></p>
     <p class="muted">{{ job.error }}</p>
-    <p><a href="{{ url_for('scan_form') }}">← Riprova</a></p>
+    {% if job.document_id %}
+      <p><a href="{{ url_for('document_detail', document_id=job.document_id) }}">← Torna al documento</a></p>
+    {% else %}
+      <p><a href="{{ url_for('scan_form') }}">← Riprova</a></p>
+    {% endif %}
   {% else %}
     {% set r = job.result %}
     <p><span class="badge ok">completata</span></p>
     <div class="card">
-      <p><strong>{{ r.scanned }}</strong> documenti scansionati.</p>
-      {% if r.unchanged %}<p class="muted">invariati (già aggiornati, non riletti): {{ r.unchanged|length }}</p>{% endif %}
-      {% if r.skipped %}<p class="muted">saltati (formato non supportato): {{ r.skipped|length }}</p>{% endif %}
-      {% if r.removed %}<p class="muted">rimossi (spariti dalla cartella): {{ r.removed|length }}</p>{% endif %}
-      {% if r.errors %}<p class="muted">errori: {{ r.errors|length }}</p>{% endif %}
+      {% if job.document_id %}
+        <p>Documento rianalizzato con il secondo parere dell'AI.</p>
+      {% else %}
+        <p><strong>{{ r.scanned }}</strong> documenti scansionati.</p>
+        {% if r.unchanged %}<p class="muted">invariati (già aggiornati, non riletti): {{ r.unchanged|length }}</p>{% endif %}
+        {% if r.skipped %}<p class="muted">saltati (formato non supportato): {{ r.skipped|length }}</p>{% endif %}
+        {% if r.removed %}<p class="muted">rimossi (spariti dalla cartella): {{ r.removed|length }}</p>{% endif %}
+        {% if r.errors %}<p class="muted">errori: {{ r.errors|length }}</p>{% endif %}
+      {% endif %}
+      {% if r.ai_documents %}
+        <p class="muted">secondo parere AI: {{ r.ai_documents }} document{{ "o" if r.ai_documents == 1 else "i" }}{% if job.ai_sampling %} (campionati, 1 ogni {{ job.ai_sampling }}){% endif %}</p>
+      {% endif %}
       {% if r.by_type %}
         <p style="margin:.6rem 0 .2rem"><strong>Inventario PII</strong></p>
         <div>{% for pii_type, count in r.by_type|dictsort %}<span class="tag">{{ pii_type }} × {{ count }}</span>{% endfor %}</div>
@@ -32,6 +53,10 @@
           {{ ra.unmatched }} senza regola</p>
       {% endif %}
     </div>
-    <p><a class="btn" href="{{ url_for('documents') }}">Vai alla dashboard</a></p>
+    {% if job.document_id %}
+      <p><a class="btn" href="{{ url_for('document_detail', document_id=job.document_id) }}">← Torna al documento</a></p>
+    {% else %}
+      <p><a class="btn" href="{{ url_for('documents') }}">Vai alla dashboard</a></p>
+    {% endif %}
   {% endif %}
 {% endblock %}

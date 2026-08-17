@@ -9,7 +9,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 import pii_detection.web.scan_jobs as scan_jobs
-from pii_detection.detection.types import DetectorKind, PIICandidate
+from pii_detection.detection.ai_detector import AITriggerPolicy
+from pii_detection.detection.protocol import PIIDetector
+from pii_detection.detection.types import (
+    DetectionProvenance,
+    DetectorKind,
+    PIICandidate,
+    TextSpan,
+)
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.web.app import app
 from pii_detection.web.scan_jobs import ScanJob, get_job
@@ -25,13 +32,39 @@ class _FakeDetector:
         return []
 
 
+class _FakeAIDetector:
+    """Fake AI detector that discovers one PII covering the whole text."""
+
+    detector_id = "ai.fake"
+    detector_kind = DetectorKind.AI
+
+    def detect(self, text: str) -> list[PIICandidate]:
+        if not text:
+            return []
+        return [
+            PIICandidate(
+                TextSpan(0, len(text)),
+                text,
+                DetectionProvenance("ai.fake", DetectorKind.AI, "person_name", 0.6),
+            )
+        ]
+
+
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("PII_DB_URL", f"sqlite:///{tmp_path / 'pii.db'}")
     monkeypatch.setenv("ROPA_DB_URL", f"sqlite:///{tmp_path / 'ropa.db'}")
-    monkeypatch.setattr(
-        scan_jobs, "_build_detectors", lambda use_gliner: (_FakeDetector(), _FakeDetector())
-    )
+    # Never let the host environment turn on AI sampling under the tests.
+    monkeypatch.delenv("PII_AI_SAMPLING_RATE", raising=False)
+
+    def _fake_build(
+        use_gliner: bool, with_ai: bool
+    ) -> tuple[PIIDetector, PIIDetector, PIIDetector | None]:
+        # Mirror the real predicate: AI is built on the checkbox or on env sampling.
+        ai = _FakeAIDetector() if (with_ai or AITriggerPolicy.from_env().enabled) else None
+        return _FakeDetector(), _FakeDetector(), ai
+
+    monkeypatch.setattr(scan_jobs, "_build_detectors", _fake_build)
     return TestClient(app)
 
 
@@ -230,3 +263,47 @@ def test_upload_is_always_a_full_scan(client: TestClient) -> None:
     job = _wait(resp.url.path.rsplit("/", 1)[-1])
     assert job.incremental is False
     assert job.result is not None and job.result.scanned == 1
+
+
+# --- AI second opinion -------------------------------------------------------
+
+
+def test_scan_form_has_ai_checkbox(client: TestClient) -> None:
+    body = client.get("/scan").text
+    assert 'name="ai"' in body  # server-path form; the upload form appends it in JS
+
+
+def test_run_with_ai_runs_it_on_every_document(client: TestClient, tmp_path: Path) -> None:
+    folder = _make_tree(tmp_path)
+    job = _run_scan(client, folder, ai="true")
+    assert job.use_ai is True
+    assert job.result is not None and job.result.ai_documents == 2  # both scannable docs
+
+
+def test_env_sampling_enables_ai_without_the_checkbox(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PII_AI_SAMPLING_RATE", "2")
+    folder = _make_tree(tmp_path)
+    job = _run_scan(client, folder)  # no AI checkbox
+    assert job.use_ai is False
+    assert job.ai_sampling == 2
+    assert job.result is not None and job.result.ai_documents == 1  # 1-in-2 over two docs
+
+
+def test_document_ai_trigger_starts_job_and_discovers(client: TestClient, tmp_path: Path) -> None:
+    folder = _make_tree(tmp_path)
+    _run_scan(client, folder)  # records a.txt, sub/b.txt (fakes find no PII)
+
+    resp = client.post("/document/a.txt/scan-ai")
+    assert resp.status_code == 200  # followed the 303 to the status page
+    job = _wait(resp.url.path.rsplit("/", 1)[-1])
+    assert job.state == "done"
+    assert job.document_id == "a.txt"
+
+    body = client.get("/document/a.txt").text
+    assert "person_name" in body  # the AI discovery is now on the document page
+
+
+def test_document_ai_trigger_unknown_document_is_404(client: TestClient) -> None:
+    assert client.post("/document/nope.txt/scan-ai").status_code == 404
