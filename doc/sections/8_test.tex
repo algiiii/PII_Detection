@@ -4,6 +4,8 @@
 \section{Validazione del livello di rilevamento}
 \label{sec:test-detection}
 
+\textbf{DA AGGIORNARE}
+
 Le scelte lasciate aperte in fase di implementazione --- se costruire il livello regex/NER sopra Microsoft Presidio (§\ref{sec:valutazione-presidio}) e quale motore di NER adottare --- sono qui chiuse su base empirica.
 
 \paragraph{Metodo.} La valutazione riusa l'impianto di scoring del progetto: un corpus annotato di documenti sintetici in cui ogni PII è marcata con il proprio \texttt{pii\_type} e la sua posizione. Un rilevamento conta come vero positivo quando condivide il \texttt{pii\_type} con uno span di \textit{ground truth} e vi si sovrappone con \textit{Intersection over Union} $\geq 0.5$; ogni rilevamento e ogni span sono appaiati al più una volta (\textit{matching} greedy). Da qui si derivano precision, recall e F1 micro-mediati. Ogni configurazione è incapsulata dietro il contratto \texttt{PIIDetector} e misurata sullo stesso corpus, così da confrontarle sullo stesso metro.
@@ -17,17 +19,17 @@ Le scelte lasciate aperte in fase di implementazione --- se costruire il livello
 	\small
 	\begin{tabular}{|l|c|c|c|}
 		\hline
-		\textbf{Configurazione}                  & \textbf{P} & \textbf{R} & \textbf{F1}   \\
+		\textbf{Configurazione}                  & \textbf{P}    & \textbf{R}    & \textbf{F1}   \\
 		\hline
-		Baseline regex (proprietaria)            & 0.93       & 0.68       & 0.79          \\
+		Baseline regex (proprietaria)            & 0.93          & 0.68          & 0.79          \\
 		\hline
-		Presidio --- solo pattern/checksum       & 1.00       & 0.74       & 0.85          \\
+		Presidio --- solo pattern/checksum       & 1.00          & 0.74          & 0.85          \\
 		\hline
-		NER spaCy (\texttt{it\_core\_news\_lg})   & 0.17       & 0.05       & 0.08          \\
+		NER spaCy (\texttt{it\_core\_news\_lg})  & 0.17          & 0.05          & 0.08          \\
 		\hline
-		NER GLiNER (\texttt{gliner\_multi\_pii})  & 0.75       & 0.32       & 0.44          \\
+		NER GLiNER (\texttt{gliner\_multi\_pii}) & 0.75          & 0.32          & 0.44          \\
 		\hline
-		Presidio (pattern + NER spaCy)           & 0.75       & 0.79       & 0.77          \\
+		Presidio (pattern + NER spaCy)           & 0.75          & 0.79          & 0.77          \\
 		\hline
 		\textbf{Presidio (pattern + NER GLiNER)} & \textbf{0.89} & \textbf{0.89} & \textbf{0.89} \\
 		\hline

@@ -10,38 +10,51 @@
 
 \subsection{Disponibilità e qualità dei dataset di valutazione}
 \label{sub:rischio-dataset}
-% Lo stato dell'arte è orientato all'anonimizzazione: scarseggiano benchmark pubblici
-% pensati per la sola *detection* di PII. Rischio di non poter validare i risultati
-% in modo riproducibile (cfr. problema evidenziato nelle linee guida).
+La letteratura sul trattamento delle PII è orientata in prevalenza all'anonimizzazione, e i corpus pubblici disponibili sono costruiti per quel fine: scarseggiano insiemi di valutazione pensati per la sola \textit{detection}, annotati in modo esaustivo e liberamente utilizzabili. Il problema è noto e non specifico di questo lavoro: il principale ostacolo alle soluzioni supervisionate è riconosciuto proprio nel costo di costruzione di un corpus annotato di dimensioni adeguate~\cite{africanoPIIDetectionLowResource2024}. A ciò si aggiunge un vincolo proprio di questo progetto: un corpus di dati reali sarebbe esso stesso un archivio di dati personali, in contraddizione diretta con il principio di minimizzazione che il sistema è chiamato a rispettare (cfr.~\ref{sub:minimizzazione}). \medskip
+
+Se il rischio si materializza, il sistema resta privo di una base di misura: le prestazioni del rilevamento non sarebbero verificabili in modo riproducibile e ogni scelta architetturale --- quale rilevatore adottare, se l'AI aggiunga valore --- si ridurrebbe a una preferenza soggettiva, indebolendo l'intero impianto argomentativo della tesi. \medskip
+
+La contromisura prevista è la generazione di corpus \textbf{sintetici} e riproducibili a partire da un seme --- pratica consolidata quando i dati reali non sono utilizzabili, e oggetto essa stessa di studio nella costruzione di insiemi annotati per il riconoscimento di entità~\cite{hengProgGenGeneratingNamed2024}: i valori devono essere realistici e, dove il formato lo prevede, aritmeticamente validi, mentre il \textit{gold} va derivato dalla stessa sorgente che produce il testo, così che annotazione e documento non possano divergere. La valutazione va inoltre articolata su più livelli di granularità, dal documento singolo all'albero documentale, con le soglie e i protocolli definiti in sede sperimentale (cfr.~Capitolo~\ref{cap:test}). Resta un rischio residuo di cui tenere conto nella lettura dei risultati: un corpus sintetico è per costruzione più ordinato del reale, e i valori misurati su di esso vanno intesi come limite superiore delle prestazioni attese sul campo.
 
 \subsection{Complessità dell'integrazione multi-approccio}
 \label{sub:rischio-integrazione}
-% La pipeline prevede regex, NLP/NER (GLiNER, BERT) e potenzialmente AI generativa.
-% Far convivere output eterogenei in un'unica pipeline modulare introduce rischi
-% di incoerenza, duplicazione e complessità architetturale.
+Il rilevamento non può essere affidato a una tecnica sola: il requisito impone la composizione di meccanismi complementari --- espressioni regolari, riconoscimento di entità nominate e, in modo selettivo, modelli generativi (cfr.~\ref{sub:rilevamento-pii}, \ref{sub:ai-selettiva}) --- ed è la direzione che la letteratura indica come standard (cfr.~\ref{sub:soluzioni-ibride}). Ciascuna sorgente produce però risultati in modo autonomo, con confini di testo e categorie che possono sovrapporsi, coincidere o contraddirsi. \medskip
+
+Far convivere esiti eterogenei senza una disciplina esplicita produce duplicazione delle segnalazioni, esiti incoerenti sullo stesso frammento di testo e, soprattutto, l'impossibilità di attribuire un errore a uno stadio preciso: se il sistema sbaglia, non si saprebbe se la responsabilità sia del rilevamento, della fusione dei risultati o dell'estrazione a monte. \medskip
+
+Il rischio va contenuto imponendo un \textbf{contratto unico} a tutte le sorgenti e concentrando la riconciliazione in un solo punto, che unifichi i candidati secondo un vocabolario chiuso di esiti e che, in caso di disaccordo sul tipo, conservi entrambe le ipotesi anziché arbitrare autonomamente. Ogni rilevamento deve inoltre conservare la traccia delle sorgenti che l'hanno prodotto, come già impone il requisito di tracciabilità (cfr.~\ref{sub:tracciabilita}): l'attribuzione di un errore diventa così un'operazione di lettura e non di ricostruzione.
 
 \subsection{Costo computazionale e tempi di elaborazione}
 \label{sub:rischio-costo-computazionale}
-% Le linee guida evidenziano che l'AI generativa su un intero filesystem
-% richiederebbe "MESI di calcoli super computer-intensive". Necessario
-% documentare il trade-off risultati/consumo energetico con paper accademici.
+L'analisi deve percorrere l'intero patrimonio documentale di un'organizzazione, e il costo unitario dell'inferenza si moltiplica quindi per il numero di documenti. Il rischio è particolarmente acuto per i modelli generativi, il cui costo per interrogazione --- in energia e in denaro --- è superiore di ordini di grandezza a quello dei modelli discriminativi e va sostenuto \emph{a ogni} nuova analisi, non una sola volta: il confronto quantitativo fra le due famiglie, con i dati di letteratura che lo sostengono, è riportato nel Capitolo~\ref{cap:studi}. \medskip
+
+Un sistema che richiedesse giorni o settimane per completare una passata non sarebbe semplicemente lento: sarebbe inutilizzabile nel modo in cui è pensato, ossia come verifica periodica e non presidiata (cfr.~\ref{sub:prestazioni}). Il vincolo, inoltre, non è solo di tempo ma di dotazione hardware: richiedere acceleratori dedicati escluderebbe dall'adozione proprio le organizzazioni di piccole e medie dimensioni a cui il progetto si rivolge. \medskip
+
+La risposta si articola su due fronti, entrambi già fissati in sede di requisiti. Sul piano della scelta tecnologica, l'analisi sistematica dell'intero corpus va affidata ad approcci computazionalmente leggeri ed eseguibili su hardware ordinario, mentre l'impiego di modelli generativi resta circoscritto a sottoinsiemi mirati (cfr.~\ref{sub:vincolo-ai}, \ref{sub:ai-selettiva}). Sul piano dell'esecuzione, le analisi successive alla prima devono rielaborare i soli documenti effettivamente modificati (cfr.~\ref{sub:rianalisi-incrementale}), così che il costo a regime risulti proporzionale al cambiamento e non al volume complessivo.
 
 \subsection{Dipendenza da modelli e librerie di terze parti}
 \label{sub:rischio-dipendenze}
-% GLiNER, Hugging Face Transformers, librerie OCR, parser PDF/DOCX/XLSX.
-% Rischio di breaking changes, discontinuità del supporto o licenze incompatibili.
+Il sistema poggia su una catena di componenti esterni: il motore di rilevamento e i suoi riconoscitori, i modelli di riconoscimento di entità e l'infrastruttura che li distribuisce, i lettori dei diversi formati documentali e il runtime che esegue localmente il modello linguistico. Ciascuno di essi può introdurre modifiche incompatibili, interrompere il proprio sviluppo o adottare condizioni di licenza inadatte all'impiego previsto. \medskip
 
-\subsection{Carenza di competenze specialistiche}
-\label{sub:rischio-competenze}
-% Le linee guida sottolineano: "DEVO STUDIARE COSA SIGNIFICA TRAINING E COME
-% FARLO IN MANIERA CORRETTA ED EFFICACE". Rischio legato alla curva di
-% apprendimento su ML, fine-tuning e NLP nel contesto di un progetto di tesi.
+La forma più insidiosa di questo rischio non è però l'obsolescenza, ma l'\textbf{incompatibilità di piattaforma}: le librerie di apprendimento automatico vincolano in modo stringente versione dell'interprete, architettura del processore e sistema operativo, cosicché una dipendenza può risultare indisponibile non perché abbandonata, ma perché l'ambiente su cui si opera non ne soddisfa i vincoli. Un sistema destinato a infrastrutture aziendali eterogenee (cfr.~\ref{sub:facilita-installazione}) è esposto a questa eventualità per definizione. \medskip
 
-\subsection{Scope creep e requisiti in evoluzione}
+La mitigazione è duplice. Le dipendenze più onerose vanno dichiarate come componenti opzionali e caricate solo nel momento in cui servono davvero, così che l'indisponibilità di una di esse non impedisca il funzionamento del resto del sistema; e l'esecuzione di riferimento va collocata in un ambiente isolato e riproducibile, che renda irrilevante la piattaforma dell'host (cfr.~\ref{sub:facilita-installazione}). Sul piano della progettazione, il contratto unico imposto alle sorgenti di rilevamento (cfr.~\ref{sub:rischio-integrazione}) e la definizione dichiarativa dei detector richiesta dal requisito di estensibilità (cfr.~\ref{sub:estensibilita}) fanno sì che la sostituzione di un componente resti circoscritta alla sua sede, senza propagarsi al resto dell'elaborazione.
+
+\subsection{Dilatazione del perimetro (\textit{scope creep})}
 \label{sub:rischio-scope-creep}
-% Molti requisiti sono ancora marcati "DA VALUTARE" (aggregazione PII,
-% knowledge base, impieghi alternativi dell'AI). Rischio di continua
-% espansione del perimetro durante lo sviluppo.
+Il dominio affrontato confina con almeno tre ambiti attigui e tutti pertinenti: l'anonimizzazione dei documenti, la gestione degli incidenti di sicurezza e la valutazione d'impatto sulla protezione dei dati. Ciascuno di essi appare, preso singolarmente, come un'estensione naturale --- il sistema individua già i dati personali, sembrerebbe ragionevole che li mascherasse anche --- e la loro somma eccede di gran lunga ciò che un lavoro di tesi può portare a compimento. \medskip
+
+Il rischio non è di realizzare la funzionalità sbagliata, ma di realizzarne troppe in modo superficiale: un prototipo che tocca molti ambiti senza approfondirne alcuno non consente né una valutazione significativa né una conclusione difendibile, e la dispersione si paga sull'unica parte che dovrebbe essere solida, ossia la verifica di conformità. \medskip
+
+La contromisura è il governo esplicito del perimetro. Le esclusioni sono dichiarate nei requisiti in forma altrettanto vincolante delle inclusioni (cfr.~\ref{sec:posizionamento-art32}, \ref{sub:esclusione-basi-giuridiche}), e ogni funzionalità che ecceda la verifica documentale va registrata come sviluppo futuro anziché essere assorbita in corso d'opera. Il criterio di ammissione adottato è la riconducibilità al confronto fra dato rilevato e dato dichiarato: ciò che non vi contribuisce resta fuori, per quanto affine.
+
+\subsection{Competenze richieste e curva di apprendimento}
+\label{sub:rischio-competenze}
+Il progetto richiede la padronanza simultanea di due domini distanti fra loro: da un lato l'elaborazione del linguaggio naturale, con le famiglie di modelli, i paradigmi di addestramento e le metriche che le governano; dall'altro il quadro normativo sulla protezione dei dati, in due ordinamenti che non coincidono. Nessuno dei due può essere trattato superficialmente senza compromettere il risultato: un errore di interpretazione normativa produrrebbe un sistema che verifica la cosa sbagliata, un errore di valutazione dei modelli produrrebbe una scelta tecnica indifendibile. \medskip
+
+La manifestazione tipica del rischio è la decisione presa per inerzia: adottare la prima tecnologia incontrata perché documentata meglio, o assumere un'interpretazione normativa perché più semplice da implementare, rendendo di fatto arbitraria la parte più qualificante del lavoro. \medskip
+
+La contromisura è duplice. Sul versante tecnico, ogni scelta rilevante va motivata su evidenze --- misure proprie o dati di letteratura --- anziché su preferenze, e il confronto fra le alternative va documentato insieme al suo esito (cfr.~Capitolo~\ref{cap:stato-arte}, Capitolo~\ref{cap:studi}). Sul versante normativo, il sistema è deliberatamente costruito per \emph{non} pronunciarsi sulle questioni che richiedono una valutazione giuridica (cfr.~\ref{sub:esclusione-basi-giuridiche}): le assunzioni normative sono ridotte al minimo indispensabile e il giudizio resta all'organizzazione, il che circoscrive il danno di un'eventuale interpretazione imprecisa.
 
 % ===================================================================
 %  RISCHI DI PRODOTTO (qualità, affidabilità, sicurezza del sistema)
@@ -52,57 +65,77 @@
 
 \subsection{Accuratezza insufficiente nella detection delle PII}
 \label{sub:rischio-accuratezza}
-% Il sistema non anonimizza, ma solo rileva: un'accuratezza bassa mina
-% direttamente il valore del report finale per il DPO. Discutere metriche
-% (precision, recall, F1) e soglie di accettabilità.
+Il sistema non modifica i documenti: il suo esito è una segnalazione destinata a un giudizio umano. L'intero valore del prodotto dipende perciò dall'attendibilità di ciò che segnala, e un rilevamento impreciso non degrada semplicemente la qualità del risultato --- ne annulla la funzione, perché un report di cui non ci si può fidare non viene usato. \medskip
+
+Il rischio è aggravato dal fatto che l'accuratezza non è una grandezza uniforme: le sorgenti di rilevamento hanno profili complementari e molto diversi fra loro. Gli identificatori a formato rigido sono riconoscibili con precisione prossima al massimo, mentre le categorie dipendenti dal contesto --- nomi di persona, indirizzi --- dipendono interamente dalla qualità del modello di riconoscimento impiegato, le cui prestazioni variano sensibilmente fra le famiglie disponibili (cfr.~\ref{sub:confronto-empirico}). Una misura aggregata, quindi, nasconderebbe più di quanto riveli. \medskip
+
+La contromisura è misurare in modo \textbf{disaggregato per categoria} e su un protocollo riproducibile (cfr.~Capitolo~\ref{cap:test}), assumendo la copertura delle singole categorie --- e non la media --- come criterio di accettabilità: una categoria scoperta è un difetto anche quando l'indicatore complessivo è buono, perché corrisponde a una classe di dati personali che il sistema non vede affatto.
 
 \subsection{Falsi positivi e impatto sull'usabilità}
 \label{sub:rischio-falsi-positivi}
-% Troppi falsi positivi rendono il report inutilizzabile: il DPO perde
-% fiducia nel sistema e smette di consultarlo. Impatto diverso dai falsi
-% negativi, da trattare separatamente.
+Una segnalazione errata ha un costo che non ricade sul sistema ma sull'operatore: ogni falso positivo si traduce in una verifica manuale infruttuosa. Poiché il tempo del DPO è la risorsa più scarsa dell'intero processo, un tasso elevato di segnalazioni errate non rende il report semplicemente meno preciso, ma progressivamente inutilizzato --- l'esito peggiore per uno strumento di conformità, perché indistinguibile dall'assenza dello strumento stesso. \medskip
+
+Il rischio si concentra sui documenti privi di dati personali ma ricchi di sequenze che vi somigliano --- numeri di protocollo, importi, codici di articolo --- e sulle categorie prive di un formato che le vincoli, che sono anche le più esposte a un riconoscimento fondato sul solo contesto. Non è la fragilità di un singolo approccio: i rilevatori basati su espressioni regolari producono falsi positivi sistematici quando una sequenza lecita ne imita un'altra --- codici bibliografici scambiati per numeri di telefono ne sono un esempio documentato~\cite{elazarWhatsMyBigData2024} --- e i modelli generativi, pur raggiungendo un \textit{recall} elevato, mostrano precisioni sensibilmente inferiori~\cite{zambranoDeidentifyingStudentPersonally2025}. È inoltre un rischio che nessun corpus composto di soli documenti «popolati» potrebbe rilevare: senza documenti negativi, i falsi positivi sono per costruzione invisibili alla misura. \medskip
+
+Per questa ragione il corpus di valutazione deve comprendere una quota deliberata di documenti \textbf{privi di qualsiasi PII}, corredati di elementi distrattori, così che la precisione sia una grandezza effettivamente misurata e non presunta (cfr.~Capitolo~\ref{cap:test}). Sul piano della restituzione, ogni rilevamento deve esporre il proprio grado di conferma e le sorgenti che lo hanno prodotto (cfr.~\ref{sub:tracciabilita}), consentendo al DPO di affrontare per prime le segnalazioni più solide anziché scorrere un elenco indifferenziato.
 
 \subsection{Falsi negativi e mancata rilevazione di PII critiche}
 \label{sub:rischio-falsi-negativi}
-% Un falso negativo su dati degni di particolare protezione (art. 5 nLPD,
-% art. 9 GDPR) può avere conseguenze legali gravi. Rischio asimmetrico
-% rispetto ai falsi positivi.
+Un dato personale presente e non rilevato non produce alcun segnale: è un rischio che resta \emph{invisibile} tanto al sistema quanto all'organizzazione, e che si manifesta solo quando è troppo tardi per rimediare. L'asimmetria rispetto al rischio precedente è netta: un falso positivo costa una verifica, un falso negativo costa una non-conformità non rilevata, con conseguenze tanto più gravi quando riguarda le categorie particolari di dati previste dall'art.~9 GDPR~\cite{RegolamentoUE20162016} e dall'art.~5 lett.~c nLPD~\cite{RS2351Legge} (cfr.~\ref{sub:dati-particolari}). \medskip
 
-\subsection{Generalizzazione cross-domain (domain-silo problem)}
+La conseguenza è che i due errori non possono essere trattati come equivalenti in un bilanciamento simmetrico: il sistema deve dichiarare quale dei due preferisce commettere. \medskip
+
+L'impostazione assunta è il principio \textbf{recall-first}, già fissato fra i requisiti di qualità (cfr.~\ref{sub:precisione}): nessuna sorgente deve scartare autonomamente un candidato debole, i casi di disaccordo vanno conservati anziché risolti eliminando un'ipotesi, e la decisione finale è rimessa all'operatore. È una scelta che aumenta deliberatamente i falsi positivi per ridurre i falsi negativi, e va letta congiuntamente al rischio precedente (cfr.~\ref{sub:rischio-falsi-positivi}): la tensione fra i due non è risolta a livello di algoritmo ma arbitrata dal requisito di precisione (cfr.~\ref{sub:precisione}), che assegna la priorità al \textit{recall} entro un limite di segnalazioni errate compatibile con l'usabilità.
+
+\subsection{Generalizzazione cross-domain (\textit{domain-silo problem})}
 \label{sub:rischio-domain-silo}
-% Come evidenziato dallo stato dell'arte (PIIBench, Jha et al.), i sistemi
-% addestrati su un dominio falliscono su testi eterogenei. Il sistema deve
-% funzionare su documenti aziendali di natura molto diversa.
+I sistemi di rilevamento addestrati o messi a punto su un dominio specifico degradano sensibilmente quando applicati a testi di natura diversa, fenomeno documentato in letteratura come problema del \textit{domain-silo}~\cite{jhaPIIBenchUnifiedMultiSource2026} (cfr.~\ref{sub:ambiguita-contestuale}). Il contesto d'impiego previsto è però l'opposto di un dominio omogeneo: una condivisione documentale aziendale accosta contratti, corrispondenza, verbali, documentazione tecnica e fogli di calcolo, spesso nella stessa cartella. \medskip
+
+Se il rilevamento fosse tarato implicitamente su una sola di queste famiglie, la copertura risulterebbe buona in fase di verifica e insoddisfacente sul campo, con un divario tanto più pericoloso quanto meno visibile: il sistema continuerebbe a produrre report apparentemente normali, semplicemente omettendo intere porzioni del patrimonio documentale. \medskip
+
+La contromisura è duplice. Sul piano della scelta tecnologica, la preferenza per il riconoscimento \textit{zero-shot} --- in cui le categorie sono fornite come descrizioni testuali anziché apprese da un corpus di dominio --- riduce alla radice la specializzazione implicita ed è del resto imposta dal requisito di operatività senza addestramento (cfr.~\ref{sub:zero-shot}, \ref{sub:zero-training}). Sul piano della verifica, il corpus di valutazione va costruito \textbf{deliberatamente eterogeneo} per genere documentale, lunghezza e presenza di dati personali. Il rischio residuo resta comunque significativo e va dichiarato. Su domini fortemente specialistici i modelli \textit{zero-shot} subiscono cali marcati: applicati a testo clinico scendono a un F1 di circa 0.41, perdendo oltre metà delle entità rispetto ai modelli specializzati sul dominio~\cite{OpenSourcePHI}. Che la specializzazione resti necessaria lo conferma, indirettamente, l'esistenza di suite di modelli sviluppate appositamente per singoli ambiti~\cite{yazdaniGLiNERBioMedSuiteEfficient2025}. Ciò rende la valutazione empirica sul corpus effettivo dell'organizzazione un passaggio non eludibile prima dell'adozione.
 
 \subsection{Supporto multilingue e multilocalizzazione}
 \label{sub:rischio-multilingue}
-% Il contesto nLPD + GDPR implica almeno IT, DE, FR, EN. Le regex sono
-% lingua-dipendenti, i modelli NER hanno performance disomogenee tra lingue.
-% Anche i formati delle PII cambiano (AVS vs CF vs SSN).
+Il contesto normativo di riferimento --- svizzero ed europeo --- implica la coesistenza di più lingue nello stesso patrimonio documentale, e con esse di identificatori nazionali differenti: il numero AVS svizzero, il codice fiscale italiano e i rispettivi omologhi obbediscono a formati fra loro incompatibili. La dipendenza dalla lingua, inoltre, non riguarda solo il rilevamento: attraversa i modelli di riconoscimento, le espressioni regolari ancorate a parole chiave e persino l'interpretazione dei registri dei trattamenti. \medskip
+
+La manifestazione tipica di questo rischio non è un errore visibile, ma un \textbf{silenzio}. Un componente che interpreta testo libero riconosce le formulazioni delle lingue per cui è stato predisposto e ignora le altre, senza poter distinguere l'espressione che non comprende da quella che non è presente: una durata di conservazione dichiarata nel registro in una lingua non prevista non verrebbe interpretata, il controllo corrispondente si disattiverebbe senza alcuna segnalazione, e un documento fuori termine risulterebbe conforme. È il modo di fallire più pericoloso proprio perché non produce alcun sintomo. \medskip
+
+Va inoltre osservato che il trasferimento di un modello di de-identificazione da una lingua all'altra non è un'operazione neutra e costituisce un problema di ricerca a sé, affrontato in letteratura con tecniche di adattamento a pochi esempi~\cite{aminFewShotCrosslingualTransfer2022}: assumere che un modello multilingue si comporti in modo uniforme su tutte le lingue che dichiara di coprire sarebbe imprudente. \medskip
+
+Il rischio va mitigato mantenendo in \textbf{configurazione}, e non nel codice, sia il catalogo delle categorie sia le regole che le riconoscono, così che l'estensione a una lingua o a un ordinamento ulteriore sia un intervento dichiarativo (cfr.~\ref{sub:estensibilita}); e privilegiando, per il riconoscimento delle entità, modelli addestrati su più lingue. Resta il fatto che ogni componente che interpreta testo libero va verificato lingua per lingua: è una superficie di rischio che si riduce, ma non si elimina.
 
 \subsection{Scalabilità su filesystem di grandi dimensioni}
 \label{sub:rischio-scalabilita}
-% Il requisito prevede la scansione ricorsiva di interi filesystem.
-% Rischio di tempi proibitivi, consumo di memoria e gestione di formati
-% eterogenei (PDF, DOCX, XLSX, immagini con OCR).
+L'analisi opera per attraversamento ricorsivo di interi alberi di cartelle, il cui contenuto non è noto in anticipo né per volume né per composizione. Il sistema deve quindi reggere corpus dell'ordine delle migliaia di documenti (cfr.~\ref{sub:prestazioni}), con dimensioni dei singoli file estremamente variabili e formati eterogenei, alcuni dei quali onerosi da interpretare. \medskip
+
+I modi in cui questo rischio si manifesta sono tre, di gravità crescente: tempi di esecuzione incompatibili con una verifica periodica; consumo di memoria proporzionale alla dimensione del documento più grande incontrato; e, soprattutto, l'interruzione dell'intera analisi a causa di un singolo file illeggibile o malformato --- l'esito peggiore, perché fa dipendere il risultato complessivo dall'elemento meno affidabile del corpus. \medskip
+
+Le contromisure riguardano il modo in cui l'elaborazione va organizzata. Ogni documento deve essere elaborato in \textbf{isolamento}: un file che non può essere letto va registrato come errore lasciando proseguire l'analisi, cosicché nessun singolo elemento possa comprometterla. I componenti costosi da inizializzare vanno predisposti una sola volta e riusati per l'intero lotto, e il testo estratto va mantenuto in memoria per la sola durata dell'elaborazione del documento, come già impone il vincolo di minimizzazione (cfr.~\ref{sub:minimizzazione}). Le esecuzioni successive alla prima devono infine rielaborare i soli documenti modificati (cfr.~\ref{sub:rianalisi-incrementale}), il che rende il costo a regime proporzionale al cambiamento anziché al volume. Resta un rischio residuo sul fronte della parallelizzazione richiesta dal requisito di prestazioni (cfr.~\ref{sub:prestazioni}): su corpus molto ampi l'elaborazione incrementale riduce il lavoro ricorrente ma non quello della prima passata, per la quale la riduzione dei tempi passa dalla distribuzione del carico su più processi.
 
 \subsection{Qualità e completezza dei ROPA in input}
 \label{sub:rischio-qualita-ropa}
-% Le linee guida notano che i ROPA aziendali possono essere "scritti in
-% maniera sbrigativa" (es. "dati anagrafici" invece di campi specifici).
-% Un ROPA povero degrada il confronto e il report di conformità.
+Il registro delle attività di trattamento è il termine di paragone rispetto al quale ogni verdetto viene formulato, ma è un documento redatto dall'organizzazione, spesso in prosa sbrigativa: categorie indicate con formule generiche («dati anagrafici»), durate di conservazione espresse come criterio anziché come termine, attività dichiarate in modo incompleto. Il sistema, in altre parole, dipende da un input che non controlla e che è tipicamente meno preciso di quanto il confronto richiederebbe. \medskip
+
+Un registro povero non produce un errore evidente, ma un verdetto \emph{silenziosamente} inaffidabile: le categorie non riconducibili ad alcun tipo rilevabile non parteciperebbero al confronto e le durate non interpretabili disattiverebbero il controllo di conservazione, con il risultato paradossale che un registro più vago genererebbe un esito apparentemente migliore --- l'incentivo esattamente opposto a quello desiderabile. \medskip
+
+Il principio adottato è che il sistema \textbf{non deve mascherare la povertà del registro, ma esporla}. Le categorie dichiarate che non si risolvono in alcun tipo rilevabile devono restare esplicite e venire segnalate al DPO anziché essere scambiate per conformi (cfr.~\ref{sub:ropa-fonte-normativa}); allo stesso modo, una conservazione espressa come criterio deve produrre una segnalazione di \emph{non verificabilità} distinta dall'esito conforme (cfr.~\ref{sub:conformita-limitazione}). La risoluzione delle categorie espresse in linguaggio naturale, infine, va sottoposta a conferma umana (cfr.~\ref{sub:ai-selettiva}), così che l'arricchimento del registro resti una decisione dell'organizzazione e non un'inferenza del sistema.
 
 \subsection{Conformità normativa e aggiornamento dei framework legali}
 \label{sub:rischio-conformita-normativa}
-% Il sistema deve allinearsi a GDPR e nLPD, ma anche potenzialmente a
-% leggi americane e altri framework. Le normative evolvono: rischio che
-% le categorie di PII implementate diventino incomplete o obsolete.
+Il sistema incorpora assunzioni normative: quali dati siano da considerare personali, quali godano di protezione rafforzata, quali obblighi il registro debba documentare. Tali assunzioni derivano da fonti in evoluzione --- il Regolamento (UE) 2016/679~\cite{RegolamentoUE20162016} e la legge federale svizzera sulla protezione dei dati~\cite{RS2351Legge} --- e possono differire in ordinamenti ulteriori a cui un'organizzazione sia soggetta. \medskip
+
+Il rischio è che il sistema invecchi senza darne segno: un catalogo di categorie fissato al momento della realizzazione diventerebbe progressivamente incompleto, continuando a produrre verdetti formalmente corretti ma fondati su una nozione di dato personale superata. \medskip
+
+La contromisura è di progettazione prima che normativa. Il catalogo delle categorie di PII e le regole che le riconoscono devono essere \textbf{configurazione e non codice}, il che rende l'adeguamento un'operazione di manutenzione dichiarativa (cfr.~\ref{sub:estensibilita}). Soprattutto, il sistema non giudica rispetto a una lista di obblighi cablata al proprio interno, ma rispetto al \emph{registro dell'organizzazione}: l'onere dell'aggiornamento normativo resta dove la norma lo colloca, sul titolare del trattamento, mentre al sistema compete verificarne la coerenza con i dati effettivamente presenti (cfr.~\ref{sub:esclusione-basi-giuridiche}). Resta un rischio residuo dichiarato: l'allineamento puntuale fra le due normative di riferimento, che divergono nella struttura oltre che nel dettaglio, non è oggetto di una mappatura formale.
 
 \subsection{Sicurezza e protezione dei dati durante l'analisi}
 \label{sub:rischio-sicurezza-dati}
-% Paradosso: per rilevare PII il sistema deve accedervi. Il registro
-% interno, il report e le strutture intermedie contengono essi stessi
-% dati personali. Rischio di data breach durante l'analisi stessa.
+Il sistema è esposto a un paradosso costitutivo: per verificare il trattamento dei dati personali deve accedervi, e nel farlo diventa a sua volta un trattamento. Ogni artefatto che produce --- il testo estratto, il registro interno delle rilevazioni, il report per il DPO --- è un candidato a contenere dati personali, e uno strumento di conformità che diventasse la nuova concentrazione di dati sensibili dell'organizzazione avrebbe peggiorato la situazione che intendeva migliorare. \medskip
+
+Il rischio si articola su due fronti: la \emph{trasmissione} dei dati verso l'esterno, qualora l'elaborazione si appoggiasse a servizi remoti, e la loro \emph{persistenza} all'interno del sistema, che moltiplicherebbe le copie da proteggere. \medskip
+
+Sul primo fronte la contromisura è il vincolo di elaborazione interamente locale, che si estende ai modelli impiegati (cfr.~\ref{sub:elaborazione-locale}, \ref{sub:vincolo-ai}). Sul secondo, la minimizzazione va realizzata come proprietà \textbf{strutturale} e non come cautela procedurale: il registro deve conservare unicamente riferimenti --- categoria, posizione, provenienza del rilevamento --- e nessuna delle sue strutture dati deve prevedere una sede in cui il valore di una PII possa essere memorizzato, cosicché la violazione del principio non sia semplicemente sconsigliata ma impossibile per costruzione (cfr.~\ref{sub:minimizzazione}, \ref{sub:registro-pii}); il testo estratto deve vivere per la sola durata dell'elaborazione. Un rischio residuo permane e va riconosciuto: pur non contenendo valori, il registro costituisce una \emph{mappa} di dove i dati personali si trovino, informazione di per sé sensibile che va protetta con le stesse cautele riservate all'infrastruttura che sorveglia.
 
 % ===================================================================
 %  VALUTAZIONE DEI RISCHI
@@ -113,13 +146,67 @@
 
 \subsection{Criteri di classificazione}
 \label{sub:criteri-classificazione}
-% Definire le scale di probabilità e impatto utilizzate per classificare
-% ciascun rischio (es. scala 1-5, qualitativa, o basata su standard ISO 31000).
+I rischi individuati nelle sezioni precedenti sono classificati secondo due dimensioni --- la \textbf{probabilità} che si manifestino nel corso del progetto e l'\textbf{impatto} che avrebbero sul risultato --- combinate in un livello di \textbf{priorità} che ordina gli interventi di mitigazione. \medskip
+
+Le scale adottate sono \textit{qualitative} a tre livelli. È una prassi riconosciuta nella valutazione del rischio quando manchi una base statistica su cui fondare stime di frequenza: la guida del NIST alla conduzione delle valutazioni di rischio prevede scale qualitative per la probabilità e per l'impatto, e la loro combinazione in un livello di rischio complessivo~\cite{nist80030RiskAssessments2012}. È il caso di questo lavoro: non esistono serie storiche di progetti comparabili da cui derivare stime di frequenza, e una scala numerica trasmetterebbe una precisione che i dati sottostanti non giustificano. La probabilità è quindi espressa come \textit{bassa}, \textit{media} o \textit{alta}, e l'impatto come \textit{basso}, \textit{moderato} o \textit{critico}, dove per critico si intende un impatto che comprometterebbe la validità del risultato e non soltanto la sua qualità. \medskip
+
+La combinazione delle due dimensioni non è simmetrica, ma riflette l'asimmetria già discussa a proposito dei falsi negativi (cfr.~\ref{sub:rischio-falsi-negativi}): l'impatto pesa più della probabilità. La priorità è pertanto \textit{alta} quando a un impatto critico si accompagna una probabilità almeno media; \textit{bassa} quando una probabilità bassa si accompagna a un impatto non critico; \textit{media} in tutti i casi intermedi --- inclusi quelli, come i rischi di sicurezza, in cui un impatto critico è associato a una probabilità contenuta. \medskip
+
+Le valutazioni riportate nel paragrafo seguente sono \textbf{residue}: esprimono cioè il rischio così come risulta \emph{dopo} l'applicazione delle contromisure descritte, non la sua gravità potenziale in loro assenza.
 
 \subsection{Matrice probabilità--impatto}
 \label{sub:matrice-probabilita-impatto}
-% Tabella/matrice che posiziona tutti i rischi identificati nelle sezioni
-% precedenti in base alla loro probabilità di occorrenza e gravità dell'impatto.
+La Tabella~\ref{tab:matrice-rischi} posiziona i quindici rischi identificati secondo i criteri appena definiti.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Valutazione dei rischi identificati: probabilità, impatto e priorità residua.}
+	\label{tab:matrice-rischi}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|l|c|c|c|}
+			\hline
+			\textbf{\S}                            & \textbf{Rischio}              & \textbf{Probabilità} & \textbf{Impatto} & \textbf{Priorità} \\
+			\hline
+			\multicolumn{5}{|l|}{\textit{Rischi di progetto}}                                                                                    \\
+			\hline
+			\ref{sub:rischio-dataset}              & Dataset di valutazione        & Alta                 & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-integrazione}         & Integrazione multi-approccio  & Media                & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-costo-computazionale} & Costo computazionale          & Alta                 & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-dipendenze}           & Dipendenze di terze parti     & Alta                 & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-scope-creep}          & Dilatazione del perimetro     & Alta                 & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-competenze}           & Curva di apprendimento        & Media                & Moderato         & Media             \\
+			\hline
+			\multicolumn{5}{|l|}{\textit{Rischi di prodotto}}                                                                                    \\
+			\hline
+			\ref{sub:rischio-accuratezza}          & Accuratezza del rilevamento   & Media                & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-falsi-positivi}       & Falsi positivi                & Alta                 & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-falsi-negativi}       & Falsi negativi                & Media                & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-domain-silo}          & Generalizzazione cross-domain & Alta                 & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-multilingue}          & Supporto multilingue          & Media                & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-scalabilita}          & Scalabilità                   & Media                & Moderato         & Media             \\
+			\hline
+			\ref{sub:rischio-qualita-ropa}         & Qualità dei ROPA in input     & Alta                 & Critico          & \textbf{Alta}     \\
+			\hline
+			\ref{sub:rischio-conformita-normativa} & Aggiornamento normativo       & Bassa                & Moderato         & Bassa             \\
+			\hline
+			\ref{sub:rischio-sicurezza-dati}       & Sicurezza dei dati in analisi & Bassa                & Critico          & Media             \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+Il quadro che ne emerge presenta due caratteristiche degne di nota. La prima è che i rischi a priorità alta si concentrano sugli \textbf{ingressi} e sui \textbf{criteri di misura} del sistema --- la disponibilità di un corpus di valutazione, la qualità del registro fornito, la capacità di generalizzare su documenti eterogenei --- più che sulla sua realizzazione interna: è un sistema la cui affidabilità dipende in misura sostanziale da ciò che riceve dall'esterno. La seconda è che la priorità alta coincide esattamente con l'impatto critico: tutti e sei i rischi classificati come prioritari sono quelli che, manifestandosi, comprometterebbero la validità del risultato e non soltanto la sua qualità, mentre la probabilità stimata si limita a distinguerli fra loro senza mai promuovere alla fascia alta un rischio di impatto moderato. L'unica eccezione in senso opposto è la sicurezza dei dati durante l'analisi, che pur avendo impatto critico resta a priorità media in ragione della probabilità contenuta: la contromisura ne riduce la frequenza attesa, non la gravità potenziale.
 
 % ===================================================================
 %  STRATEGIE DI MITIGAZIONE
@@ -127,6 +214,20 @@
 
 \section{Strategie di mitigazione}
 \label{sec:mitigazione-rischi}
-% Per ciascun rischio ad alta/media priorità, descrivere le contromisure
-% adottate o pianificate (es. pipeline modulare, fallback regex, test
-% incrementali, dizionari ad-hoc, sandboxing dei dati durante l'analisi).
+Le contromisure sono descritte insieme a ciascun rischio, poiché è in quella sede che se ne comprende la ragione. Questa sezione le rilegge trasversalmente, per mostrare come un numero ristretto di scelte di progettazione risponda a più rischi contemporaneamente: è la proprietà che rende la mitigazione sostenibile, perché una contromisura dedicata a ciascun rischio moltiplicherebbe la complessità del sistema fino a generarne di nuovi.
+
+\paragraph{Disaccoppiamento tramite contratti e configurazione.} Imporre un'interfaccia unica ai rilevatori e mantenere fuori dal codice il catalogo delle categorie e le regole di riconoscimento risponde a quattro rischi distinti: consente di comporre approcci eterogenei senza incoerenze (cfr.~\ref{sub:rischio-integrazione}), di sostituire un componente divenuto indisponibile senza propagare la modifica (cfr.~\ref{sub:rischio-dipendenze}), di estendere il sistema a nuove lingue e ordinamenti (cfr.~\ref{sub:rischio-multilingue}) e di adeguarlo all'evoluzione normativa (cfr.~\ref{sub:rischio-conformita-normativa}).
+
+\paragraph{Asimmetria dichiarata fra i due tipi di errore.} Il principio \textit{recall-first}, unito all'esposizione del grado di conferma di ogni rilevamento, governa congiuntamente i due rischi speculari dei falsi negativi e dei falsi positivi (cfr.~\ref{sub:rischio-falsi-negativi}, \ref{sub:rischio-falsi-positivi}). La scelta non elimina né l'uno né l'altro: stabilisce quale dei due il sistema preferisce commettere e fornisce all'operatore lo strumento per assorbire il costo del secondo.
+
+\paragraph{Minimizzazione come proprietà strutturale.} Non conservare i valori delle PII in alcuna struttura dati, e non trasmettere nulla all'esterno, riduce l'esposizione del sistema alla violazione che esso stesso intende prevenire (cfr.~\ref{sub:rischio-sicurezza-dati}). Il punto qualificante è che la minimizzazione non va affidata a una cautela procedurale, ma resa impossibile da violare per costruzione: se nel modello dei dati non esiste una sede in cui un valore potrebbe essere scritto, non esiste nemmeno il modo di violare il principio per distrazione.
+
+\paragraph{Misura riproducibile su corpus costruiti a questo scopo.} La generazione di corpus sintetici a partire da un seme, articolati su due livelli e comprendenti una quota deliberata di documenti privi di dati personali, è la contromisura di quattro rischi: rende possibile la valutazione in assenza di benchmark pubblici (cfr.~\ref{sub:rischio-dataset}), consente di misurare l'accuratezza per singola categoria (cfr.~\ref{sub:rischio-accuratezza}), rende osservabili i falsi positivi (cfr.~\ref{sub:rischio-falsi-positivi}) e mette alla prova la generalizzazione su documenti eterogenei (cfr.~\ref{sub:rischio-domain-silo}).
+
+\paragraph{Contenimento del costo di esecuzione.} L'impiego di approcci leggeri per l'analisi sistematica, l'isolamento dell'elaborazione di ciascun documento e la rielaborazione dei soli documenti modificati agiscono insieme sui rischi di sostenibilità computazionale e di scalabilità (cfr.~\ref{sub:rischio-costo-computazionale}, \ref{sub:rischio-scalabilita}), mentre l'esecuzione in un ambiente isolato e riproducibile neutralizza la dipendenza dalla piattaforma su cui il sistema viene installato (cfr.~\ref{sub:rischio-dipendenze}).
+
+\paragraph{Esposizione delle lacune anziché loro occultamento.} Dove il sistema non è in grado di pronunciarsi --- una categoria dichiarata che non si risolve in alcun tipo rilevabile, una durata di conservazione espressa come criterio --- l'esito non è il silenzio ma una segnalazione dedicata, distinta dall'esito conforme (cfr.~\ref{sub:rischio-qualita-ropa}). È la contromisura al più insidioso dei modi di fallire, quello in cui l'assenza di verifica è indistinguibile dalla verifica superata.
+
+\paragraph{Governo esplicito del perimetro.} La formulazione dei requisiti, che enuncia le esclusioni con la stessa forza delle inclusioni, e l'obbligo di motivare ogni decisione tecnica su evidenze anziché su preferenze costituiscono nel loro insieme la contromisura ai rischi di natura organizzativa (cfr.~\ref{sub:rischio-scope-creep}, \ref{sub:rischio-competenze}): tengono traccia di ciò che è deliberatamente fuori ambito e impediscono che le scelte più qualificanti del lavoro siano compiute per inerzia.
+
+\paragraph{Rischi accettati.} Alcuni rischi residui non sono mitigati e vengono assunti consapevolmente, poiché la loro riduzione richiederebbe uno sforzo sproporzionato rispetto agli obiettivi del lavoro: la rinuncia, in questa fase, alla parallelizzazione dell'analisi, il carattere ottimistico di una valutazione condotta su corpus sintetici, la natura intrinsecamente sensibile del registro delle rilevazioni in quanto mappa della collocazione dei dati personali, e la necessità di una validazione empirica sul corpus specifico dell'organizzazione prima di ogni adozione operativa. Sono limiti dichiarati, non trascurati, e come tali sono ripresi fra gli sviluppi futuri.

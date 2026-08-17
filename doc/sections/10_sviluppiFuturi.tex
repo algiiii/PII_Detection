@@ -1,0 +1,248 @@
+\chapter{Sviluppi futuri}
+\label{cap:sviluppi-futuri}
+
+Nel corso del lavoro sono state concepite alcune funzionalità che non sono state realizzate.
+Non si tratta di omissioni né di lavoro rimasto incompiuto per mancanza di tempo: sono
+\textbf{decisioni}, prese confrontando ciò che ciascuna avrebbe aggiunto con ciò che sarebbe
+costata, e va reso conto tanto delle une quanto delle altre. Un progetto che documenta solo
+ciò che ha costruito racconta metà del proprio percorso, e non consente a chi lo riprende di
+capire se una strada sia stata esclusa perché senza sbocco o semplicemente non tentata. \medskip
+
+Il criterio applicato non è stato «questa funzionalità è utile?», domanda a cui tutte e tre
+rispondono affermativamente, bensì il concorso di tre condizioni: il \textbf{valore} che la
+funzionalità porta all'utilizzatore, il \textbf{costo} della sua realizzazione, e il
+\textbf{contributo metodologico}, ossia se essa produca un risultato misurabile e discutibile
+in sede di tesi oppure sia lavoro di realizzazione che nulla aggiunge alla domanda di
+ricerca. È soprattutto la terza condizione a spiegare gli esiti che seguono: a parità di
+utilità pratica, una funzionalità che non genera alcun dato da valutare compete con il
+tempo destinato a ciò che invece ne genera. \medskip
+
+Le sezioni che seguono trattano una funzionalità ciascuna secondo lo stesso schema --- che
+cosa avrebbe portato, che cosa sarebbe costata, perché è stata accantonata e a quali
+condizioni potrebbe essere ripresa --- e la Tabella~\ref{tab:funzionalita-scartate} ne
+riassume la valutazione. L'ultima sezione raccoglie invece i limiti già dichiarati altrove
+nel documento, che restano aperti come naturale prosecuzione del lavoro svolto.
+
+\section{Analisi contestuale della struttura del file system}
+\label{sec:sf-analisi-struttura}
+L'idea, formulata fra i requisiti funzionali (cfr.~\ref{sub:analisi-filesystem}) e prevista
+in architettura come blocco autonomo (cfr.~\ref{sec:b2-non-realizzato}), era di trattare
+l'\textbf{organizzazione delle cartelle} come un segnale: i nomi dei rami, la profondità e
+il raggruppamento dei documenti dicono qualcosa sulla finalità per cui quei documenti sono
+tenuti insieme. Nella forma più economica immaginata, l'ingresso sarebbe stato la resa
+testuale dell'albero prodotta da un comune comando di sistema --- poche decine di righe di
+testo per un'intera condivisione --- da sottoporre a un modello linguistico. \medskip
+
+Il valore atteso era duplice: \textbf{proporre} automaticamente l'associazione fra rami
+dell'albero e attività di trattamento, che oggi il DPO stabilisce a mano, e segnalare le
+\emph{anomalie posizionali}, ossia i documenti il cui contenuto non è coerente con la
+cartella che li ospita. È un valore reale, e resta l'unico modo per far emergere una
+violazione del principio di limitazione della finalità che non sia già visibile nel
+confronto fra dati rilevati e dati dichiarati. \medskip
+
+Il costo, però, non sta dove sembra. Procurarsi l'ingresso è banale; interpretarlo non lo è.
+Un'inferenza sul significato di una struttura di cartelle è un'euristica, e un'euristica va
+\textbf{misurata}: servirebbe un corpus di alberi documentali annotati con l'attribuzione
+«corretta» di ciascun ramo, che non esiste e andrebbe costruito sinteticamente, raddoppiando
+di fatto l'apparato di valutazione (cfr.~\ref{sub:rischio-dataset}) per una funzionalità
+accessoria. A ciò si aggiunge un problema di merito: un'attribuzione inferita dalla macchina
+diventa il presupposto del verdetto di conformità, che verrebbe così a poggiare su una
+supposizione anziché su una dichiarazione. \medskip
+
+La ragione decisiva dell'accantonamento è tuttavia un'altra: la parte \emph{utile} della
+funzionalità è stata ottenuta per altra via. Le regole che associano un prefisso di percorso
+a una o più attività (cfr.~\ref{sub:b6-associazione}) producono lo stesso effetto operativo
+--- associare un intero ramo in un solo gesto, inclusi i documenti che vi compariranno in
+seguito --- con la differenza sostanziale che a stabilire il significato della collocazione è
+il DPO. Ciò che resterebbe da realizzare non è quindi l'associazione, ma la sola
+\emph{proposta} di quelle regole: un incremento reale ma marginale, che presuppone comunque
+l'apparato di valutazione appena descritto. La funzionalità è perciò rinviata, e la sua forma
+naturale di ripresa è quella di un proponente che suggerisca regole al DPO senza mai
+applicarle da sé.
+
+\section{Canale di segnalazione dai dipendenti}
+\label{sec:sf-feedback-loop}
+Il secondo requisito rimasto sulla carta (cfr.~\ref{sub:feedback-loop}) prevedeva un canale
+attraverso cui il personale dell'organizzazione potesse segnalare al DPO i dati personali
+incontrati nel lavoro quotidiano, sfuggiti al rilevamento automatico. Il DPO avrebbe
+valutato le segnalazioni e le avrebbe usate per arricchire il registro dei trattamenti o i
+parametri di rilevamento, secondo il ciclo illustrato nella
+Figura~\ref{fig:human-in-the-loop}.
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			sysnode/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=blue!8, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1.1cm, align=center, fill=purple!8, font=\small},
+			store/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+					minimum height=1.5cm, minimum width=2.6cm, align=center, fill=gray!10, font=\small},
+			param/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Nodi ---
+		% I documenti sono l'artefatto condiviso: analizzati dal sistema e, in
+		% parallelo, consultati dai dipendenti nel loro lavoro ordinario. I
+		% dipendenti restano ignari del rilevamento: per loro sono solo documenti.
+		\node (docs)  [io]      at (3,    1.4)  {Documenti aziendali};
+		\node (sys)   [sysnode] at (-0.5, -1.4) {Sistema di rilevamento\\PII};
+		\node (emp)   [human]   at (6.5,  -1.4) {Dipendenti\\dell'azienda};
+		\node (dpo)   [human]   at (6.5,  -4.2) {DPO\\(analisi segnalazioni)};
+		\node (ropa)  [store]   at (-0.5, -3.8) {ROPA\\(trattamenti,\\categorie)};
+		\node (param) [param]   at (-0.5, -6.0) {Parametri del sistema\\(catalogo PII, regole)};
+
+		% --- I documenti: analizzati dal sistema, consultati dai dipendenti ---
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize]{analizza} (sys.north);
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize, align=center]{consultati nel\\lavoro quotidiano} (emp.north);
+
+		% --- Segnalazione: dipendenti -> DPO ---
+		\draw [arrow] (emp) -- node[right, font=\footnotesize, align=left]{segnalano le PII\\in cui si imbattono} (dpo);
+
+		% --- Fork: il DPO valuta e arricchisce ROPA e parametri ---
+		\coordinate (fk) at (3, -4.2);
+		\draw [thick] (dpo.west) -- node[above, font=\footnotesize]{valuta e arricchisce} (fk);
+		\draw [arrow] (fk) |- (ropa.east);
+		\draw [arrow] (fk) |- (param.east);
+
+		% --- Gli aggiornamenti rientrano nel sistema, che analizza meglio i documenti ---
+		\draw [arrow] (ropa) -- (sys);
+		\draw [arrow] (param.west) -- ++(-1.3,0) |- (sys.west);
+
+	\end{tikzpicture}
+	\caption{Meccanismo di \emph{human-in-the-loop}: nel normale lavoro con i
+		documenti aziendali i dipendenti segnalano al DPO le PII in cui si imbattono;
+		il DPO analizza le segnalazioni e arricchisce il ROPA o i parametri del
+		sistema, migliorando il rilevamento. Il processo di analisi resta trasparente
+		ai dipendenti, per i quali i file sono semplici documenti.}
+	\label{fig:human-in-the-loop}
+\end{figure}
+Il valore atteso era il più alto dei tre, e mirava al punto più debole del sistema. I falsi
+negativi sono per definizione invisibili (cfr.~\ref{sub:rischio-falsi-negativi}): nessuna
+misura interna può rivelare un dato personale che il rilevatore non vede. I dipendenti sono
+l'unico sensore che osserva i documenti nel loro contesto d'uso, e sono quindi l'unica
+sorgente capace di chiudere quella cecità dall'esterno. \medskip
+
+Il costo è però sproporzionato, e per una ragione strutturale più che di quantità di lavoro.
+Il sistema è progettato per un \textbf{unico profilo di utilizzatore}, il DPO, e su questa
+premessa poggia l'intera restituzione: una sola interfaccia, che espone senza distinzioni
+tutto ciò che il sistema sa. Occorre qui evitare un equivoco: proteggere quella console con
+un'autenticazione è cosa dovuta e di costo trascurabile, ed è annoverata fra gli interventi
+da compiere (cfr.~\ref{sec:sf-direzioni}); ciò che è oneroso non è \emph{autenticare}, ma
+\textbf{autorizzare}. Aprire un canale al personale significherebbe passare da un'identità a
+un insieme di identità da censire e mantenere allineato all'organico, e con esso introdurre
+ruoli, permessi differenziati, un'interfaccia distinta per chi non deve vedere la console, la
+notifica e la moderazione delle segnalazioni. È questa la parte preponderante del lavoro,
+mentre la funzionalità in sé si riduce a un modulo di inserimento. \medskip
+
+Vi è inoltre un argomento che da solo sconsiglia la realizzazione nella forma prevista. Il
+registro delle rilevazioni non contiene i valori dei dati personali, ma ne costituisce la
+\textbf{mappa}: dice dove si trovano, ed è per questo un artefatto sensibile
+(cfr.~\ref{sub:rischio-sicurezza-dati}). Esporre a tutto il personale un'interfaccia
+affacciata su quel registro significherebbe ampliarne la superficie di accesso dalla singola
+figura del DPO all'intera organizzazione: un peggioramento del livello di sicurezza in uno
+strumento che esiste per ridurre l'esposizione dei dati. \medskip
+
+A questo si aggiunge la considerazione che ha determinato l'esito: la funzionalità è un
+\textbf{processo organizzativo}, non una tecnica di rilevamento. Non produce alcun risultato
+misurabile --- non migliora una metrica, non consente un confronto, non sostiene né confuta
+un'ipotesi --- e il suo effetto dipende interamente dalla partecipazione delle persone, che
+un prototipo non può mettere alla prova. È lavoro di realizzazione che non alimenta la
+domanda di ricerca. La funzionalità è pertanto esclusa dal perimetro, e non semplicemente
+rinviata; qualora venisse ripresa, la forma corretta sarebbe un canale di sola immissione,
+separato dalla console del DPO e privo di qualsiasi accesso in lettura al registro.
+
+\section{Estensione dei formati documentali}
+\label{sec:sf-formati}
+Il requisito di estrazione (cfr.~\ref{sub:estrazione-testo}) è soddisfatto sui formati
+\textit{born-digital} dell'ufficio --- documenti impaginati, videoscrittura, fogli di calcolo
+e testo semplice. Restano fuori i documenti che sono immagini, ossia le scansioni, e con essi
+il riconoscimento ottico dei caratteri, i layout complessi a più colonne e le tabelle, oltre
+ai formati meno diffusi. Allo stato attuale se ne fa a meno: i lettori impiegati sono
+sufficienti ai formati coperti, e nessun motore di analisi documentale più elaborato è stato
+introdotto. Qualora l'insieme dei formati da trattare venisse ampliato, sarebbe questo il
+punto in cui valutare l'adozione di uno strumento dedicato --- Docling o analoghi --- in
+luogo dei lettori specifici per singolo formato. \medskip
+
+Il valore è reale ma \textbf{lineare}: ogni formato aggiunto rende leggibile un'altra fetta
+del patrimonio documentale, e nulla più. Non cambia ciò che il sistema sa fare, ma solo su
+quanti documenti riesce a farlo --- il che, va detto, in un archivio reale con anni di
+scansioni può non essere poco. \medskip
+
+Anche il costo è in larga parte lineare, ed è per questo che la funzionalità è stata giudicata
+senza contributo di ricerca: lavoro meccanico, ripetitivo e senza decisioni
+interessanti da prendere. Il riconoscimento ottico fa però eccezione, perché introduce un
+salto qualitativo: non è un lettore in più, è una \textbf{nuova sorgente di errore} collocata
+a monte del rilevamento. Il testo che ne esce contiene errori di trascrizione, e ogni PII non
+rilevata diventerebbe attribuibile indifferentemente al rilevatore o all'estrattore. \medskip
+
+È quest'ultimo il motivo per cui l'estensione non è stata affrontata ora: la valutazione
+misura deliberatamente la \emph{tassa di estrazione} come grandezza distinta dalle prestazioni
+del rilevamento (cfr.~Capitolo~\ref{cap:test}), e introdurre un estrattore rumoroso avrebbe
+confuso le due sorgenti di errore proprio mentre le si stava separando. La funzionalità resta
+rinviata ed è, delle tre, quella ripresa con il minor rischio: il perimetro è contenuto, il
+contratto di estrazione già in essere non cambia, e l'ordine ragionevole è affrontare prima i
+formati testuali residui e solo dopo, isolandone la misura, il riconoscimento ottico.
+
+\section{Quadro riassuntivo}
+\label{sec:sf-quadro}
+
+\begin{table}[htbp]
+	\centering
+	\caption{Valutazione delle funzionalità concepite e non realizzate.}
+	\label{tab:funzionalita-scartate}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|l|c|}
+			\hline
+			\textbf{Funzionalità}                        & \textbf{Valore} & \textbf{Costo} & \textbf{Contributo metodologico}     & \textbf{Esito}   \\
+			\hline
+			Analisi della struttura del file system (B2) & Medio           & Alto           & Basso: la parte utile è già ottenuta & Rinviata         \\
+			\hline
+			Segnalazione dai dipendenti                  & Alto            & Alto           & Nullo: processo organizzativo        & \textbf{Esclusa} \\
+			\hline
+			Formati ulteriori e riconoscimento ottico    & Medio           & Medio          & Negativo: confonde la misura         & Rinviata         \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+Il quadro mette in evidenza un fatto che le singole sezioni lasciano implicito: nessuna delle
+tre è stata scartata perché di poco valore. La segnalazione dai dipendenti è anzi quella dal
+valore più alto, ed è l'unica esclusa in via definitiva. A determinare gli esiti è stata la
+terza colonna: dove la funzionalità non produce un risultato valutabile, il suo costo compete
+direttamente con il tempo destinato a ciò che invece lo produce.
+
+\section{Limiti dichiarati e direzioni residue}
+\label{sec:sf-direzioni}
+Oltre alle funzionalità sopra discusse, restano aperti alcuni limiti già riconosciuti nel
+corso del documento, che costituiscono la naturale prosecuzione del lavoro:
+
+\begin{itemize}
+	\item \textbf{Autenticazione della console.} L'interfaccia del DPO è oggi raggiungibile da
+	      chiunque abbia accesso di rete alla porta su cui è servita. Anche per un applicativo a
+	      utilizzatore singolo, e per quanto collocato in una rete interna, l'accesso va protetto
+	      da una schermata di autenticazione: è prassi di base, e a maggior ragione qui, dove ciò
+	      che si protegge è la mappa della collocazione dei dati personali
+	      (cfr.~\ref{sub:rischio-sicurezza-dati}). L'intervento è circoscritto e di costo
+	      trascurabile, e va tenuto distinto dalla gestione di più profili discussa in
+	      \ref{sec:sf-feedback-loop}: qui si tratta di verificare \emph{un'unica} identità, non di
+	      amministrarne molte.
+	\item \textbf{Parallelizzazione dell'analisi.} L'elaborazione incrementale riduce il costo
+	      delle esecuzioni successive alla prima, ma non quello della passata iniziale, che resta
+	      sequenziale (cfr.~\ref{sub:rischio-scalabilita}).
+	\item \textbf{Validazione su corpus reale.} Le misure disponibili provengono da corpus
+	      sintetici, più ordinati del reale, e vanno intese come limite superiore; la verifica sul
+	      patrimonio documentale effettivo di un'organizzazione resta un passaggio non eludibile
+	      prima dell'adozione (cfr.~\ref{sub:rischio-dataset}, \ref{sub:rischio-domain-silo}).
+	\item \textbf{Passata generativa selettiva.} Il punto di innesto per un rilevatore basato su
+	      modello generativo, da impiegare su un campione di documenti, è previsto e predisposto
+	      ma non ancora attivo (cfr.~\ref{sub:b4-ai-previsto}).
+	\item \textbf{Datazione dal contenuto.} La data di riferimento di un documento è oggi stimata
+	      dai metadati e dal file system; ricavarla dal corpo del testo --- dove spesso compare in
+	      chiaro --- renderebbe la verifica della conservazione assai più solida, ma richiede un
+	      riconoscimento delle date e una disambiguazione fra le molte presenti in un documento.
+\end{itemize}

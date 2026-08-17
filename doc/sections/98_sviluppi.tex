@@ -1,0 +1,87 @@
+% ============================================================================
+% CAPITOLO TEMPORANEO — DIARIO DEGLI SVILUPPI
+% ----------------------------------------------------------------------------
+% Controparte in prosa di ciò che viene realizzato sotto pii_detection/: cosa è
+% stato costruito, quali decisioni sono state prese e perché, quali limiti
+% restano. È TEMPORANEO: ogni voce è materiale grezzo destinato ai capitoli
+% canonici (§5 architettura, §6 implementazione, §7 test) e va RIMOSSA da qui
+% una volta travasata nel paragrafo di destinazione, indicato dal rimando.
+% Quando il diario è vuoto, eliminare questo file e il relativo \input in
+% DOC_Algisi.tex.
+% Prosa in italiano; ogni token di codice in inglese dentro \texttt{...}.
+% ============================================================================
+
+\chapter{Diario degli sviluppi (\emph{work in progress})}
+\label{cap:diario-sviluppi}
+
+\textit{Nota.} Capitolo temporaneo di servizio. Raccoglie, area per area, ciò che è stato realizzato nel sistema con le relative decisioni progettuali, in una forma già utilizzabile come prosa di tesi: ciascuna voce indica il paragrafo canonico in cui confluirà e va rimossa da qui una volta assorbita. Va eliminato a lavoro concluso.
+
+\section{Data di riferimento del documento e provenienza della stima}
+\label{sec:sv-reference-date}
+
+\textit{Destinazione: §\ref{sub:b7-retention} (architettura) e il paragrafo sull'estrazione del Capitolo~\ref{cap:implementazione}.} \medskip
+
+La verifica della conservazione confronta l'età di un documento con la durata dichiarata nel registro dei trattamenti, e presuppone quindi di sapere \emph{quando} quel documento risale. Il file system, da solo, è un testimone inaffidabile: la copia di una condivisione di rete, una migrazione o un ripristino da backup riscrivono la data di ultima modifica di ogni file, e un documento del 2019 appare improvvisamente come scritto ieri. Assumere il \emph{mtime} come data del documento significa quindi accettare un falso negativo sistematico proprio nello scenario --- l'archivio storico mai più toccato --- che il controllo dovrebbe intercettare. \medskip
+
+I documenti nativi digitali, però, portano spesso dentro di sé una risposta migliore: il dizionario informativo di un PDF conserva \texttt{modDate} e \texttt{creationDate}, i formati Office espongono le \emph{core properties} con data di creazione e di ultima modifica. Il modulo \texttt{extraction/dates.py} interroga per primo questo livello e ricade sul \emph{mtime} solo quando non trova nulla di utilizzabile, secondo un ordine di preferenza dichiarato: data di modifica interna, data di creazione interna, data del file system. \medskip
+
+La scelta progettuale che qualifica il meccanismo non è però la catena in sé, bensì il fatto che il sistema \textbf{dichiara che cosa ha usato}: il valore restituito (\texttt{ReferenceDate}) porta con sé la provenienza (\texttt{DateSource}, con i due casi \texttt{content\_metadata} e \texttt{file\_mtime}) e il campo esatto da cui la data è stata letta. Il verdetto di conformità può così qualificare quanto vale il segnale che mostra al DPO, invece di presentare una stima come se fosse un accertamento; una segnalazione fondata sul solo \emph{mtime} resta un indizio da verificare, non una violazione conclamata. \medskip
+
+I metadati reali sono peraltro spesso sporchi --- campi inizializzati all'epoca Unix, orologi impostati male, date collocate nel futuro --- e credervi ciecamente reintrodurrebbe l'errore da un'altra porta. Una sola guardia di plausibilità, concentrata in un unico punto del modulo perché non possa divergere da un formato all'altro, scarta i valori anteriori al 1990 o successivi al momento presente e passa al candidato seguente: una data di modifica corrotta accanto a una data di creazione sensata produce quest'ultima, non un ritorno immediato al file system. Allo stesso modo, l'impossibilità di leggere i metadati di un file --- un PDF troncato, proprietà illeggibili --- non è trattata come un errore: datare un documento non deve poter interrompere la sua analisi, e il ritorno al \emph{mtime} è già la risposta corretta. \medskip
+
+Resta un'approssimazione consapevole, ed è opportuno dirlo: i metadati interni possono mancare del tutto (testo semplice, Word legacy, ODF), possono essere stati riscritti da una conversione di formato e possono a loro volta mentire. Il sistema non tenta, allo stato attuale, di ricavare la data dal corpo del documento --- una lettera che si apre con «Milano, 12 marzo 2019» resta illeggibile sotto questo profilo --- perché l'euristica sarebbe rumorosa e andrebbe validata con lo stesso rigore del rilevamento delle PII.
+
+\section{Due orologi distinti nel registro dei documenti}
+\label{sec:sv-due-orologi}
+
+\textit{Destinazione: paragrafo sul modello dati del registro, Capitolo~\ref{cap:implementazione}.} \medskip
+
+Il registro delle PII conserva ora, per ciascun documento, \textbf{due} informazioni temporali che è essenziale non confondere, perché rispondono a domande diverse e si comportano in modo diverso. La prima è la \emph{data di riferimento} (\texttt{reference\_date}, con la sua provenienza in \texttt{reference\_date\_source}): è una grandezza \textbf{semantica}, dice quanto è vecchio il \emph{contenuto}, e può provenire dall'interno del file (§\ref{sec:sv-reference-date}); è ciò su cui lavora la verifica della conservazione. La seconda è l'\emph{impronta} del file (\texttt{source\_mtime} e \texttt{source\_size}): è una grandezza \textbf{tecnica}, descrive lo stato osservabile del file su disco al momento dell'ultima analisi, e serve a rispondere a una domanda del tutto diversa --- questo documento è cambiato da quando l'abbiamo guardato, e vale quindi la pena rianalizzarlo? \medskip
+
+La distinzione non è pedanteria terminologica: usare la data semantica anche per la seconda domanda produrrebbe un errore silenzioso. La data di modifica interna di un PDF resta spesso invariata quando il file viene riscritto, e un documento effettivamente modificato apparirebbe intatto, venendo saltato indefinitamente da ogni analisi successiva. Simmetricamente, usare la data del file system come età del contenuto è l'approssimazione che il paragrafo precedente ha messo in discussione. Due domande, due misure, due campi. \medskip
+
+L'impronta è deliberatamente il segnale più economico che funziona --- data di modifica e dimensione, ottenute con una sola interrogazione al file system --- e non un'impronta crittografica del contenuto: calcolare un digest di ogni file di una condivisione aziendale costerebbe esattamente ciò che l'analisi incrementale intende risparmiare. A queste si affianca \texttt{last\_scanned\_at}, il momento dell'ultima analisi effettiva del documento, che una scansione in cui il documento venga saltato non aggiorna. \medskip
+
+Ne discende una regola di aggiornamento precisa: date e impronta si rinfrescano \emph{solo} quando la scansione ha effettivamente osservato il file. La riconciliazione dei documenti spariti dal disco, che registra una scansione vuota per marcarne le PII come rimosse, non ha alcun file da guardare e non deve perciò azzerare ciò che l'ultima osservazione reale aveva registrato.
+
+\section{Il silenzio non è conformità: conservazione non verificabile}
+\label{sec:sv-retention-non-verificabile}
+
+\textit{Destinazione: §\ref{sub:b7-retention} (architettura) e il paragrafo sul verdetto di conformità, Capitolo~\ref{cap:implementazione}.} \medskip
+
+Il controllo di conservazione confronta l'età del documento con la durata dichiarata nel registro, ma quella durata non è sempre un numero. I registri reali esprimono spesso un \emph{criterio} anziché un termine --- «per la durata del rapporto di lavoro», «fino alla revoca del consenso» --- e l'ingestione, non trovando alcuna quantità da estrarre, lascia la durata indefinita. Nella prima versione del controllo quelle categorie venivano semplicemente saltate, con una conseguenza che è opportuno enunciare per quello che è: il documento risultava conforme sull'asse della conservazione senza che alcuna verifica fosse mai avvenuta. Il caso «nessuno ha potuto controllare» era indistinguibile dal caso «controllato e in regola». \medskip
+
+Il verdetto distingue ora esplicitamente i due esiti. Ogni macro-categoria dichiarata i cui dati siano ancora presenti nel documento produce, in alternativa, una \textbf{violazione} --- quando il documento è più vecchio del termine dichiarato --- oppure una segnalazione di \textbf{conservazione non verificabile}, quando il registro esprime un criterio. La seconda non rende il documento non conforme, esattamente come la segnalazione delle categorie dichiarate ma non riconducibili ad alcun tipo rilevabile: è un'informazione destinata al DPO, che indica dove il registro andrebbe reso più preciso. Vale la pena osservare che questa segnalazione non dipende dalla data del documento: la lacuna è nel registro, non nel documento, e va comunicata anche quando la data non è ricostruibile. \medskip
+
+Alla stessa logica appartiene un'altra asimmetria corretta in questa fase. Il confronto fra dichiarato e rilevato considera, di norma, le sole categorie \emph{confermate} dal DPO, ignorando le associazioni ancora in stato di proposta; il controllo di conservazione, invece, le contava tutte. Lo stesso documento poteva così ricevere due giudizi incoerenti sulla medesima categoria --- «non dichiarata», e quindi orfana, per un ramo del verdetto; «dichiarata e conservata oltre il termine» per l'altro. La regola su quali categorie contino è ora scritta in un solo punto del codice e utilizzata da entrambi i rami, così che i due non possano più divergere. \medskip
+
+Infine, sul versante dell'ingestione, il riconoscimento delle durate è stato esteso alle unità francesi (\texttt{an}, \texttt{ans}, \texttt{mois}) accanto a quelle inglesi e italiane già supportate. Non è un dettaglio linguistico: il modello di registro adottato come riferimento è quello dell'autorità francese, e una dicitura come «5 ans» lasciata non interpretata avrebbe disattivato in silenzio il controllo di conservazione per quella categoria --- ricadendo esattamente nel difetto descritto sopra, ma per una causa evitabile.
+
+
+\section{Dalla scheda del documento alla vista d'insieme}
+\label{sec:sv-vista-conservazione}
+
+\textit{Destinazione: paragrafo sulla dashboard del DPO, Capitolo~\ref{cap:implementazione}.} \medskip
+
+Il verdetto di conformità nasce come giudizio su un singolo documento, ed è la forma corretta per la domanda «questo file è in regola?». Non è però la domanda che un DPO rivolge a una condivisione aziendale: la sua è «mostrami tutto ciò che è oltre il termine». Con trecento documenti, ottenere quella risposta aprendo una scheda alla volta non è una procedura praticabile, ed è il modo più sicuro perché una violazione reale resti invisibile in mezzo al rumore. \medskip
+
+È stata perciò aggiunta una vista d'insieme, disponibile sia come pagina web sia come comando da terminale, che applica il medesimo verdetto all'intero registro e ne conserva soltanto le righe che hanno qualcosa da dire, ordinate per \textbf{gravità}, cioè per il numero di mesi di sforamento. La misura della gravità non è un dettaglio estetico: un mese oltre il termine è un promemoria, dieci anni oltre sono un incidente, e un elenco che non li distingue costringe a rileggerlo tutto. \medskip
+
+Tre vincoli hanno guidato la realizzazione. Primo, \textbf{nessuna logica nuova}: la vista richiama la stessa funzione che produce il verdetto del singolo documento, così le due schermate non possono divergere. Secondo, \textbf{nessuna scrittura}: consultare una pagina non deve modificare lo stato del sistema, mentre il controllo per-documento, quando invocato per l'assegnazione, persiste la copertura di ciascuna PII. Terzo, il registro dei trattamenti viene letto \textbf{una sola volta} e tenuto in memoria per la durata della vista, anziché una volta per documento. \medskip
+
+I documenti privi di associazione a un trattamento sono deliberatamente esclusi: senza un trattamento non esiste una durata dichiarata con cui confrontarsi, e includerli significherebbe sommergere le violazioni effettive sotto ogni file non ancora classificato della condivisione. È una scelta che vale la pena rendere esplicita nella pagina stessa, perché un elenco vuoto non significhi «tutto a posto» quando in realtà significa «non c'è ancora nulla da confrontare».
+
+\section{Rianalizzare solo ciò che è cambiato}
+\label{sec:sv-scansione-incrementale}
+
+\textit{Destinazione: §\ref{sub:rianalisi-incrementale} (requisiti) e il paragrafo sulla scansione batch, Capitolo~\ref{cap:implementazione}.} \medskip
+
+La scansione di una cartella rileggeva per intero, a ogni esecuzione, ogni documento incontrato: estrazione del testo e rilevamento su file identici a quelli della volta precedente. Su un albero aziendale è il costo dominante dell'intera procedura, ed è un costo interamente sprecato; soprattutto, rende impraticabile l'esecuzione periodica che il modello d'impiego previsto --- «si indica una cartella e il sistema se ne occupa» --- presuppone. Il registro sapeva già \emph{che cosa} fosse cambiato nel contenuto di un documento, grazie al confronto fra scansioni successive, ma non sapeva \emph{se valesse la pena guardarlo}. \medskip
+
+Il rimedio adottato è il più semplice che funzioni: si confrontano la data di modifica e la dimensione del file con quelle registrate all'ultima analisi e, se coincidono, il documento non viene riletto. Si è scelto deliberatamente di non calcolare un'impronta crittografica del contenuto, che sarebbe più precisa ma richiederebbe di leggere ogni byte di ogni file --- esattamente il costo che la misura intende evitare. Il confronto è per \emph{differenza} e non per posteriorità: un file ripristinato a una versione precedente è cambiato quanto uno modificato, e un criterio del tipo «più recente di» lo escluderebbe per sempre dall'analisi. Una tolleranza di un secondo assorbe le diverse granularità temporali dei file system, che altrimenti farebbero apparire modificato ogni documento. \medskip
+
+Il punto delicato dell'intervento non è però il criterio, bensì un'invariante preesistente. La scansione riconcilia il registro con il disco marcando come rimosse le PII dei documenti spariti, e per farlo si basa sull'insieme dei documenti «visti». Se un documento saltato perché invariato non entrasse in quell'insieme, la seconda scansione dichiarerebbe rimosse le PII di ogni file mai toccato --- un danno molto peggiore del costo che si voleva risparmiare. Il significato dell'insieme è stato quindi reso esplicito: vi appartiene ogni file \textbf{trovato sul disco}, indipendentemente da ciò che è accaduto dopo. La stessa precisazione ha corretto un difetto preesistente e indipendente: un file che fallisce l'estrazione non entrava in quell'insieme, e le sue PII venivano dichiarate rimosse pur essendo il file ancora al suo posto. Coerentemente, un file mai analizzato con successo non viene mai considerato invariato, ma ritentato a ogni esecuzione. \medskip
+
+Un'ultima insidia riguarda il motore di rilevamento anziché i documenti. Abilitare un modello di riconoscimento più capace, o aggiungere una regola alla configurazione dei pattern, cambia ciò che verrebbe trovato in un file i cui byte non si sono mossi: il registro continuerebbe a mostrare i risultati del motore precedente presentandoli come aggiornati. Un registro fermo è un problema; un registro che mente sul proprio aggiornamento è peggio. Per questo, accanto all'impronta del file, viene registrata un'impronta della \textbf{configurazione di rilevamento} --- identificatori dei rilevatori attivi e contenuto dei file di configurazione --- e una sua variazione invalida da sola il salto, senza che l'operatore debba ricordarsi di forzare una rianalisi completa. \medskip
+
+Due comportamenti restano volutamente fuori dall'ottimizzazione. L'anteprima della scansione dichiara in anticipo quanti file verrebbero saltati, perché la pagina che promette di dire «che cosa verrà analizzato» deve continuare a dire il vero anche adesso che la risposta è più articolata. E i file caricati dal browser vengono sempre rianalizzati per intero: materializzati sul server al momento del caricamento, portano come data di modifica quella del caricamento stesso, sicché nessuna impronta calcolata su di essi significherebbe qualcosa.

@@ -25,6 +25,8 @@
 
 \paragraph{PA-2 — Costruzione di una knowledge base delle entità.} Va deciso se il sistema debba costruire, a partire dalle PII estratte, una rappresentazione strutturata delle entità (via NER) come base per il confronto col ROPA, e con quale livello di dettaglio. Il requisito non è al momento incluso nell'analisi dei requisiti (cfr.~Capitolo~\ref{cap:requisiti}): la decisione resta aperta. Impatta direttamente su PA-1 e sullo \emph{scope} complessivo (cfr. rischio di \emph{scope creep}, §\ref{sub:rischio-scope-creep}).
 
+\paragraph{PA-12 — Affidabilità della data del documento.} La verifica della conservazione (cfr.~§\ref{sub:b7-retention}) poggia su una data stimata: i metadati interni del file quando esistono, altrimenti la data di ultima modifica sul file system. Entrambe le fonti hanno limiti noti e non eliminabili con l'approccio attuale --- il \texttt{mtime} viene azzerato da copie massive, migrazioni e ripristini da backup; i metadati interni mancano del tutto in alcuni formati (testo semplice, Word legacy, ODF) e possono essere riscritti da una conversione. Resta da decidere se valga la pena ricavare la data dal corpo del documento (formule del tipo «Milano, 12 marzo 2019»), il che richiederebbe un'euristica da validare con lo stesso rigore adottato per il rilevamento delle PII, oppure se accettare la stima attuale dichiarandone i limiti nel verdetto, come avviene ora.
+
 \subsection{Modello dati del ROPA}
 \label{sub:pa-ropa}
 
@@ -65,11 +67,7 @@ Voci già isolate come «punti aperti di progettazione» in §\ref{sub:ropa-punt
 Non decisioni, ma segnaposto e sezioni incomplete sparse nel testo, raccolti qui per non perderli.
 
 \begin{itemize}
-	\item \textbf{TB-1} — Stato dell'arte: sezione «Definizione e inquadramento del problema» da riempire senza ripetere il contesto; definizione del problema tecnico dell'astrazione ancora allo stato di appunto (cfr.~§\ref{sec:definizione}).
-	\item \textbf{TB-2} — Stato dell'arte: la sezione sul \emph{compliance checking} automatizzato è forse da ricollocare (cfr.~§\ref{sec:sintesi-gap} e dintorni).
-	\item \textbf{TB-3} — Architettura: confronto strutturato e scelta del modello NER (tabella dei tre approcci di PA-11) da inserire nel Capitolo~\ref{cap:architettura}.
-	\item \textbf{TB-4} — Architettura: diagramma ER in TikZ del modello di persistenza (\texttt{PIIInstance}, \texttt{PIIChange}, \texttt{Document}, \texttt{Scan}, \texttt{ProcessingActivity}), da produrre dopo la chiusura di PA-6/7/8 (cfr.~§\ref{sub:persistenza-modello-dati}).
-	\item \textbf{TB-5} — Implementazione: roadmap implementativa e di validazione (baseline zero-shot GLiNER, integrazione modello pre-fine-tunato, eventuale esplorazione di fine-tuning) nel Capitolo~\ref{cap:implementazione}.
-	\item \textbf{TB-6} — Studi: sezione sull'impatto ambientale dell'AI da completare con i numeri dai paper di confronto e la conclusione (cfr.~§\ref{cap:studi}).
-	\item \textbf{TB-7} — Studi: precisazione sul costo computazionale, distinguendo l'inferenza LLM ripetuta (esclusa per l'analisi massiva) dal fine-tuning \emph{una tantum} di un encoder locale (cfr.~§\ref{sec:considerazioni-training}).
+	\item \textbf{TB-1} — Architettura: confronto strutturato e scelta del modello NER (tabella dei tre approcci di PA-11) da inserire nel Capitolo~\ref{cap:architettura}.
+	\item \textbf{TB-2} — Architettura: diagramma ER in TikZ del modello di persistenza (\texttt{PIIInstance}, \texttt{PIIChange}, \texttt{Document}, \texttt{Scan}, \texttt{ProcessingActivity}), da produrre dopo la chiusura di PA-6/7/8 (cfr.~§\ref{sub:persistenza-modello-dati}).
+	\item \textbf{TB-3} — Implementazione: roadmap implementativa e di validazione (baseline zero-shot GLiNER, integrazione modello pre-fine-tunato, eventuale esplorazione di fine-tuning) nel Capitolo~\ref{cap:implementazione}.
 \end{itemize}

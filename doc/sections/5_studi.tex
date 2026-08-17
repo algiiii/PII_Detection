@@ -1,0 +1,279 @@
+\chapter{Studi effettuati}
+\label{cap:studi}
+
+Le scelte tecnologiche che reggono il sistema non sono state compiute per preferenza: ciascuna
+è stata preceduta da uno studio, condotto su evidenze di letteratura o su misurazioni dirette,
+il cui esito è riportato qui insieme al ragionamento che vi conduce. Il capitolo precede
+deliberatamente la descrizione dell'architettura, perché è la sede in cui le decisioni che
+l'architettura poi incarna vengono \emph{prese}: leggerle a valle del progetto le farebbe
+apparire come giustificazioni posteriori, quando invece ne sono il presupposto. \medskip
+
+Gli studi sono quattro, e procedono dal generale al particolare. Il primo stabilisce
+\textbf{dove l'AI generativa convenga e dove no}, questione che da sola determina l'impianto
+del rilevamento; il secondo ne isola un corollario spesso frainteso, la differenza fra costo di
+addestramento e costo di inferenza. I due successivi scelgono i componenti: se costruire il
+rilevamento sopra un motore esistente, e quale modello generativo adottare per gli impieghi
+selettivi che il primo studio lascia aperti. La verifica sperimentale sul sistema realizzato è
+invece nel Capitolo~\ref{cap:test}.
+
+\section{Uso dell'AI in rapporto al suo impatto ambientale ed economico}
+\label{sec:impatto-ambientale}
+Nella scelta della metodologia per il rilevamento delle PII all'interno dei documenti si è posto un problema che le sole metriche di accuratezza non permettono di risolvere. I candidati (cfr.~\ref{sec:approcci-PII-detection}) sono tre --- rule-based, NER e AI generativa --- e la letteratura è concorde nell'attribuire ai modelli generativi il \textit{recall} più elevato, in particolare sulle PII che dipendono dal contesto, dai riferimenti impliciti e dai collegamenti fra più documenti: proprio le categorie che sfuggono agli altri approcci. Se il criterio fosse la sola capacità di rilevamento, la scelta sarebbe già compiuta. \medskip
+
+Il criterio non può però essere quello, perché il sistema qui progettato non analizza un documento: ne analizza \emph{tutti}, ripetutamente. È questa condizione d'impiego --- inferenza sistematica e \textbf{ricorrente} su un intero patrimonio documentale --- a rendere il costo per interrogazione un parametro architetturale e non un dettaglio di esercizio. Questa sezione raccoglie le evidenze quantitative su cui la scelta si fonda; i capitoli che vi rimandano (cfr.~\ref{sub:confronto-empirico}, \ref{sub:rischio-costo-computazionale}, \ref{sub:vincolo-ai}) ne assumono la conclusione senza ripeterne i dati.
+
+\subsection{Il divario energetico fra modelli discriminativi e generativi}
+La misurazione di riferimento è quella di Luccioni, Jernite e Strubell, che confrontano su hardware omogeneo (NVIDIA A100) il consumo di famiglie di modelli diverse a parità di compito~\cite{luccioni2024energy}. Il risultato rilevante per questo lavoro è la separazione netta fra due regimi: i modelli \textit{discriminativi} specializzati su un compito --- la famiglia a cui appartengono gli encoder NER --- consumano circa \textbf{0.002\,kWh ogni 1000 inferenze}, mentre i modelli \textit{generativi} decoder-only richiedono circa \textbf{0.047\,kWh per 1000 interrogazioni} nella generazione di testo. Il rapporto è di oltre un ordine di grandezza, e non dipende dalla qualità dell'implementazione ma dal modo in cui le due architetture producono il risultato: l'una emette una classificazione in un solo passaggio, l'altra genera token in modo autoregressivo. \medskip
+
+Il divario si riproduce sul piano economico. A parità di F1 su compiti di classificazione testuale, l'inferenza di un encoder come RoBERTa costa circa \$0.044 per 1000 esempi contro i \$13.50 di GPT-4: un rapporto prossimo a \textbf{300:1}~\cite{yuOpenClosedSmall2023}. La profilazione sistematica del costo dell'inferenza generativa --- in energia, latenza e denaro --- è del resto divenuta essa stessa oggetto di studio, segno che il problema è riconosciuto come strutturale e non contingente~\cite{husomPricePromptingProfiling2026}. \medskip
+
+Un terzo dato completa il quadro e va richiamato per correttezza, perché lavora \emph{contro} l'argomento appena esposto: l'addestramento di un modello generativo consuma ordini di grandezza più energia di una singola inferenza, tanto che il costo cumulato delle inferenze eguaglia quello del pre-addestramento solo dopo un numero di interrogazioni compreso fra 200 e 590 milioni~\cite{luccioni2024energy}. Su scala globale, dunque, l'inferenza pesa meno dell'addestramento. Ciò non attenua però il problema qui in esame, per la ragione che segue: l'organizzazione che adotta il sistema non sostiene il costo di addestramento --- che è già stato sostenuto da altri, una volta sola --- ma sostiene per intero e ripetutamente quello di inferenza.
+
+\subsection{Il quadro comparativo}
+La Tabella~\ref{tab:confronto-energia} raccoglie i dati discussi, in corrispondenza degli approcci confrontati nella Tabella~\ref{tab:confronto-approcci} sul piano dell'accuratezza.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Costo energetico ed economico degli approcci di PII detection, secondo le evidenze di letteratura.}
+	\label{tab:confronto-energia}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|}
+			\hline
+			\textbf{Approccio}      & \textbf{Energia di addestramento} & \textbf{Energia / 1k inferenze}     & \textbf{Costo / 1k inferenze}    \\
+			\hline
+			Regex / rule-based      & Nessuna                           & Trascurabile                        & Trascurabile                     \\
+			\hline
+			NER supervised          & Una tantum\textsuperscript{a}     & $\sim$0.002\,kWh\textsuperscript{b} & $\sim$\$0.044\textsuperscript{c} \\
+			\hline
+			NER zero-shot (GLiNER)  & Nessuna\textsuperscript{d}        & $\sim$0.002\,kWh\textsuperscript{b} & $\sim$\$0.044\textsuperscript{c} \\
+			\hline
+			LLM generativo (GPT-4o) & Altissima\textsuperscript{e}      & $\sim$0.047\,kWh\textsuperscript{b} & $\sim$\$13.50\textsuperscript{c} \\
+			\hline
+			Pipeline ibrida         & Bassa (sola componente NER)       & Basso--medio\textsuperscript{f}     & Basso--medio\textsuperscript{f}  \\
+			\hline
+		\end{tabular}%
+	}
+	\vspace{0.3em}
+
+	\raggedright\scriptsize
+	\textsuperscript{a}\,Il fine-tuning di un encoder richiede $\sim$44\,h GPU complessive su A100: costo sostenuto una volta sola e non ricorrente~\cite{zambareFairEfficientDeidentification2026}.\quad
+	\textsuperscript{b}\,Misure su A100: classificazione testuale $\sim$0.002\,kWh/1k inferenze, generazione di testo $\sim$0.047\,kWh/1k inferenze~\cite{luccioni2024energy}.\quad
+	\textsuperscript{c}\,Ordine di grandezza per compiti di classificazione a parità di F1: RoBERTa contro GPT-4~\cite{yuOpenClosedSmall2023}.\quad
+	\textsuperscript{d}\,L'approccio zero-shot impiega un encoder pre-addestrato senza fine-tuning specifico per il compito~\cite{zaratianaGLiNER2PIIMultilingualModel2026}.\quad
+	\textsuperscript{e}\,Il pre-addestramento supera l'inferenza cumulata fino a 200--590\,M interrogazioni~\cite{luccioni2024energy}.\quad
+	\textsuperscript{f}\,Regex e NER su tutto il corpus, modello generativo sui soli casi ambigui: il costo complessivo è dominato dalla componente NER~\cite{rajgarhiaEvaluationStudyHybrid2025}.
+\end{table}
+
+\subsection{Conseguenza per l'architettura del sistema}
+I dati riportati non conducono a un rifiuto dell'AI generativa, ma a una sua collocazione precisa, che si può enunciare in una regola: \textbf{l'AI generativa non va impiegata dove il costo si moltiplica per il numero di documenti}. Ne discendono due impieghi opposti dello stesso strumento. \medskip
+
+Il rilevamento sistematico attraversa l'intero patrimonio documentale a ogni esecuzione: su un corpus di alcune migliaia di documenti, ciascuno dei quali richiede più interrogazioni per essere analizzato per intero, il numero di inferenze per singola passata si colloca nell'ordine delle decine di migliaia, e va moltiplicato per la frequenza di riesecuzione. In questo regime la differenza di un ordine di grandezza nel costo unitario non è un'inefficienza tollerabile: è ciò che separa un sistema eseguibile periodicamente su hardware aziendale da uno che non lo è. Il rilevamento sistematico è pertanto affidato ad approcci discriminativi. \medskip
+
+Gli impieghi \textbf{selettivi} (cfr.~\ref{sub:ai-selettiva}) si trovano nella condizione opposta: la normalizzazione delle categorie dichiarate in un registro dei trattamenti si esegue una volta per registro, l'analisi approfondita si applica a un campione dell'ordine dell'uno per cento, l'interpretazione della struttura di cartelle riguarda l'albero e non i documenti. Qui il numero di inferenze non scala con il corpus, il costo complessivo resta di ordini di grandezza inferiore, e la comprensione semantica del modello generativo apporta un valore che gli altri approcci non possono fornire. La conclusione, quindi, non è che l'AI generativa costi troppo: è che \emph{costa troppo per interrogazione}, e va perciò riservata ai compiti in cui le interrogazioni sono poche.
+
+\section{Costo di addestramento e costo di inferenza}
+\label{sec:considerazioni-training}
+L'argomento dell'impatto ambientale viene talvolta impiegato per escludere in blocco l'uso di modelli di apprendimento automatico. Applicato a questo lavoro, sarebbe un uso improprio: l'argomento della sezione precedente esclude \textbf{l'inferenza generativa ricorrente}, non l'impiego di modelli in quanto tale, e in particolare non esclude l'eventuale \emph{fine-tuning} di un encoder locale. La distinzione merita di essere resa esplicita, perché le due voci di costo hanno natura e ordine di grandezza incomparabili. \medskip
+
+Il \textbf{costo di inferenza} di un modello generativo è \emph{ricorrente} e proporzionale al lavoro svolto: si sostiene per ogni documento, e nuovamente a ogni riesecuzione dell'analisi. Un sistema pensato per la verifica periodica lo paga indefinitamente, e il totale cresce con il tempo di esercizio e con la dimensione del patrimonio documentale. È un costo che l'organizzazione adottante sostiene per intero. \medskip
+
+Il \textbf{costo di fine-tuning} di un piccolo encoder è invece \emph{una tantum}: nell'ordine delle decine di ore GPU complessive~\cite{zambareFairEfficientDeidentification2026}, sostenute una volta sola, dopo le quali il modello risultante ha lo stesso profilo di consumo in inferenza di quello da cui deriva --- circa 0.002\,kWh ogni 1000 inferenze~\cite{luccioni2024energy}, ossia un ventesimo di un modello generativo. Ammortizzato sull'intera vita operativa del sistema, tale costo diventa marginale. \medskip
+
+Ne segue che le due decisioni sono \textbf{indipendenti} e vanno motivate separatamente. L'esclusione dell'AI generativa dal rilevamento sistematico si fonda sul costo ricorrente, ed è definitiva. La rinuncia al fine-tuning di un encoder, invece, non si fonda sull'impatto ambientale --- che sarebbe un argomento debole --- bensì sul requisito di operatività immediata senza addestramento su dati dell'organizzazione (cfr.~\ref{sub:zero-training}) e sul costo, questo sì proibitivo, dell'annotazione di un corpus di dati personali reali (cfr.~\ref{sub:rischio-dataset}). Sono due vincoli di natura diversa, e confonderli indebolirebbe entrambi.
+
+\section{Riuso di un motore di detection esistente: valutazione di Microsoft Presidio}
+\label{sec:valutazione-presidio}
+
+Come emerso dallo stato dell'arte (§\ref{sec:sintesi-gap}), Microsoft Presidio non risolve il problema di governance affrontato dal progetto; il suo \textit{motore di rilevamento}, però, copre gran parte del livello regex e NER che il sistema deve comunque realizzare. Si valuta quindi se \textbf{costruire tale livello sopra Presidio} anziché scriverlo da zero. La decisione è affidata a una \textbf{valutazione empirica}: questa sezione ne fissa i termini, mentre l'esito --- l'adozione di Presidio, con GLiNER per il livello NER --- è riportato nel §\ref{sec:test-detection}.
+
+Due modelli di integrazione sono possibili, con implicazioni opposte sull'impianto del sistema:
+\begin{itemize}
+	\item usare l'\textit{AnalyzerEngine} di Presidio come \textbf{orchestratore} dell'intera detection: massimizza il riuso, ma affiderebbe a un componente esterno la \emph{riconciliazione} fra le sorgenti di rilevamento --- cioè il punto su cui poggia la contromisura al rischio di integrazione (cfr.~\ref{sub:rischio-integrazione}) e in cui risiede il contributo proprio del lavoro;
+	\item incapsulare Presidio \textbf{dietro il contratto unico} imposto a ogni sorgente, come un detector fra gli altri che ne traduce i risultati nel formato interno: la riconciliazione e l'eventuale sorgente generativa restano di competenza del progetto, e Presidio diventa il fornitore di espressioni regolari, checksum e NER.
+\end{itemize}
+Il secondo modello è preferito, perché preserva il contributo proprio del lavoro e rende la scelta \textbf{reversibile}: un contratto unico consente di sostituire il fornitore senza toccare il resto del sistema. L'architettura che ne discende è descritta nel Capitolo~\ref{cap:architettura}.
+
+I criteri di valutazione sono:
+\begin{itemize}
+	\item \textbf{copertura} delle categorie del catalogo: Presidio fornisce riconoscitori pre-costruiti per gran parte di esse (email, IBAN, carta di credito, indirizzo IP, codice fiscale italiano), diversi con \textbf{validazione a checksum} già inclusa --- proprio ciò che il progetto aveva rimandato;
+	\item \textbf{estensibilità} sugli identificatori mancanti: il numero AVS svizzero richiederebbe comunque un riconoscitore su misura, come nell'implementazione attuale;
+	\item \textbf{integrazione del livello NER}: Presidio supporta ufficialmente modelli esterni, incluso GLiNER, coerente con la scelta zero-shot (§\ref{sub:zero-shot});
+	\item \textbf{vincoli di progetto}: esecuzione interamente on-premise e configurabilità da file, coerente con l'estensibilità config-driven richiesta.
+\end{itemize}
+
+\paragraph{Profilo hardware.} Un ulteriore elemento a favore riguarda i requisiti di calcolo. Il motore di Presidio e il livello di rilevamento basato su spaCy operano interamente su \textbf{CPU}, senza richiedere una GPU dedicata; l'accelerazione a GPU è soltanto opzionale ed è riservata ai modelli NER più onerosi (transformers, GLiNER), verso i quali il sistema ripiega comunque in automatico sulla CPU qualora la GPU non sia presente. Questo profilo è coerente con il vincolo di esecuzione on-premise su infrastruttura di PMI, dove hardware accelerato è raramente disponibile, e costituisce quindi un rafforzamento del posizionamento del progetto più che una limitazione.
+
+Restano in ogni caso a carico del progetto, indipendentemente dall'esito: il riconoscitore per il numero AVS, il motore di riconciliazione delle sorgenti con i relativi livelli di conferma, la sorgente generativa selettiva e l'intero blocco di ingestione ROPA e verifica di conformità.
+
+Il giudizio è affidato a una \textbf{misurazione diretta}: Presidio viene incapsulato come detector e valutato sullo stesso corpus annotato e con la stessa procedura di scoring (precision, recall, F1) impiegati per la baseline regex, così da confrontare i due approcci sullo stesso metro; l'esito del confronto è nel §\ref{sec:test-detection}.
+
+% ============================================================================
+% Zotero — fonti "scelta SLM" da IMPORTARE (NON editare il .bib a mano).
+% Voci BibTeX pronte in doc/selezione_slm_cpu_task_ai.md (Appendice A). Chiavi:
+%   lu2024slmsurvey (2409.15790); malakhov2026cpullm (CEUR Vol-4164, paper 11);
+%   ecommerce2025slm (2510.21970); cpudominance2025 (2505.06461);
+%   ondevice2025systematic (2505.15030); mobilequant2025 (2512.06490);
+%   whichquant2026 (2601.14277); qwen2025qwen25 (2412.15115); qwen2024qwen2 (2407.10671);
+%   metaai2024llama32 (model card); abdin2024phi3 (2404.14219);
+%   abouelenin2025phi4mini (2503.01743); abdin2024phi4 (2412.08905);
+%   gemma2025gemma3 (2503.19786); benallal2025smollm2 (2502.02737);
+%   granite2024granite30 (Apache 2.0); tenckhoff2026llmstructbench (2602.14743);
+%   structuredreliability2026 (2605.02363); skripko2025ifevalfc (2509.18420);
+%   edgeenergy2025slm (2511.11624); luccioni2024energy (DOI 10.1145/3630106.3658542, già nel corpus).
+% ============================================================================
+
+\section{Scelta dello Small Language Model per gli impieghi selettivi dell'AI}
+\label{sec:scelta-modello-llm}
+
+Il progetto fa dell'AI generativa un uso \textbf{selettivo}: l'uso di LLM è escluso dal rilevamento sistematico e ricorrente per le ragioni di costo esposte in~\ref{sec:impatto-ambientale}, e riservato a compiti mirati e non ricorrenti. Sono tre i compiti candidati: (1) la \textbf{normalizzazione del ROPA} (§\ref{sub:ropa-ai}) --- ricondurre descrizioni sbrigative («dati anagrafici») a un vocabolario chiuso di categorie, cioè estrazione di informazione strutturata a output vincolato; (2) l'\textbf{analisi profonda di documenti campione} (tipicamente 1 su 100/1000, dove la latenza non è vincolante); (3) l'\textbf{analisi della struttura del file system} per individuare collocazioni anomale (ad esempio un curriculum in una cartella \texttt{turni/}). I vincoli discendono dal progetto: il modello deve essere \textbf{piccolo, eseguibile su CPU, containerizzabile e scalabile} su hardware commodity. Si adotta la definizione operativa di \textit{Small Language Model} (SLM) del survey di riferimento --- modelli \textit{decoder-only} da 100M a 5B parametri~\cite{lu2024slmsurvey}. Come per Presidio (§\ref{sec:valutazione-presidio}), la scelta è \textbf{empirica}: seguono i criteri, le misurazioni raccolte in letteratura e la conclusione su quale modello sia il migliore.
+
+\subsection{Criteri di selezione}
+\label{sub:slm-criteri}
+
+I criteri, in ordine di priorità per il caso d'uso, e le fonti metodologiche che li sostengono sono riassunti nella Tabella~\ref{tab:slm-criteri}.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Criteri di selezione dello SLM e relative fonti.}
+	\label{tab:slm-criteri}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|l|l|}
+			\hline
+			\textbf{Criterio}                                   & \textbf{Motivazione nel progetto}         & \textbf{Fonte}                                          \\
+			\hline
+			Eseguibilità su CPU (throughput, memoria)           & Ambiente target senza GPU                 & \cite{ondevice2025systematic}                           \\
+			\hline
+			Quantizzabilità (GGUF / llama.cpp)                  & Stare in RAM commodity e in Docker        & \cite{malakhov2026cpullm, whichquant2026}               \\
+			\hline
+			\textit{Instruction following} / output strutturato & Task 1 e 3 (aderenza a schema/istruzioni) & \cite{tenckhoff2026llmstructbench, skripko2025ifevalfc} \\
+			\hline
+			Licenza permissiva + on-premise                     & Sovranità del dato (dati sensibili, nLPD) & \cite{granite2024granite30}                             \\
+			\hline
+			Contesto lungo                                      & Task 2 e 3 (documenti/alberi ampi)        & \cite{gemma2025gemma3, metaai2024llama32}               \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\subsection{Fattibilità dell'inferenza su CPU}
+\label{sub:slm-cpu}
+
+La fattibilità dell'inferenza su sola CPU non è un'assunzione ma un risultato empirico. La \textbf{quantizzazione a 4 bit} riduce l'occupazione di memoria di circa 4$\times$ rispetto a \texttt{float16} con perdita di accuratezza mediamente inferiore all'1\%~\cite{malakhov2026cpullm}; nel formato GGUF (K-quant \texttt{Q4\_K\_M}), uno studio su hardware consumer riporta il passaggio da 2.6 a 47.9 token/s (circa 18$\times$) con la RAM che scende da 14.39~GB a $\sim$1.15--1.51~GB (oltre il 90\% in meno)~\cite{ecommerce2025slm}, e un secondo studio conferma su CPU uno \textit{speedup} di 1.5--2.5$\times$ da F16 a Q4~\cite{cpudominance2025}. Il motore di inferenza di riferimento è \texttt{llama.cpp} (grafo compilato in C++, formato GGUF a file singolo), che il progetto serve concretamente tramite \textbf{Ollama} --- un server che incapsula \texttt{llama.cpp}, espone i modelli GGUF su porta ed è configurato da variabile d'ambiente (§\ref{sub:container-architettura}); le alternative orientate alla GPU non sono adatte, poiché il backend CPU di vLLM è stato misurato a 3.07 token/s su un modello da 0.5B e va in \textit{out-of-memory} oltre 1.5B~\cite{ondevice2025systematic}. Il costo va dichiarato: su Llama-3.2-3B l'MMLU passa da 64.2 a 61.8 con GGUF \texttt{Q4\_K\_M}~\cite{mobilequant2025}.
+
+Lo studio più direttamente trasferibile al progetto misura sette modelli \textit{instruction-tuned} quantizzati a 4 bit su tre ambienti CPU-only, in un runtime containerizzato in Docker~\cite{malakhov2026cpullm}. I dati di throughput e di memoria sono riportati nelle Tabelle~\ref{tab:slm-throughput} e~\ref{tab:slm-memoria} (E5-2695~v2 = Xeon 12-core del 2013 senza AVX2/AVX-512; 8480+ = Xeon Sapphire Rapids 56-core; i7-13700H = laptop 14-core).
+
+\begin{table}[htbp]
+	\centering
+	\caption{Throughput (token/s), 4-bit GGUF su CPU~\cite{malakhov2026cpullm}.}
+	\label{tab:slm-throughput}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|c|}
+			\hline
+			\textbf{Modello}             & \textbf{Param.} & \textbf{E5-2695 v2} & \textbf{Xeon 8480+} & \textbf{Core i7-13700H} \\
+			\hline
+			Gemma-3-1B-it                & 1B              & 30                  & 100                 & 70                      \\
+			\hline
+			Llama-3.2-1B-Instruct        & 1.2B            & 25                  & 120                 & 80                      \\
+			\hline
+			Phi-4-mini-instruct          & 3.8B            & 15                  & 80                  & 40                      \\
+			\hline
+			Qwen2.5-7B-Instruct          & 7.6B            & 8                   & 45                  & 15                      \\
+			\hline
+			DeepSeek-R1-Distill-Llama-8B & 8B              & 7                   & 40                  & 10                      \\
+			\hline
+			Gemma-3-12B-it               & 12B             & 5                   & 30                  & 9                       \\
+			\hline
+			Mistral-Small-3.1-24B        & 24B             & 2                   & 15                  & 4                       \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\begin{table}[htbp]
+	\centering
+	\caption{Occupazione di memoria: FP16 vs 4-bit (Q4) e RAM minima~\cite{malakhov2026cpullm}.}
+	\label{tab:slm-memoria}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|c|}
+			\hline
+			\textbf{Modello}      & \textbf{Param.} & \textbf{FP16 (GB)} & \textbf{Q4 (GB)} & \textbf{RAM min.} \\
+			\hline
+			Llama-3.2-1B-Instruct & 1.2B            & $\sim$2.4          & 0.5              & 4 GB+             \\
+			\hline
+			Gemma-3-1B-it         & 1B              & $\sim$2.0          & 0.6              & 4 GB+             \\
+			\hline
+			Phi-4-mini-instruct   & 3.8B            & $\sim$7.6          & 1.9              & 8 GB+             \\
+			\hline
+			Qwen2.5-7B-Instruct   & 7.6B            & $\sim$15           & 3.7              & 8 GB+             \\
+			\hline
+			Gemma-3-12B-it        & 12B             & $\sim$24           & 6.7              & 12 GB+            \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+I modelli 1--4B offrono interazione quasi in tempo reale su CPU; i 6--8B sono lo \textit{sweet spot} qualità/latenza su hardware datato. Per la scalabilità, oltre 8--16 thread i ritorni sono marginali: conviene eseguire \textbf{più istanze in parallelo} su gruppi di core disgiunti (un thread per core fisico, con \textit{pinning} NUMA) piuttosto che una singola istanza su tutti i core~\cite{malakhov2026cpullm}. Le versioni \textit{instruction-tuned} sono essenziali. Il caso di studio dell'autore fa co-risiedere due modelli piccoli in Docker su una VM da 16 vCPU / 32~GB con latenza mediana inferiore a 2~s su Xeon moderno --- l'analogo diretto del deployment previsto qui~\cite{malakhov2026cpullm}.
+
+\subsection{Modelli candidati}
+\label{sub:slm-candidati}
+
+\paragraph{Qwen2.5 (Alibaba).} Taglie 0.5B--72B con versioni quantizzate ufficiali; pre-addestramento su 18T token e supporto multilingue (29+ lingue)~\cite{qwen2025qwen25}. La generazione precedente offre numeri puntuali (Qwen2-1.5B: MMLU 56.5, GSM8K 58.5, HumanEval 31.1)~\cite{qwen2024qwen2}. La granularità di taglie (0.5B/1.5B/3B) lo rende tra i più flessibili per CPU.
+
+\paragraph{Llama 3.2 1B/3B (Meta).} Costruiti con \textit{pruning} e distillazione per l'\textit{edge}, contesto fino a 128K token; sul 3B, valori auto-riportati: IFEval 77.4, MMLU 63.4, \textit{tool use} BFCL~V2 67.0 (contro 25.7 del 1B)~\cite{metaai2024llama32}. È il più efficiente in energia/latenza della sua fascia (§\ref{sub:slm-energia-limiti}).
+
+\paragraph{Phi-3-mini / Phi-4-mini (Microsoft).} Phi-3-mini (3.8B) raggiunge MMLU 69\% e MT-bench 8.38 pur girando su telefono~\cite{abdin2024phi3}; Phi-4-mini (3.8B) aggiunge vocabolario a 200K token, \textit{grouped-query attention} e \textbf{instruction following e function calling nettamente migliorati}, con matematica/codice pari a modelli di taglia doppia~\cite{abouelenin2025phi4mini, abdin2024phi3}. È il candidato più forte nella fascia $\sim$4B per output vincolato.
+
+\paragraph{Gemma 3 (Google).} Famiglia 1B--27B con distillazione, contesto $\geq$128K e KV-cache alleggerita; Gemma3-4B-IT è dichiarato competitivo con Gemma2-27B-IT dopo il nuovo post-training~\cite{gemma2025gemma3}.
+
+\paragraph{SmolLM2 (Hugging Face).} Famiglia 135M/360M/1.7B completamente aperta; SmolLM2-1.7B supera Qwen2.5-1.5B di $\sim$6 punti su MMLU-Pro~\cite{benallal2025smollm2}. Opzione minimale/riproducibile, meno adatta a ragionamento complesso.
+
+\paragraph{IBM Granite 3.x.} Famiglia dense 2B/8B e MoE 1B/3B sotto licenza Apache 2.0, progettata per l'impresa e l'on-premise (RAG, classificazione, \textit{entity extraction}, \textit{tool use}); i modelli MoE sono indicati per CPU/edge~\cite{granite2024granite30}. Rilevante soprattutto sul piano della sovranità del dato: la licenza e l'orientamento dichiarato all'installazione presso il titolare del trattamento non pongono vincoli all'esecuzione interamente locale.
+
+\subsection{Analisi per task}
+\label{sub:slm-task}
+
+\paragraph{Task 1 --- ROPA verso categorie.} È estrazione a output vincolato. Il benchmark \textit{LLMStructBench} valuta 22 modelli aperti (da 0.6B a 70B) su 995 campioni verificati manualmente e conclude che \textbf{la strategia di \textit{prompting} conta più della taglia}, e che fornire lo \textbf{schema JSON nel prompt} è l'opzione più sicura per output parsabili, specialmente sui modelli piccoli~\cite{tenckhoff2026llmstructbench}. Ciò richiama la distinzione tra output \textit{corretto} e \textit{utilizzabile}: una risposta che viola lo schema è inservibile quanto una sbagliata~\cite{structuredreliability2026}. Ne discende la raccomandazione: non il modello più grande, ma \textit{constrained decoding}/schema nel prompt più un modello con forte \textit{instruction following} --- nella fascia CPU i migliori sono Phi-4-mini e Llama-3.2-3B; per formati verificabili è pertinente IFEval-FC~\cite{skripko2025ifevalfc}.
+
+\paragraph{Task 2 --- Analisi di documenti campione.} Cadendo il vincolo di throughput, dominano ragionamento e contesto lungo; lavorando sul contenuto fornito (setting \textit{RAG}) la conoscenza parametrica pesa meno e anche modelli piccoli rendono bene~\cite{malakhov2026cpullm}. È quindi lecito salire di taglia: un 7B (Qwen2.5-7B) o Phi-4-mini restano eseguibili su CPU ($\sim$45 e $\sim$80 token/s su Xeon moderno).
+
+\paragraph{Task 3 --- Struttura del file system.} \textbf{Lacuna dichiarata}: non è stato individuato un benchmark che misuri il rilevamento di anomalie su gerarchie di file system. In assenza di metrica diretta, l'ancoraggio è alle capacità più prossime --- \textit{instruction following} (Llama-3.2-3B, Phi-4-mini) e contesto lungo (modelli a 128K) --- ma la validazione su un dataset costruito ad hoc resta necessaria.
+
+\subsection{Confronto e conclusione}
+\label{sub:slm-conclusione}
+
+Nessun singolo modello \textit{domina} su tutti e tre i task; tuttavia, per contenere la complessità del deployment --- una sola immagine, un solo peso da distribuire e mantenere, nessuna gestione di co-residenza di modelli diversi --- il progetto adotta \textbf{un unico modello per l'intera pipeline}. La Tabella~\ref{tab:slm-raccomandazione} mostra i candidati migliori per ciascun task; il criterio di scelta è quindi l'\textbf{intersezione}: quale modello sia adeguato a tutti e tre insieme.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Raccomandazione per task (fascia CPU).}
+	\label{tab:slm-raccomandazione}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|l|l|}
+			\hline
+			\textbf{Task}                    & \textbf{Requisito dominante}                   & \textbf{Candidati}                                 \\
+			\hline
+			1 --- ROPA$\rightarrow$categorie & Output strutturato + instruction following     & \textbf{Phi-4-mini 3.8B}, Llama-3.2-3B, Qwen2.5-3B \\
+			\hline
+			2 --- Analisi documenti          & Ragionamento + contesto lungo (latenza libera) & \textbf{Qwen2.5-7B}, Phi-4-mini 3.8B               \\
+			\hline
+			3 --- Struttura FS               & Instruction following + contesto lungo         & \textbf{Llama-3.2-3B}, Phi-4-mini, Gemma-3-4B      \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+Il modello scelto è \texttt{Phi-4-mini} (3.8B). È l'\textbf{unico candidato presente in tutte e tre le righe} della Tabella~\ref{tab:slm-raccomandazione}: offre il miglior equilibrio \textit{instruction-following}/\textit{function-calling} nella fascia $\sim$4B~\cite{abouelenin2025phi4mini}, ciò che il Task 1 e il Task 3 richiedono come requisito dominante, e resta al contempo adeguato al Task 2, dove la caduta del vincolo di throughput rende sufficiente un modello da $\sim$4B lavorando in \textit{RAG} sul contenuto fornito~\cite{malakhov2026cpullm}. Sul piano operativo è la scelta più leggera compatibile con tutti i compiti: \textbf{1.9~GB in Q4} e $\sim$80 token/s su Xeon moderno, un solo peso GGUF servito da un solo \texttt{llama.cpp} in Docker~\cite{malakhov2026cpullm}. Rinunciare a un secondo modello dedicato (ad esempio \texttt{Qwen2.5-7B} per il ragionamento del Task 2) è un compromesso consapevole: si accetta un margine di qualità potenzialmente inferiore sul Task 2 in cambio di un deployment radicalmente più semplice e portabile, coerente con il vincolo di containerizzazione del progetto. Come \textbf{alternativa orientata a sovranità e governance}, a parità di modello unico, resta \texttt{IBM Granite 3.x} (dense 2B/8B, Apache 2.0), la cui licenza e il cui orientamento all'esecuzione presso il titolare rispondono al medesimo vincolo di località dell'inferenza~\cite{granite2024granite30}.
+
+La scelta resta soggetta a \textbf{validazione empirica} sul dominio, come per Presidio: un \textit{gold set} etichettato (per il Task 1, frasi di «categorie di dati» con l'insieme atteso di \texttt{pii\_type}) su cui misurare precision/recall/F1 a prompt fissato, riusando l'impianto di scoring del progetto. Il componente è isolato dietro il contratto \texttt{CategoryMapper}, per cui cambiare modello --- o passare a un dizionario deterministico --- non tocca il resto della pipeline.
+
+\subsection{Energia, efficienza e limiti}
+\label{sub:slm-energia-limiti}
+
+Sul versante \textit{edge}, uno studio sull'impronta energetica riporta che su Raspberry Pi 5 Llama 3.2 è il più efficiente in potenza (fino a 2.05~Wh) e a più bassa latenza (4.06~s su MMLU), mentre Phi-3 Mini raggiunge l'accuratezza più alta (MMLU 62.3\%) ma con la latenza peggiore (34.36~s)~\cite{edgeenergy2025slm}. Esiste dunque un compromesso esplicito accuratezza--energia--latenza: poiché i tre task sono a \textbf{bassa frequenza} (non ricorrenti sull'intero corpus), è accettabile un modello più accurato e più lento --- l'inverso del ragionamento applicato al rilevamento sistematico, dove è la ricorrenza dell'inferenza a escludere l'AI generativa (cfr.~\ref{sec:impatto-ambientale}).
+
+\paragraph{Limiti delle evidenze raccolte.} (i) i numeri dei \textit{technical report} sono \textbf{auto-riportati} e vanno trattati come dichiarazioni di parte, con rischio di \textit{benchmark contamination}~\cite{abdin2024phi3}; (ii) la quantizzazione a 4 bit introduce un decadimento reale (es. MMLU 64.2$\rightarrow$61.8), per cui sul Task 1 va valutato Q8 come compromesso~\cite{mobilequant2025}; (iii) per il Task 3 nessun benchmark è diretto: l'ancoraggio a \textit{instruction following} e contesto lungo è un \textit{proxy}; (iv) per l'output strutturato la variabile dominante è la strategia di prompt, non solo il modello~\cite{tenckhoff2026llmstructbench}; (v) i throughput dipendono dalla microarchitettura (AVX-512/VNNI/AMX) e vanno riprodotti sull'hardware target~\cite{ondevice2025systematic}.

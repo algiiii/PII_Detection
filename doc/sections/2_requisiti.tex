@@ -123,7 +123,9 @@ La verifica deve operare su due assi:
 	\item \textbf{asse della conservazione}: per ciascun documento contenente PII, il sistema deve confrontare la data del documento, o quella del suo ultimo aggiornamento, con il periodo di retention dichiarato nel ROPA per l'attività di trattamento associata.
 \end{enumerate} \medskip
 
-Il requisito si considera soddisfatto quando, dato un corpus documentale di test con anomalie note, il sistema le identifica correttamente su entrambi gli assi.
+Sull'asse della conservazione va precisato che cosa il sistema può realmente garantire. La data di un documento non strutturato non è un dato accertabile ma una \textbf{stima}, ricavata dalle sole informazioni che il file rende disponibili: i segnali utilizzabili --- i metadati interni al formato e la data di ultima modifica registrata dal file system --- hanno affidabilità diversa fra loro e sono entrambi alterabili da eventi estranei al contenuto, come una copia massiva o un ripristino da backup. Il sistema deve pertanto \textbf{registrare e mostrare la provenienza} della data impiegata, affinché il DPO possa distinguere una segnalazione fondata da un indizio da verificare. Deve inoltre \textbf{segnalare esplicitamente} i casi in cui il confronto non è possibile --- tipicamente quando il registro esprime la conservazione come criterio anziché come durata --- anziché considerarli conformi: l'assenza di verifica non deve essere indistinguibile da un esito favorevole. \medskip
+
+Il requisito si considera soddisfatto quando, dato un corpus documentale di test con anomalie note, il sistema le identifica correttamente su entrambi gli assi, senza segnalare come non conformi i documenti che non lo sono.
 
 \subsection{Riferimento al registro delle attività di trattamento come fonte normativa}
 \label{sub:ropa-fonte-normativa}
@@ -242,6 +244,20 @@ In particolare:
 	\item i dati intermedi devono essere eliminati al termine dell'esecuzione.
 \end{itemize}
 
+\subsection{Efficienza delle rianalisi periodiche}
+\label{sub:rianalisi-incrementale}
+Il sistema è destinato a un impiego \textbf{ricorrente} sullo stesso corpus documentale: la conformità non è una fotografia ma uno stato da mantenere nel tempo, e il registro interno (cfr.~\ref{sub:registro-pii}) esiste proprio per confrontare esecuzioni successive. Un'analisi che rielabori integralmente l'intero corpus a ogni esecuzione rende però l'esecuzione periodica impraticabile su condivisioni aziendali reali, e il costo sostenuto è interamente superfluo per i documenti che nel frattempo non sono stati toccati. \medskip
+
+Il sistema deve pertanto:
+\begin{itemize}
+	\item rianalizzare i soli documenti \textbf{modificati} dall'ultima esecuzione, riconoscendoli da informazioni ottenibili senza leggerne il contenuto;
+	\item \textbf{dichiarare} all'operatore quali documenti sono stati analizzati e quali omessi in quanto invariati, sia prima dell'esecuzione sia nel resoconto finale;
+	\item consentire di \textbf{forzare} una rianalisi completa, e provvedervi autonomamente quando muta la configurazione del rilevamento, poiché in tal caso i risultati conservati non descrivono più ciò che il sistema troverebbe;
+	\item garantire che l'omissione di un documento invariato non alteri in alcun modo il registro, e in particolare non lo faccia apparire rimosso.
+\end{itemize} \medskip
+
+Il requisito si considera soddisfatto quando una seconda esecuzione su un corpus immutato non rianalizza alcun documento, lascia il registro identico a quello prodotto dalla prima e lo dichiara nel proprio resoconto.
+
 \subsection{Operatività senza addestramento iniziale (zero-training)}
 \label{sub:zero-training}
 Il sistema deve essere operativo immediatamente dopo l'installazione, senza richiedere una fase di addestramento su dati specifici dell'organizzazione. Il rilevamento delle PII deve basarsi su conoscenze preconfigurate --- modelli pre-addestrati, regole predefinite, dizionari standard --- sufficienti a garantire un livello di detection accettabile per le categorie canoniche della nLPD e del GDPR. \medskip
@@ -292,7 +308,7 @@ La tracciabilità è condizione necessaria per consentire al DPO di verificare c
 
 \subsection{Interfaccia web come modalità primaria}
 \label{sub:interfaccia-web}
-Il sistema deve esporre un'interfaccia web come modalità primaria di interazione, servita dal sistema stesso su una porta di rete e raggiungibile da browser senza installazione lato client. Il destinatario del sistema è il DPO, figura non necessariamente tecnica, e il sistema è distribuito come container (cfr.~\ref{sub:facilita-installazione}): un'interfaccia servita dal container stesso è operabile senza accesso alla shell dell'host e senza conoscenza dei comandi, a differenza di una CLI. \medskip
+Il sistema deve esporre un'interfaccia web come modalità primaria di interazione, servita dal sistema stesso su una porta di rete e raggiungibile da browser senza installazione lato client. Il destinatario è il DPO, figura non necessariamente tecnica, e il sistema è installato come unità autocontenuta e avviabile con un numero minimo di passaggi (cfr.~\ref{sub:facilita-installazione}): un'interfaccia servita dall'unità stessa è operabile senza accesso alla shell della macchina che la ospita e senza conoscenza dei comandi, a differenza di una CLI. \medskip
 
 L'interfaccia deve consentire almeno le seguenti operazioni:
 \begin{itemize}
@@ -302,7 +318,7 @@ L'interfaccia deve consentire almeno le seguenti operazioni:
 	\item gestire l'associazione tra documenti e attività di trattamento (cfr.~\ref{sub:confronto-ropa}).
 \end{itemize} \medskip
 
-Il requisito si considera soddisfatto quando, a partire dal solo avvio del container, un utente è in grado di importare un ROPA, avviare una scansione e consultare il verdetto di conformità senza ricorrere alla riga di comando.
+Il requisito si considera soddisfatto quando, a partire dal solo avvio del sistema, un utente è in grado di importare un ROPA, avviare una scansione e consultare il verdetto di conformità senza ricorrere alla riga di comando.
 
 \subsection{Interfaccia a riga di comando (CLI)}
 \label{sub:cli}
