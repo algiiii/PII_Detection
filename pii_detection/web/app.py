@@ -164,6 +164,44 @@ def scan_document_ai(request: Request, document_id: str) -> RedirectResponse:
     return RedirectResponse(url=str(url), status_code=303)
 
 
+@app.post("/document/{document_id:path}/propose")
+def propose_category(
+    request: Request,
+    document_id: str,
+    pii_type: str = Form(...),
+    activity_id: str = Form(...),
+) -> RedirectResponse:
+    """Propose an orphan ``pii_type`` as a declared category of one activity (B7→B1).
+
+    Turns a detected-but-undeclared type into a ``PROPOSED`` declared category on the
+    chosen activity — an explicit DPO action, written only on this POST. The system
+    never edits the ROPA on its own; the proposal carries *what* and *where*, not a
+    retention nor a legal basis. The target must be one of the document's associated
+    activities.
+
+    :param request: the incoming request, for building the redirect URL.
+    :param document_id: identifier of an already-recorded document.
+    :param pii_type: the orphan catalog id to propose.
+    :param activity_id: the activity to attach the proposal to.
+    :returns: a 303 redirect back to the document detail (the verdict recomputes with
+        the proposal included).
+    :raises HTTPException: 404 if the document is unknown, 400 if the activity is not
+        one of the document's associations or the type is not in the catalog.
+    """
+    registry = get_registry()
+    document = registry.get_document(document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail=f"unknown document: {document_id}")
+    if activity_id not in document.activity_ids:
+        raise HTTPException(status_code=400, detail="activity is not associated with this document")
+    try:
+        get_ropa().propose_category(activity_id, pii_type)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    url = request.url_for("document_detail", document_id=document_id)
+    return RedirectResponse(url=str(url), status_code=303)
+
+
 @app.get("/retention", response_class=HTMLResponse)
 def retention_page(request: Request) -> HTMLResponse:
     """List every document kept past its declared retention, worst first (B7).

@@ -22,6 +22,28 @@
       </div>
       <p style="margin:.5rem 0 .2rem"><strong>Non coperte</strong> <span class="muted">(rilevate, non dichiarate)</span></p>
       <div>{% for t in report.orphan %}<span class="badge bad">{{ t }}</span> {% else %}<span class="muted">nessuna</span>{% endfor %}</div>
+      {% if report.orphan %}
+        {% set associated = activities|selectattr("id", "in", document.activity_ids)|list %}
+        {% if associated %}
+          <details style="margin-top:.4rem">
+            <summary>Proponi le non coperte al registro</summary>
+            <p class="muted" style="margin:.3rem 0">Suggerisce la categoria a un trattamento associato come
+              <strong>proposta</strong> (stato «proposed»): la scrittura resta una conferma del DPO nella review ROPA, il
+              sistema non tocca da sé il registro né deduce una base giuridica.</p>
+            {% for t in report.orphan %}
+              <form method="post" action="{{ url_for('propose_category', document_id=document.document_id) }}"
+                    class="checks-inline" style="margin:.2rem 0">
+                <input type="hidden" name="pii_type" value="{{ t }}">
+                <span class="badge bad">{{ t }}</span> →
+                <select name="activity_id">
+                  {% for a in associated %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+                </select>
+                <button type="submit">Proponi</button>
+              </form>
+            {% endfor %}
+          </details>
+        {% endif %}
+      {% endif %}
       <p style="margin:.5rem 0 .2rem"><strong>Coperte</strong> <span class="muted">(rilevate e dichiarate)</span></p>
       <div>{% for t in report.covered %}<span class="tag">{{ t }}</span>{% else %}<span class="muted">nessuna</span>{% endfor %}</div>
       <p style="margin:.5rem 0 .2rem"><strong>Mancanti</strong> <span class="muted">(dichiarate, non trovate)</span></p>

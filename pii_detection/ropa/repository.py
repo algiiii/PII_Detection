@@ -219,3 +219,61 @@ class ROPARepository:
                 category.mapping_state = MappingState.CONFIRMED
             s.commit()
             return activity_id
+
+    #: Wording of the macro category that gathers detection-driven proposals under an
+    #: activity, so a proposed type never invents a retention it does not have.
+    _PROPOSAL_MACRO_TEXT = "Categorie proposte dal rilevamento"
+
+    def propose_category(self, activity_id: str, pii_type: str) -> None:
+        """Propose an orphan ``pii_type`` as a declared category of an activity (B7→B1).
+
+        When the AI (or any detector) finds a ``pii_type`` that no activity declares,
+        the DPO can turn that orphan into a **proposal**: a
+        :class:`~pii_detection.ropa.types.DeclaredCategory` in state
+        :attr:`~pii_detection.ropa.types.MappingState.PROPOSED` (never ``CONFIRMED``),
+        added under a dedicated proposals macro category with **no retention** — so the
+        proposal carries *what* was found and *where*, never a retention nor a legal
+        basis the system does not know. The category wording is the catalog label of the
+        type (deterministic; the catalog already names it, so no LLM is asked to invent a
+        name). Writing to the register stays an explicit DPO action; nothing here is
+        automatic. Proposing a type already proposed on the activity is a no-op
+        (idempotent).
+
+        :param activity_id: the activity to attach the proposal to.
+        :param pii_type: the orphan catalog id to propose.
+        :raises KeyError: if the activity does not exist.
+        :raises ValueError: if ``pii_type`` is not in the catalog.
+        """
+        category_model = self.catalog.get(pii_type)
+        if category_model is None:
+            raise ValueError(f"unknown pii_type: {pii_type!r}")
+        with Session(self.engine) as s:
+            activity = s.get(ProcessingActivity, activity_id)
+            if activity is None:
+                raise KeyError(activity_id)
+            macro = s.exec(
+                select(DeclaredMacroCategory).where(
+                    DeclaredMacroCategory.activity_id == activity_id,
+                    DeclaredMacroCategory.raw_text == self._PROPOSAL_MACRO_TEXT,
+                )
+            ).first()
+            if macro is None:
+                macro = DeclaredMacroCategory(
+                    activity_id=activity_id,
+                    raw_text=self._PROPOSAL_MACRO_TEXT,
+                    retention_text="",
+                    retention_months=None,
+                )
+                s.add(macro)
+                s.flush()  # assign macro.id
+            already = any(pii_type in category.pii_types for category in macro.categories)
+            if not already:
+                s.add(
+                    DeclaredCategory(
+                        macro_category_id=macro.id,
+                        raw_text=category_model.label,
+                        pii_types=[pii_type],
+                        mapping_state=MappingState.PROPOSED,
+                    )
+                )
+                s.commit()

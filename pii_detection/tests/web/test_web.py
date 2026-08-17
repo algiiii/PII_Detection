@@ -15,6 +15,7 @@ from pii_detection.detection.types import (
     PIIMatch,
     TextSpan,
 )
+from pii_detection.compliance.checker import check_document
 from pii_detection.extraction.dates import DateSource, ReferenceDate
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.types import AssociationSource
@@ -113,6 +114,59 @@ def test_assign_persists_and_produces_verdict(client: TestClient, tmp_path: Path
     assert document.activity_ids == ["payroll"]
     coverage = {i.pii_type: i.processing_activity_id for i in registry.instances_for("doc")}
     assert coverage == {"iban": "payroll", "health_data": None}
+
+
+def test_orphan_exposes_a_proposal_action(client: TestClient) -> None:
+    client.post("/document/doc/assign", data={"activity_ids": ["payroll"]})
+    body = client.get("/document/doc").text
+    assert "Proponi le non coperte al registro" in body  # the proposal control
+    assert "health_data" in body  # the orphan type to propose
+
+
+def test_proposing_an_orphan_writes_a_proposed_category_and_covers_it(
+    client: TestClient, tmp_path: Path
+) -> None:
+    client.post("/document/doc/assign", data={"activity_ids": ["payroll"]})
+
+    resp = client.post(
+        "/document/doc/propose", data={"pii_type": "health_data", "activity_id": "payroll"}
+    )
+    assert resp.status_code == 200  # followed the 303 back to the detail page
+
+    ropa = ROPARepository(f"sqlite:///{tmp_path / 'ropa.db'}")
+    activity = ropa.get("payroll")
+    assert activity is not None
+    proposed = [
+        c for m in activity.macro_categories for c in m.categories if "health_data" in c.pii_types
+    ]
+    assert len(proposed) == 1
+    assert proposed[0].mapping_state is MappingState.PROPOSED  # proposed, never confirmed
+
+    # The verdict recomputes with the proposal included: the orphan is now covered.
+    report = check_document(
+        "doc",
+        ropa=ropa,
+        registry=PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}"),
+        include_proposed=True,
+        persist_coverage=False,
+    )
+    assert "health_data" in report.covered
+    assert "health_data" not in report.orphan
+
+
+def test_propose_to_an_unassociated_activity_is_rejected(client: TestClient) -> None:
+    # doc is not associated with anything, so it cannot propose onto payroll.
+    resp = client.post(
+        "/document/doc/propose", data={"pii_type": "health_data", "activity_id": "payroll"}
+    )
+    assert resp.status_code == 400
+
+
+def test_propose_on_unknown_document_is_404(client: TestClient) -> None:
+    resp = client.post(
+        "/document/nope/propose", data={"pii_type": "iban", "activity_id": "payroll"}
+    )
+    assert resp.status_code == 404
 
 
 def test_ropa_review_is_mounted(client: TestClient) -> None:
