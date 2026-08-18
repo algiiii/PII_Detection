@@ -67,7 +67,7 @@
             <a href="{{ url_for('scan_status', job_id=j.id) }}">{{ j.document_id or j.folder }}</a>
             —
             {% if j.document_id %}analisi AI del documento
-            {% elif j.total %}{{ j.done }}/{{ j.total }} documenti
+            {% elif j.total %}{% if j.ai_rate and j.phase == "ai" %}analisi AI {% elif j.ai_rate %}rilevamento {% endif %}{{ j.done }}/{{ j.total }} documenti
             {% else %}in preparazione…{% endif %}
           </div>
         {% endfor %}

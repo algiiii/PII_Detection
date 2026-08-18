@@ -15,8 +15,10 @@
       <p><span class="badge warn">in corso</span> &nbsp; il modello sta analizzando il documento…</p>
       <p class="muted">La pagina si aggiorna automaticamente; puoi intanto usare il resto del sistema.</p>
     {% else %}
-      <p><span class="badge warn">in corso</span> &nbsp; {{ job.done }} / {{ job.total }} file</p>
-      <p class="muted">La pagina si aggiorna automaticamente…</p>
+      <p><span class="badge warn">in corso</span> &nbsp;
+        {% if job.ai_rate %}{% if job.phase == "ai" %}fase 2 — analisi AI: {% else %}fase 1 — rilevamento: {% endif %}{% endif %}
+        {{ job.done }} / {{ job.total }} documenti</p>
+      <p class="muted">La pagina si aggiorna automaticamente…{% if job.phase == "ai" %} L'analisi AI gira in background: puoi usare il resto del sistema.{% endif %}</p>
     {% endif %}
   {% elif job.state == "error" %}
     <p><span class="badge bad">errore</span></p>

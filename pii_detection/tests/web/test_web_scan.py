@@ -278,7 +278,11 @@ def test_run_with_ai_rate_one_runs_it_on_every_document(
     folder = _make_tree(tmp_path)
     job = _run_scan(client, folder, ai_rate="1")  # 1 = every document
     assert job.ai_rate == 1
+    assert job.phase == "ai"  # went through the second (AI) phase
     assert job.result is not None and job.result.ai_documents == 2  # both scannable docs
+    # Phase 2 enriched the registry: the AI discovery is on the document.
+    instances = PIIRepository().instances_for("a.txt")
+    assert any("ai.fake" in i.sources for i in instances)
 
 
 def test_scan_form_preselects_env_default_rate(
@@ -293,6 +297,7 @@ def test_run_without_ai_leaves_rate_zero(client: TestClient, tmp_path: Path) -> 
     folder = _make_tree(tmp_path)
     job = _run_scan(client, folder)  # no ai_rate -> default 0
     assert job.ai_rate == 0
+    assert job.phase == "traditional"  # no AI phase
     assert job.result is not None and job.result.ai_documents == 0
 
 

@@ -20,7 +20,7 @@ from pii_detection.registry.folder_rules import ApplyRulesResult
 from pii_detection.registry.freshness import detector_signature
 from pii_detection.registry.ingest import ingest_document
 from pii_detection.registry.repository import PIIRepository
-from pii_detection.registry.scan_folder import FolderScanResult, ingest_folder
+from pii_detection.registry.scan_folder import FolderScanResult, ingest_folder, plan_folder
 
 
 @dataclass
@@ -42,8 +42,12 @@ class ScanJob:
         uploads, whose files carry the upload time as their modification time and
         would therefore all look modified anyway.
     :ivar state: ``"running"``, ``"done"`` or ``"error"``.
-    :ivar done: files processed so far.
-    :ivar total: files to process.
+    :ivar phase: for a folder scan with AI, which pass is running —
+        ``"traditional"`` (regex/NER on all documents) then ``"ai"`` (the generative
+        second opinion on the sampled subset). ``done``/``total`` count the current
+        phase.
+    :ivar done: files processed so far in the current phase.
+    :ivar total: files to process in the current phase.
     :ivar result: the summary once finished, else ``None``.
     :ivar rules_applied: folder-rule application summary once finished, else ``None``.
     :ivar error: the error message on failure, else ``None``.
@@ -59,6 +63,7 @@ class ScanJob:
     prune: bool = True
     incremental: bool = True
     state: str = "running"
+    phase: str = "traditional"
     done: int = 0
     total: int = 0
     result: FolderScanResult | None = None
@@ -160,23 +165,27 @@ def _run(job: ScanJob) -> None:
     try:
         pattern, ner, ai = _build_detectors(job.use_gliner, job.ai_rate)
         repository = PIIRepository()
-        # The rate drives which documents get the AI pass (0 none, 1 all, N one-in-N).
-        policy = AITriggerPolicy(sampling_rate=job.ai_rate)
+        # Phase 1 — traditional detectors on every document (fast): the dashboard
+        # fills before the slow AI runs. No AI here, whatever the rate.
         result = ingest_folder(
             job.folder,
             pattern,
             ner,
-            ai,
+            None,
             repository=repository,
             prune=job.prune,
             incremental=job.incremental,
             progress=_progress,
-            ai_policy=policy,
         )
         applied = repository.apply_folder_rules()
         with _LOCK:
             job.result = result
             job.rules_applied = applied
+        # Phase 2 — AI second opinion on the sampled subset, in the background. The
+        # platform stays usable meanwhile: phase-1 results are already persisted.
+        if ai is not None:
+            _run_ai_phase(job, repository, pattern, ner, ai)
+        with _LOCK:
             job.state = "done"
     except Exception as exc:  # noqa: BLE001 — surface any failure on the status page
         with _LOCK:
@@ -185,6 +194,53 @@ def _run(job: ScanJob) -> None:
     finally:
         if job.cleanup_dir is not None:
             shutil.rmtree(job.cleanup_dir, ignore_errors=True)
+
+
+def _run_ai_phase(
+    job: ScanJob,
+    repository: PIIRepository,
+    pattern: PIIDetector,
+    ner: PIIDetector,
+    ai: PIIDetector,
+) -> None:
+    """Second pass: re-run the sampled documents with the AI and record the delta.
+
+    Runs after the traditional phase has persisted every document, so the AI only
+    *enriches* what is already there (confirmations refresh an instance, discoveries
+    add one — the B5 delta and the CONFIRMED refresh handle both). One bad file is
+    isolated; the sampled subset is the stable hash sample of the rate.
+
+    :param job: the running job, whose phase/progress/result this updates.
+    :param repository: the registry to write to (shared with phase 1).
+    :param pattern: the pattern/regex detector (reused).
+    :param ner: the NER detector (reused).
+    :param ai: the AI detector.
+    """
+    policy = AITriggerPolicy(sampling_rate=job.ai_rate)
+    targets = [(path, doc_id) for path, doc_id in plan_folder(job.folder).scannable if policy.selects(doc_id)]
+    signature = detector_signature([pattern.detector_id, ner.detector_id])
+    with _LOCK:
+        job.phase = "ai"
+        job.done, job.total = 0, len(targets)
+    for done, (path, document_id) in enumerate(targets, start=1):
+        try:
+            ingest_document(
+                path,
+                pattern,
+                ner,
+                document_id=document_id,
+                ai=ai,
+                repository=repository,
+                detector_signature=signature,
+            )
+        except Exception:  # noqa: BLE001 — one bad file must not abort the AI phase
+            pass
+        else:
+            if job.result is not None:
+                with _LOCK:
+                    job.result.ai_documents += 1
+        with _LOCK:
+            job.done = done
 
 
 def start_document_ai_job(document_id: str, path: str) -> str:
