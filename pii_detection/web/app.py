@@ -31,9 +31,17 @@ from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.scan_folder import count_unchanged, plan_folder
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.review.app import app as ropa_app
-from pii_detection.web.scan_jobs import get_job, start_document_ai_job, start_scan_job
+from pii_detection.web.scan_jobs import (
+    active_jobs,
+    get_job,
+    start_document_ai_job,
+    start_scan_job,
+)
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
+# Shared page header reads this to show an "a scan is in progress" indicator on
+# every page, without each route having to pass the active jobs in its context.
+_TEMPLATES.env.globals["active_scans"] = active_jobs
 
 app = FastAPI(title="PII compliance")
 

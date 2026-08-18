@@ -307,3 +307,27 @@ def test_document_ai_trigger_starts_job_and_discovers(client: TestClient, tmp_pa
 
 def test_document_ai_trigger_unknown_document_is_404(client: TestClient) -> None:
     assert client.post("/document/nope.txt/scan-ai").status_code == 404
+
+
+# --- active-scan indicator ---------------------------------------------------
+
+
+def test_dashboard_shows_active_scan_indicator(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    running = ScanJob(id="j1", folder="/data/share", use_gliner=False, done=3, total=10)
+    monkeypatch.setattr(scan_jobs, "_JOBS", {"j1": running})
+
+    body = client.get("/").text  # the shared header shows it on any page
+
+    assert "1 scansione in corso" in body
+    assert "3/10 documenti" in body
+    assert "/scan/status/j1" in body  # links to the live status page
+
+
+def test_no_indicator_when_no_scan_is_running(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    done = ScanJob(id="j2", folder="/data/share", use_gliner=False, state="done")
+    monkeypatch.setattr(scan_jobs, "_JOBS", {"j2": done})
+    assert "in corso" not in client.get("/").text

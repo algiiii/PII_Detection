@@ -105,6 +105,18 @@ def get_job(job_id: str) -> ScanJob | None:
         return _JOBS.get(job_id)
 
 
+def active_jobs() -> list[ScanJob]:
+    """List the jobs still running, for the "a scan is in progress" indicator.
+
+    Read by the shared page header (a Jinja global) so any page shows that a scan is
+    active without every route having to pass it.
+
+    :returns: the jobs in state ``"running"``.
+    """
+    with _LOCK:
+        return [job for job in _JOBS.values() if job.state == "running"]
+
+
 def start_scan_job(
     folder: str,
     *,
@@ -241,4 +253,4 @@ def _run_document(job: ScanJob) -> None:
             job.state = "error"
 
 
-__all__ = ["ScanJob", "get_job", "start_scan_job", "start_document_ai_job"]
+__all__ = ["ScanJob", "get_job", "active_jobs", "start_scan_job", "start_document_ai_job"]
