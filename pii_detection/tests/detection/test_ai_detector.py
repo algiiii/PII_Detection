@@ -145,7 +145,7 @@ def test_unreachable_runtime_yields_no_candidates() -> None:
 def test_policy_from_env_unset_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PII_AI_SAMPLING_RATE", raising=False)
     policy = AITriggerPolicy.from_env()
-    assert not policy.enabled and not policy.selects(0)
+    assert not policy.enabled and not policy.selects("any/doc.pdf")
 
 
 @pytest.mark.parametrize("raw", ["0", "abc", "-5", ""])
@@ -153,14 +153,27 @@ def test_policy_from_env_invalid_or_zero_is_disabled(
     monkeypatch: pytest.MonkeyPatch, raw: str
 ) -> None:
     monkeypatch.setenv("PII_AI_SAMPLING_RATE", raw)
-    assert AITriggerPolicy.from_env().sampling_rate == 0
-
-
-def test_policy_from_env_samples_one_in_n(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PII_AI_SAMPLING_RATE", "3")
     policy = AITriggerPolicy.from_env()
-    assert policy.enabled
-    assert [i for i in range(7) if policy.selects(i)] == [0, 3, 6]
+    assert policy.sampling_rate == 0
+    assert not policy.selects("any/doc.pdf")
+
+
+def test_rate_one_selects_every_document() -> None:
+    policy = AITriggerPolicy(sampling_rate=1)
+    assert all(policy.selects(f"folder/doc{i}.pdf") for i in range(50))
+
+
+def test_sampling_is_deterministic_per_document() -> None:
+    # The bucket is a content hash, not process-salted hash(): stable across calls.
+    policy = AITriggerPolicy(sampling_rate=4)
+    ids = [f"folder/doc{i}.pdf" for i in range(200)]
+    assert {d: policy.selects(d) for d in ids} == {d: policy.selects(d) for d in ids}
+
+
+def test_sampling_fraction_is_about_one_in_n() -> None:
+    policy = AITriggerPolicy(sampling_rate=4)
+    selected = sum(policy.selects(f"folder/doc{i}.pdf") for i in range(1000))
+    assert 150 <= selected <= 350  # ~250 expected (1/4), generous tolerance
 
 
 # --- factory -----------------------------------------------------------------

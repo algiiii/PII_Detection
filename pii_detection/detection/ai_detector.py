@@ -37,6 +37,7 @@ never persisted (see the B5 registry).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -241,18 +242,36 @@ class LLMDetector(BaseDetector):
         return candidates
 
 
+def _bucket(document_id: str) -> int:
+    """Map a document id to a stable, well-spread integer bucket.
+
+    Uses a content hash (not :func:`hash`, which is salted per process) so the same
+    document falls in the same bucket across runs and machines — the sampling is
+    random-looking yet **reproducible**.
+
+    :param document_id: the document identity to bucket.
+    :returns: a non-negative integer derived from the id.
+    """
+    return int.from_bytes(hashlib.blake2b(document_id.encode("utf-8"), digest_size=8).digest())
+
+
 @dataclass(frozen=True)
 class AITriggerPolicy:
     """Which documents of a batch get the (costly) AI pass — a caller policy.
 
     The AI pass is seconds-to-minutes per document on CPU, so it is not run on the
-    whole corpus at every scan: this policy expresses the **1-in-N sampling**
-    (``index % sampling_rate == 0`` over the batch order). It is deliberately
-    stateless and deterministic — the index comes from the caller — so it is
-    trivially testable and survives a restart (a cross-scan counter would not).
+    whole corpus at every scan. The rate is a single knob:
 
-    :ivar sampling_rate: sample one document every ``sampling_rate``; ``0``
-        disables sampling entirely (the kill-switch).
+    - ``0`` — disabled (no AI);
+    - ``1`` — every document;
+    - ``N > 1`` — roughly one document in ``N``, chosen by a **stable hash** of the
+      ``document_id`` (:func:`_bucket`), so the sampled subset is spread across the
+      tree at random yet identical on a re-run (unlike an every-Nth index, it does
+      not cluster by enumeration order, and unlike ``random`` it is reproducible).
+
+    Stateless and deterministic: no cross-scan counter to lose on a restart.
+
+    :ivar sampling_rate: the rate knob (``0`` off, ``1`` all, ``N`` one-in-``N``).
     """
 
     sampling_rate: int = 0
@@ -275,17 +294,17 @@ class AITriggerPolicy:
 
     @property
     def enabled(self) -> bool:
-        """:returns: ``True`` if sampling is active (``sampling_rate > 0``)."""
+        """:returns: ``True`` if any AI runs (``sampling_rate > 0``)."""
         return self.sampling_rate > 0
 
-    def selects(self, index: int) -> bool:
-        """Tell whether the document at batch position ``index`` is sampled.
+    def selects(self, document_id: str) -> bool:
+        """Tell whether a given document is sampled for the AI pass.
 
-        :param index: 0-based position of the document in the batch order.
-        :returns: ``True`` if the document gets the AI pass; always ``False`` when
-            sampling is disabled.
+        :param document_id: the document's identity (its bucket is derived from it).
+        :returns: ``True`` if the document gets the AI pass; ``False`` when disabled.
+            ``rate == 1`` selects every document; ``rate == N`` selects ~1 in ``N``.
         """
-        return self.enabled and index % self.sampling_rate == 0
+        return self.enabled and _bucket(document_id) % self.sampling_rate == 0
 
 
 def build_ai_detector(

@@ -30,11 +30,9 @@ class ScanJob:
     :ivar id: unique job id.
     :ivar folder: the folder being scanned.
     :ivar use_gliner: whether GLiNER is used for the NER.
-    :ivar use_ai: run the generative-AI second opinion on **every** document of this
-        scan (the checkbox); when ``False`` the sampling policy from the environment
-        still applies.
-    :ivar ai_sampling: the 1-in-N sampling rate in effect for this scan (``0`` when
-        ``use_ai`` — all documents — or when no AI runs), for the status badge.
+    :ivar ai_rate: the AI sampling knob for this scan — ``0`` no AI, ``1`` every
+        document, ``N`` roughly one in ``N`` (see
+        :class:`~pii_detection.detection.ai_detector.AITriggerPolicy`).
     :ivar document_id: set when this is a **single-document** AI re-analysis (the
         per-document trigger); ``None`` for a folder scan. When set, :ivar:`folder`
         holds that document's file path.
@@ -56,8 +54,7 @@ class ScanJob:
     id: str
     folder: str
     use_gliner: bool
-    use_ai: bool = False
-    ai_sampling: int = 0
+    ai_rate: int = 0
     document_id: str | None = None
     prune: bool = True
     incremental: bool = True
@@ -75,24 +72,23 @@ _LOCK = threading.Lock()
 
 
 def _build_detectors(
-    use_gliner: bool, with_ai: bool
+    use_gliner: bool, ai_rate: int
 ) -> tuple[PIIDetector, PIIDetector, PIIDetector | None]:
     """Build the detectors for a scan (monkeypatched to fakes in tests).
 
     Lazy import so importing this module needs no Presidio nor Ollama stack. The AI
-    detector is built when the caller asks for it (``with_ai``) **or** when the
-    environment enables the sampled pass (``PII_AI_SAMPLING_RATE`` > 0); otherwise it
-    is ``None`` and no AI runs.
+    detector is built only when the scan uses it (``ai_rate > 0``); otherwise it is
+    ``None`` and no AI runs.
 
     :param use_gliner: use GLiNER for the NER instead of spaCy.
-    :param with_ai: force-build the AI detector (the "AI on everything" checkbox).
+    :param ai_rate: the AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :returns: the ``(pattern, ner, ai)`` triple; ``ai`` is ``None`` when no AI runs.
     """
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=use_gliner)
     ai: PIIDetector | None = None
-    if with_ai or AITriggerPolicy.from_env().enabled:
+    if ai_rate > 0:
         from pii_detection.detection.ai_detector import build_ai_detector
 
         ai = build_ai_detector()
@@ -121,7 +117,7 @@ def start_scan_job(
     folder: str,
     *,
     use_gliner: bool,
-    use_ai: bool = False,
+    ai_rate: int = 0,
     prune: bool = True,
     incremental: bool = True,
     cleanup_dir: str | None = None,
@@ -130,8 +126,7 @@ def start_scan_job(
 
     :param folder: path to scan (a server-side path, or a temp dir of uploaded files).
     :param use_gliner: use GLiNER for the NER.
-    :param use_ai: run the AI second opinion on every document; when ``False`` the
-        environment's sampling policy still applies.
+    :param ai_rate: AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :param prune: reconcile documents gone from the folder as removed; pass ``False``
         for uploads so a partial upload does not prune the rest of the registry.
     :param incremental: skip files unchanged since their last scan; pass ``False``
@@ -144,10 +139,7 @@ def start_scan_job(
         id=uuid.uuid4().hex,
         folder=folder,
         use_gliner=use_gliner,
-        use_ai=use_ai,
-        # 0 when the checkbox runs AI on everything; else the env sampling rate, for
-        # the status badge to say "1 in N".
-        ai_sampling=0 if use_ai else AITriggerPolicy.from_env().sampling_rate,
+        ai_rate=ai_rate,
         prune=prune,
         incremental=incremental,
         cleanup_dir=cleanup_dir,
@@ -166,11 +158,10 @@ def _run(job: ScanJob) -> None:
             job.done, job.total = done, total
 
     try:
-        pattern, ner, ai = _build_detectors(job.use_gliner, job.use_ai)
+        pattern, ner, ai = _build_detectors(job.use_gliner, job.ai_rate)
         repository = PIIRepository()
-        # Checkbox -> AI on every document (no policy); otherwise the env sampling
-        # policy decides which files get it. When ai is None, neither runs.
-        policy = None if job.use_ai else AITriggerPolicy.from_env()
+        # The rate drives which documents get the AI pass (0 none, 1 all, N one-in-N).
+        policy = AITriggerPolicy(sampling_rate=job.ai_rate)
         result = ingest_folder(
             job.folder,
             pattern,
@@ -215,7 +206,7 @@ def start_document_ai_job(document_id: str, path: str) -> str:
         id=uuid.uuid4().hex,
         folder=path,
         use_gliner=False,
-        use_ai=True,
+        ai_rate=1,  # on-demand: always AI on this one document
         document_id=document_id,
     )
     with _LOCK:
@@ -227,7 +218,7 @@ def start_document_ai_job(document_id: str, path: str) -> str:
 def _run_document(job: ScanJob) -> None:
     """Worker body for the per-document AI re-analysis (one file, always with AI)."""
     try:
-        pattern, ner, ai = _build_detectors(job.use_gliner, with_ai=True)
+        pattern, ner, ai = _build_detectors(job.use_gliner, job.ai_rate)
         repository = PIIRepository()
         signature = detector_signature([pattern.detector_id, ner.detector_id])
         assert job.document_id is not None  # set by start_document_ai_job

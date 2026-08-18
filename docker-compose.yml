@@ -16,9 +16,11 @@ services:
       # Model for the AI detection second opinion (B4), kept separate from the ROPA
       # mapper's model so the two AI tasks can differ. Pull it first (see ollama below).
       PII_LLM_MODEL: phi4-mini
-      # 1-in-N sampling of the AI second opinion during batch scans (0/absent = off).
-      # The /scan checkbox still escalates to every document regardless of this.
-      PII_AI_SAMPLING_RATE: "10"
+      # Default AI sampling for a scan: it pre-selects the option in the /scan menu,
+      # where the operator picks per scan (0 = off, 1 = every doc, N = ~1 in N).
+      # Off by default — the DPO opts in and chooses the rate; raise it here to make
+      # a rate the deployment default (e.g. "100" for a light automatic sample).
+      PII_AI_SAMPLING_RATE: "0"
       # Canonical store: the host ./data dir, reached at /app/data via the repo
       # bind-mount below (relative sqlite URL). Same file locally and in-container.
       ROPA_DB_URL: sqlite:///data/ropa.db

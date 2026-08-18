@@ -192,9 +192,9 @@ def ingest_folder(
 
     The optional ``ai`` detector runs the generative-AI second opinion. Which files
     get it is decided by ``ai_policy``: with no policy every analysed file runs it
-    (the manual "AI on everything" mode); with an :class:`AITriggerPolicy` only the
-    sampled ones do (``index`` taken over the **full** enumeration ``plan.scannable``,
-    so the sample is stable regardless of which files the incremental pass skips).
+    (the "AI on everything" mode); with an :class:`AITriggerPolicy` only the sampled
+    ones do — the sample is a stable hash of each ``document_id``, so it does not
+    depend on enumeration order nor on which files the incremental pass skips.
 
     :param folder: root directory to scan recursively.
     :param pattern: the pattern/regex detector.
@@ -222,20 +222,21 @@ def ingest_folder(
 
     # "Seen" is every file the enumeration found on disk, whatever happened to it
     # afterwards: it is what protects the prune below from removing documents that
-    # are still there. The sampling index is the file's position in the full
-    # enumeration, so the AI sample is stable across incremental runs.
+    # are still there.
     seen: set[str] = set()
-    todo: list[tuple[Path, str, int]] = []
-    for index, (path, document_id) in enumerate(plan.scannable):
+    todo: list[tuple[Path, str]] = []
+    for path, document_id in plan.scannable:
         seen.add(document_id)
         if incremental and not _changed(repository, path, document_id, signature):
             result.unchanged.append(document_id)
         else:
-            todo.append((path, document_id, index))
+            todo.append((path, document_id))
 
     total = len(todo)
-    for done, (path, document_id, index) in enumerate(todo, start=1):
-        use_ai = ai if ai is not None and (ai_policy is None or ai_policy.selects(index)) else None
+    for done, (path, document_id) in enumerate(todo, start=1):
+        use_ai = (
+            ai if ai is not None and (ai_policy is None or ai_policy.selects(document_id)) else None
+        )
         try:
             ingest_document(
                 path,

@@ -26,6 +26,7 @@ from fastapi.templating import Jinja2Templates
 
 from pii_detection.compliance.checker import check_document
 from pii_detection.compliance.overview import retention_overview
+from pii_detection.detection.ai_detector import AITriggerPolicy
 from pii_detection.extraction import supported_suffixes
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.scan_folder import count_unchanged, plan_folder
@@ -235,16 +236,21 @@ def scan_form(request: Request) -> HTMLResponse:
 
     :param request: the incoming request.
     :returns: the rendered form, with the supported file suffixes for the
-        client-side upload filter.
+        client-side upload filter and the default AI rate from the environment.
     """
     return _TEMPLATES.TemplateResponse(
-        request, "scan.html", {"supported": sorted(supported_suffixes())}
+        request,
+        "scan.html",
+        {
+            "supported": sorted(supported_suffixes()),
+            "default_ai_rate": AITriggerPolicy.from_env().sampling_rate,
+        },
     )
 
 
 @app.get("/scan/preview", response_class=HTMLResponse)
 def scan_preview(
-    request: Request, path: str, gliner: bool = False, full: bool = False, ai: bool = False
+    request: Request, path: str, gliner: bool = False, full: bool = False, ai_rate: int = 0
 ) -> HTMLResponse:
     """Preview the files a recursive scan of ``path`` would cover, before running.
 
@@ -257,7 +263,7 @@ def scan_preview(
     :param path: server-side directory to preview.
     :param gliner: carried through to the run form.
     :param full: preview a forced full re-analysis (nothing counts as unchanged).
-    :param ai: carried through to the run form (run the AI second opinion).
+    :param ai_rate: carried through to the run form (AI sampling knob).
     :returns: the rendered preview with a confirm button.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
@@ -274,7 +280,7 @@ def scan_preview(
             "path": path,
             "gliner": gliner,
             "full": full,
-            "ai": ai,
+            "ai_rate": ai_rate,
             "plan": plan,
             "by_format": sorted(by_format.items()),
             "unchanged": unchanged,
@@ -289,7 +295,7 @@ def scan_run(
     path: str = Form(...),
     gliner: bool = Form(False),
     full: bool = Form(False),
-    ai: bool = Form(False),
+    ai_rate: int = Form(0),
 ) -> RedirectResponse:
     """Start a background scan of ``path`` and redirect to its status page.
 
@@ -297,13 +303,13 @@ def scan_run(
     :param path: server-side directory to scan.
     :param gliner: use GLiNER for the NER.
     :param full: re-analyse every file, including those unchanged since last time.
-    :param ai: run the AI second opinion on every document of the scan.
+    :param ai_rate: AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
     if not Path(path).is_dir():
         raise HTTPException(status_code=400, detail=f"not a directory: {path}")
-    job_id = start_scan_job(path, use_gliner=gliner, use_ai=ai, incremental=not full)
+    job_id = start_scan_job(path, use_gliner=gliner, ai_rate=ai_rate, incremental=not full)
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
 
@@ -329,7 +335,7 @@ async def scan_upload(
     request: Request,
     files: list[UploadFile] = File(...),
     gliner: bool = Form(False),
-    ai: bool = Form(False),
+    ai_rate: int = Form(0),
 ) -> RedirectResponse:
     """Scan files uploaded from the browser — a single file or a whole folder.
 
@@ -343,7 +349,7 @@ async def scan_upload(
     :param request: the incoming request, for building the redirect URL.
     :param files: the uploaded files; each ``filename`` is a relative path.
     :param gliner: use GLiNER for the NER.
-    :param ai: run the AI second opinion on every uploaded document.
+    :param ai_rate: AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if no valid file is uploaded.
     """
@@ -366,7 +372,7 @@ async def scan_upload(
     job_id = start_scan_job(
         str(temp_dir),
         use_gliner=gliner,
-        use_ai=ai,
+        ai_rate=ai_rate,
         prune=False,
         incremental=False,
         cleanup_dir=str(temp_dir),

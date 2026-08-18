@@ -9,7 +9,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 import pii_detection.web.scan_jobs as scan_jobs
-from pii_detection.detection.ai_detector import AITriggerPolicy
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.detection.types import (
     DetectionProvenance,
@@ -58,10 +57,10 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.delenv("PII_AI_SAMPLING_RATE", raising=False)
 
     def _fake_build(
-        use_gliner: bool, with_ai: bool
+        use_gliner: bool, ai_rate: int
     ) -> tuple[PIIDetector, PIIDetector, PIIDetector | None]:
-        # Mirror the real predicate: AI is built on the checkbox or on env sampling.
-        ai = _FakeAIDetector() if (with_ai or AITriggerPolicy.from_env().enabled) else None
+        # The AI is built only when the scan uses it (ai_rate > 0).
+        ai = _FakeAIDetector() if ai_rate > 0 else None
         return _FakeDetector(), _FakeDetector(), ai
 
     monkeypatch.setattr(scan_jobs, "_build_detectors", _fake_build)
@@ -268,27 +267,33 @@ def test_upload_is_always_a_full_scan(client: TestClient) -> None:
 # --- AI second opinion -------------------------------------------------------
 
 
-def test_scan_form_has_ai_checkbox(client: TestClient) -> None:
+def test_scan_form_has_ai_rate_selector(client: TestClient) -> None:
     body = client.get("/scan").text
-    assert 'name="ai"' in body  # server-path form; the upload form appends it in JS
+    assert 'name="ai_rate"' in body  # the AI sampling menu (server form)
 
 
-def test_run_with_ai_runs_it_on_every_document(client: TestClient, tmp_path: Path) -> None:
+def test_run_with_ai_rate_one_runs_it_on_every_document(
+    client: TestClient, tmp_path: Path
+) -> None:
     folder = _make_tree(tmp_path)
-    job = _run_scan(client, folder, ai="true")
-    assert job.use_ai is True
+    job = _run_scan(client, folder, ai_rate="1")  # 1 = every document
+    assert job.ai_rate == 1
     assert job.result is not None and job.result.ai_documents == 2  # both scannable docs
 
 
-def test_env_sampling_enables_ai_without_the_checkbox(
-    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_scan_form_preselects_env_default_rate(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("PII_AI_SAMPLING_RATE", "2")
+    monkeypatch.setenv("PII_AI_SAMPLING_RATE", "50")
+    body = client.get("/scan").text
+    assert 'value="50" selected' in body  # the env default pre-selects the menu option
+
+
+def test_run_without_ai_leaves_rate_zero(client: TestClient, tmp_path: Path) -> None:
     folder = _make_tree(tmp_path)
-    job = _run_scan(client, folder)  # no AI checkbox
-    assert job.use_ai is False
-    assert job.ai_sampling == 2
-    assert job.result is not None and job.result.ai_documents == 1  # 1-in-2 over two docs
+    job = _run_scan(client, folder)  # no ai_rate -> default 0
+    assert job.ai_rate == 0
+    assert job.result is not None and job.result.ai_documents == 0
 
 
 def test_document_ai_trigger_starts_job_and_discovers(client: TestClient, tmp_path: Path) -> None:

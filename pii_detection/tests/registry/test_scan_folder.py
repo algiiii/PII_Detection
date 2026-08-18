@@ -148,8 +148,9 @@ def test_ai_runs_on_every_document_without_policy(tmp_path: Path) -> None:
     assert result.ai_documents == 4
 
 
-def test_ai_sampling_selects_one_in_n(tmp_path: Path) -> None:
-    """Sampling rate 2 over four files runs the AI on indices 0 and 2 only."""
+def test_ai_rate_one_runs_on_every_document(tmp_path: Path) -> None:
+    """Rate 1 selects every document (the sampled fractions are unit-tested on the
+    policy itself; here we check the folder driver honours rate 1 = all)."""
     ai = _CountingAIDetector()
     result = ingest_folder(
         _four_file_folder(tmp_path),
@@ -157,10 +158,10 @@ def test_ai_sampling_selects_one_in_n(tmp_path: Path) -> None:
         _EmptyDetector(),
         ai,
         repository=_repo(tmp_path),
-        ai_policy=AITriggerPolicy(sampling_rate=2),
+        ai_policy=AITriggerPolicy(sampling_rate=1),
     )
-    assert ai.calls == 2
-    assert result.ai_documents == 2
+    assert ai.calls == 4
+    assert result.ai_documents == 4
 
 
 def test_no_ai_detector_never_runs_ai(tmp_path: Path) -> None:

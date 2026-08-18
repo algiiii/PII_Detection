@@ -7,7 +7,7 @@
     <p class="muted"><code>{{ job.document_id }}</code></p>
   {% else %}
     <h1>Scansione</h1>
-    <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}{% if job.use_ai %} · secondo parere AI{% elif job.ai_sampling %} · AI campionata (1 ogni {{ job.ai_sampling }}){% endif %}{% if not job.incremental %} · rianalisi completa{% endif %}</p>
+    <p class="muted"><code>{{ job.folder }}</code>{% if job.use_gliner %} · GLiNER{% endif %}{% if job.ai_rate == 1 %} · secondo parere AI su tutti{% elif job.ai_rate %} · AI 1 su {{ job.ai_rate }}{% endif %}{% if not job.incremental %} · rianalisi completa{% endif %}</p>
   {% endif %}
 
   {% if job.state == "running" %}
@@ -40,7 +40,7 @@
         {% if r.errors %}<p class="muted">errori: {{ r.errors|length }}</p>{% endif %}
       {% endif %}
       {% if r.ai_documents %}
-        <p class="muted">secondo parere AI: {{ r.ai_documents }} document{{ "o" if r.ai_documents == 1 else "i" }}{% if job.ai_sampling %} (campionati, 1 ogni {{ job.ai_sampling }}){% endif %}</p>
+        <p class="muted">secondo parere AI: {{ r.ai_documents }} document{{ "o" if r.ai_documents == 1 else "i" }}{% if job.ai_rate > 1 %} (campionati, ~1 ogni {{ job.ai_rate }}){% endif %}</p>
       {% endif %}
       {% if r.by_type %}
         <p style="margin:.6rem 0 .2rem"><strong>Inventario PII</strong></p>
