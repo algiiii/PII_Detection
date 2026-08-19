@@ -35,6 +35,52 @@ Il terzo passo affida l'attività così ottenuta al \texttt{ROPARepository}, che
 
 L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8, la review montata sotto \texttt{/ropa}), da cui può confermare le mappature, \textbf{importare} un nuovo registro caricandone il file dal browser --- il file viaggia verso il servizio come \emph{byte} via \emph{multipart}, coerente con il deployment containerizzato in cui l'applicazione non accede al file system del client --- e \textbf{rimuovere} un trattamento. L'import riusa senza modifiche la catena di ingestione appena descritta: la stessa lettura, la stessa interpretazione, la stessa mappatura.
 
+% ============================================================================
+% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
+% Speculare a quello in 6_architettura.tex. Struttura dati DENTRO i blocchi.
+% In §7 buona parte c'e' gia' (persistenza, container): riempire i buchi B3/B4/
+% B6/B7/B8. Eliminare a lavoro finito.
+% ----------------------------------------------------------------------------
+% B2 - Analisi struttura FS: nulla in §7 (non implementato).  |  §6: perche' non fatto.
+% ----------------------------------------------------------------------------
+% B3 - Estrazione del testo
+%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
+%       (metadati->mtime, guardia <1990/futuro, degrado grazioso).
+%   §6 (idea): born-digital -> testo normalizzato + reference_date con provenienza.
+% ----------------------------------------------------------------------------
+% B4 - Detection (espandere §"Realizzazione del livello di rilevamento", gia' presente)
+%   §7 (come): Presidio pattern+NER + GLiNER; RegexDetector config-driven (fatto);
+%       + MergeEngine; + LLMDetector (prompt catalogo chiuso, valore->span via
+%       str.find, chunking, never-raise); + slot opzionale ai + AITriggerPolicy
+%       (hash stabile); benchmark run_ai_benchmark (P/R/F1, s/doc, Wh/doc).
+%   §6 (idea): due sorgenti dietro PIIDetector + merge (4 casi) + ramo generativo.
+% ----------------------------------------------------------------------------
+% B5 - Registro PII: GIA' in §"Dati persistiti" (document/scan/instance/change).
+%   Da aggiungere: freshness (scansione incrementale) e refresh CONFIRMED.
+%   §6 (idea): changelog delta-based, due orologi, minimizzazione.
+% ----------------------------------------------------------------------------
+% B6 - Associazione + regole cartella
+%   §7 (come): FolderRule (tabella gia' in "Dati persistiti"); riconciliazione
+%       (azzera RULE stale); auto-apply a fine scan.
+%   §6 (idea): esplicita + prefisso->attivita' + provenienza + ponte cross-DB.
+% ----------------------------------------------------------------------------
+% B7 - Conformita' + conservazione
+%   §7 (come): checker.build_report; vista di corpus /retention; propose_category
+%       (orfana -> DeclaredCategory PROPOSED, solo su conferma DPO).
+%   §6 (idea): should/is -> orfane/coperte/mancanti; retention + non-verificabile;
+%       dalla orfana alla proposta (il feedback).
+% ----------------------------------------------------------------------------
+% B8 - Dashboard DPO
+%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
+%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
+%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
+%       indicatore di scansione attiva.
+%   §6 (idea): restituzione al DPO; human-in-the-loop; Post/Redirect/Get.
+% ----------------------------------------------------------------------------
+% TRASVERSALE: §7 "Deployment containerizzato" (FATTO).  §6: sezione "Pattern
+%   di progettazione" (nuova). Principi una volta sola: recall-first, minimizzazione, DPO sovrano.
+% ============================================================================
+
 \section{Tecnologia di persistenza}
 \label{sec:implementazione-persistenza-tecnologia}
 

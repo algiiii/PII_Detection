@@ -63,7 +63,7 @@
 					minimum height=1cm, align=center, fill=blue!8, font=\small},
 			decision/.style={diamond, draw, minimum width=3cm, minimum height=1.2cm,
 					align=center, fill=yellow!10, font=\small, aspect=2.2},
-			ai/.style={rectangle, draw, dashed, rounded corners, minimum width=3.4cm,
+			ai/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
 					minimum height=1cm, align=center, fill=orange!10, font=\small},
 			io/.style={rectangle, draw, rounded corners, minimum width=4cm,
 					minimum height=0.9cm, align=center, fill=green!8, font=\small},
@@ -75,10 +75,10 @@
 		\node (regex)   [block]    at (-3.5, -2.5) {Regex + checksum\\(IBAN, CF, \ldots)};
 		\node (ner)     [block]    at ( 3.5, -2.5) {NER\\(nomi, indirizzi, \ldots)};
 		\node (merge)   [block]    at (0,    -5.2) {Merge risultati\\(overlap: sorgente doppia)};
-		\node (counter) [decision] at (0,    -7.8) {ogni\\1000° doc?};
+		\node (counter) [decision] at (0,    -7.8) {documento\\campionato?};
 		\node (ai)      [ai]       at (6,    -7.8) {Passata AI\\(analisi contestuale)};
 		\node [font=\scriptsize\itshape, align=center, anchor=north] at (6, -9.0)
-		{previsto,\\non ancora realizzato};
+		{secondo parere\\generativo (campionato)};
 		\node (output)  [io]       at (0,   -10.5) {PII unificate $\rightarrow$ B5};
 
 		% --- Motore Presidio: fornisce i detector regex e NER (merge/AI restano proprietari) ---
@@ -114,30 +114,234 @@
 		\draw [arrow] (ai.south) |- (output.east);
 
 	\end{tikzpicture}
-	\caption[Dettaglio del blocco B4: pipeline ibrida di rilevamento PII]{Dettaglio del blocco B4: pipeline ibrida di rilevamento PII. I detector regex e NER sono forniti da Presidio (\texttt{AnalyzerEngine}) dietro il contratto \texttt{PIIDetector}; il merge resta proprietario. Il ramo tratteggiato in basso a destra --- il campionamento e la passata AI contestuale --- è \emph{previsto ma non ancora realizzato}: il punto di innesto esiste già nel merge, che accetta candidati di provenienza generativa e li classifica come tali, mentre il rilevatore che li produrrebbe non è al momento cablato nella pipeline (§\ref{sub:b4-ai-previsto}).}
+	\caption[Dettaglio del blocco B4: pipeline ibrida di rilevamento PII]{Dettaglio del blocco B4: pipeline ibrida di rilevamento PII. I detector regex e NER sono forniti da Presidio (\texttt{AnalyzerEngine}) dietro il contratto \texttt{PIIDetector}; il merge resta proprietario. Il ramo in basso a destra --- il campionamento e la passata AI contestuale --- è \emph{realizzato}: su un campione di documenti un rilevatore generativo produce candidati che entrano nel merge come terza sorgente, confermando o scoprendo PII (§\ref{sub:b4-ai-previsto}). Lo schema è una semplificazione di flusso: i candidati generativi confluiscono nel merge accanto a quelli di regex e NER, non a valle di esso.}
 	\label{fig:b4-detection-pipeline}
 \end{figure}
 
 % Le figure d'apertura del capitolo restano confinate qui, prima delle sezioni.
 \FloatBarrier
 
-% TODO: INSERIRE QUI "CONFRONTO STRUTTURATO E SCELTA DEL MODELLO NER"
-% Fare riferimento al file "Training_NER_confronto_strategie.md" (Sezione 3).
-% Inserire la discussione e la tabella di confronto dei 3 approcci:
-% A. Zero-shot puro (GLiNER base)
-% B. Modello pre-fine-tunato da terzi (es. gliner-pii)
-% C. Fine-tuning leggero in proprio
-% Discutere perché, visti i vincoli e i requisiti del progetto (zero-training, no dati annotati, esecuzione locale), si scarta l'opzione C a favore delle opzioni A/B.
+La figura \ref{fig:architettura-macro-blocchi} rappresenta graficamente l'intero sistema, e costituisce la ground truth per quanto riguarda la sua implementazione. I seguenti capitoli sono suddivisi seguendo rigorosamente i blocchi dell'architettura prevista dal grafico.
+
+\section{Input del sistema}
+\label{sec:input-sistema}
+
+Prima di discutere dei componenti attivamente presenti nel sistema, è importante inquadrare quali sono gli input usati dal sistema all'inizio della pipeline di esecuzione.
+
+\subsection{ROPA - Registro dei Trattamenti}
+\label{sub:input-ROPA}
+Il primo input è il \textit{Registro dei Trattamenti (ROPA)} di un'azienda. In generale, non esiste un template riconosciuto universalmente. Questa disomogeneità porta la sua complessità, per una serie di motivi:
+\begin{itemize}
+	\item Tipo di file: essendo un tipo di dato libero, la sua interpretazione e decisione su come salvarlo ricade sull'azienda in questione. Esistono centinaia di modi diversi per salvare un registro, ognuno dei quali richiede particolare attenzione.
+	\item Sintassi di scrittura: seppur inquadrando un certo tipo di file come più adatto, è comunque difficile predirre esattamente dove il dato a noi importante (le categorie salvate, per esempio), si trovarà all'interno del file. Questa caratteristica implica l'introduzione di un tipo di complessità basata sul contesto, ambito in cui gli algoritmi tradizionali peccano in efficienza. Una strada è sicuramente l'uso di AI generativa per la comprensione completa del documento in questione e il suo adattamento. Tuttavia, questo porta numerosi problemi, che inoltre, trascendono dallo scope di questo lavoro (AI generativa per parsing dei parametri, giusto per leggere leggermente meglio un documento)
+\end{itemize}
+
+\subsection{File system}
+\label{sub:input-FS}
+Il secondo input del sistema rappresenta l'insieme dei file che vanno analizzati dal sistema stesso. È possibile decidere di analizzare un singolo file, oppure un'intera cartella, o più in linea con lo scope del progetto, un'intero insieme di sottocartelle, essendo che la cartella selezionata all'interno del file system rappresenta la root da cui far partire la scansione. Per semplicità, e per bacino di utenza, è stato deciso di supportare solo un sottoinsieme di tipologie di file, includendo i più utilizzati sia in ambito consumer che enterprise. Questa scelta è stata ponderata sul fatto che, garantire il supporto ad un'infinità di tipi di file, è sicuramente un'ottima feature, ma poco interessante e poco inerente con lo scope di questo lavoro. Di conseguenza, è sembrato più consono garantire il supporto ai tipi di file "scontati" quando ci si riferisce a \textit{file non strutturati}.
+
+
+
+
+
+
+
+
+
+
+\section{B1 - Normalizzazione ROPA}
+\label{sec:b1-ropa}
+Questo blocco è responsabile per la lettura e trasformazione del registro dei trattamenti in una forma standardizzata del sistema. Questo passaggio è obbligatorio, in quanto il termine di paragone per la verifica di conformità è tra il Registro dei Trattamenti e le PII identificate nei documenti: senza una struttura fissa e standardizzata, un confronto sarebbe estremamente dispendioso e complesso.
+
+È stata effettauta una scelta ponderata per quanto riguarda lo schema della struttura dati che avrebbe contenuto i ROPA. Si sono presentate due possibili strade:
+\begin{itemize}
+	\item Struttura dati definita a monte: viene imposto uno schema noto e il database viene popolato in maniera deterministica partendo dal ROPA in input.
+	\item Struttura scelta da un agente di intelligenza artificiale: il ROPA viene fornito al modello, delegando a lui la creazione della struttura del database, in base al contesto e a ciò che reputa migliore per il salvataggio in maniera efficiente dei dati.
+\end{itemize}
+È stata adottata la prima opzione per il seguente motivo: un Registro dei trattamento è un documento di conformità \textbf{legale}. Bisogna predilire affidabilità e riproducibilità nella sua creazione. Un modello di AI, seppur potenzialmente in grado di fornire informazioni aggiuntive, può essere soggetto ad allucinazioni o a risultati non riproducibili, casistiche non tollerabili per questi contesti.
+
+Avere uno schema esplicito garantisce che il database sia interrogabile in maniera prevedibile dal blocco di confronto B7 (\ref{sec:b7-verifica-compliance-PII}) e mantenibile nel tempo.
+
+L'AI non viene esclusa, ma spostata in un ambito più creativo durante la creazione del database del registro dei trattamenti (\ref{DA METTERE}).
+
+\subsection{Template registro CNIL}
+\label{sub:B1-cnil}
+Per fronteggiare al problema dell'inesistenza di un template universalmente condiviso a livello mondiale o europeo per i Registri dei Trattamenti, è stato deciso di adottare come template supportato quello fornito dalla \textit{Commission Nationale de l'Informatique et des Libertés (CNIL)}, autorità di controllo francese che mette a disposizione online una versione basilare ma completa, per aiutare le azienda ad orientarsi nella creazione del proprio registro ~\cite{cnilRegistreTraitement, cnilRegistreModeleBasique}.
+
+Questo modello è organizzato per attività di trattamento: un foglio Excel per ogni trattamento, con i seguenti campi.
+\begin{itemize}
+	\item identificazione del trattamento (nome, date di creazione e aggiornamento, base giuridica);
+	\item attori: titolare del trattamento, eventuali co-titolari, responsabile della protezione dei dati (DPO), responsabili del trattamento esterni (\textit{processors});
+	\item finalità del trattamento;
+	\item categorie di persone interessate;
+	\item categorie di dati personali, con evidenziazione delle categorie particolari (dati sensibili);
+	\item categorie di destinatari (interni, esterni, responsabili esterni);
+	\item trasferimenti verso Paesi terzi (destinazione e garanzie);
+	\item durate di conservazione;
+	\item misure di sicurezza tecniche e organizzative.
+\end{itemize}
+
+Per lo scopo del lavoro, \textbf{non verranno salvati tutti i dati} presenti in un trattamento. Questa scelta è stata fatta per ridurre la complessità ed evitare di salvare dati potenzialmente sensibili all'interno del database del sistema, senza un vero e proprio scopo. Di conseguenza, gli unici dati che sistematicamente vengono salvati sono quelli presenti nelle sezioni:
+\begin{itemize}
+	\item identità del trattamento;
+	\item categorie di dati personali.
+\end{itemize}
+
+% qui da valutare se mettere la discussione con relatore
+La struttura scelta per rappresentare il registro segue la sua gerarchia naturale su \textbf{tre livelli}. Al primo, l'\textbf{attività di trattamento}, con la sua identità (un nome e una finalità). Al secondo, i \textbf{blocchi di categorie} che vi appartengono, ciascuno con la propria \textbf{durata di conservazione}, che le categorie raccolte nel blocco ereditano. Al terzo, le \textbf{singole categorie dichiarate}, ognuna ricondotta al vocabolario condiviso delle categorie di PII --- lo stesso usato dal rilevamento (B4). È quest'ultimo aggancio a rendere il confronto fra ciò che il registro \emph{dichiara} e ciò che il motore \emph{rileva} (B7) una semplice operazione insiemistica: e una categoria che non si risolve in alcun tipo rilevabile resta \textbf{esplicita} nel modello --- dichiarata ma non verificabile dal motore --- e come tale va segnalata al DPO, non scambiata per conforme. La durata di conservazione, infine, è tenuta accanto al testo originale in forma \emph{confrontabile dalla macchina}, così che il superamento del termine (B7) sia \emph{calcolato} al momento del controllo e non registrato come stato. La resa concreta di questo modello --- tabelle, campi e tipi --- è nella sezione di implementazione (§\ref{sec:dati-persistiti}).
+
+
+\subsection{Ruolo AI in ROPA}
+\label{sub:B1-AI}
+
+Il popolamento dei primi due livelli del modello --- l'attività di trattamento e i blocchi di categorie --- è deterministico: la struttura CNIL è nota e i campi si trasferiscono direttamente. Il terzo livello, la singola categoria dichiarata, è invece spesso testo libero e sbrigativo («dati anagrafici, coordinate bancarie, contatti»): ricondurlo al \textbf{vocabolario condiviso delle categorie di PII} --- lo stesso che il rilevamento (B4) usa --- richiede un'interpretazione contestuale, per la quale un algoritmo puramente sintattico è inadeguato. È l'unico punto dell'ingestione in cui interviene un modello generativo, ed entro due vincoli architetturali stretti. Primo, è un intervento \textbf{circoscritto}: una volta, a livello di singolo campo, per scindere ed espandere un testo libero in categorie normalizzate --- non una delega della struttura del documento, coerente con la scelta \emph{non agentica} del blocco. Secondo, opera dentro un \textbf{vocabolario chiuso}: ogni categoria proposta è validata contro quel catalogo condiviso, e una proposta che non vi rientra è scartata, sicché il modello non può introdurre categorie che il sistema non sa rilevare.
+
+Soprattutto, l'esito del modello è una \emph{proposta}, non una decisione: la mappatura resta tale finché il DPO non la conferma. È l'istanza, in questo blocco, di un principio che attraversa l'intero sistema: qualunque sia l'origine di un'inferenza --- un dizionario deterministico, un modello generativo, una regola che associa una cartella a un trattamento, la segnalazione di una PII orfana --- l'atto che la rende parte della \emph{verità dichiarativa} è sempre umano. Il sistema propone, il DPO dispone. È il gemello, sul versante della decisione, dei principi di \emph{recall-first} e di \emph{minimizzazione}: come quelli evitano rispettivamente di scartare e di trattenere, questo evita di \textbf{decidere al posto dell'umano}. La realizzazione --- i due mapper intercambiabili, il prompt, la validazione, la conferma --- è descritta in §\ref{sub:impl-b1-mappatura}.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 % ============================================================================
-% Zotero — fonti ROPA da IMPORTARE prima della compilazione (NON editare il .bib a mano).
-% Chiavi \cite provvisorie: allinearle a quelle generate da Zotero (se GDPR/nLPD
-% sono già presenti nel .bib, riusare le chiavi esistenti).
-%   - cnilRegistreTraitement      https://www.cnil.fr/fr/definition/registre-des-activites-de-traitement
-%   - cnilRegistreModeleBasique   https://www.cnil.fr/sites/cnil/files/atoms/files/registre_rgpd_basique.pdf
-%   - gdprArt30                   Reg. (UE) 2016/679, art. 30 --- https://eur-lex.europa.eu/eli/reg/2016/679/oj
-%   - nlpdArt12                   LPD (RS 235.1), art. 12 --- https://www.fedlex.admin.ch/eli/cc/2022/491/it
+% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
+% Struttura dati DENTRO i blocchi. In §6 il lavoro e' quasi tutto RECUPERO dalle
+% vecchie sezioni tematiche piu' in basso (237+): svuotarle in questi stub e poi
+% cancellarle. Eliminare questo scaffold a lavoro finito.
+% ----------------------------------------------------------------------------
+% B2 - Analisi struttura FS (NON realizzato)
+%   §6: perche' previsto e non fatto (l'utile e' gia' dato dalle regole
+%       cartella->trattamento, B6). Recuperare da: §"Un blocco previsto e non
+%       realizzato" (piu' in basso).  |  §7: nulla (non implementato).
+% ----------------------------------------------------------------------------
+% B3 - Estrazione e normalizzazione del testo
+%   §6 (idea): estrazione born-digital -> testo normalizzato; la DATA DI
+%       RIFERIMENTO con provenienza (metadati->mtime) come dato del blocco;
+%       niente OCR/layout. Recuperare da: §"Livello di estrazione del testo".
+%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
+%       (catena metadati->mtime, guardia <1990/futuro, degrado grazioso).
+%   struttura inline (§6): il documento normalizzato + reference_date con la fonte.
+% ----------------------------------------------------------------------------
+% B4 - Pipeline ibrida di detection
+%   §6 (idea): due sorgenti dietro PIIDetector + il merge (4 casi) + il ramo
+%       generativo. GIA' SCRITTO piu' in basso (§"Livello di rilevamento ibrido":
+%       sorgenti / merge / ramo AI) -> SPOSTARE qui.
+%   §7 (come): Presidio pattern+NER, GLiNER, RegexDetector config-driven (gia' in
+%       §7), LLMDetector (prompt, valore->span, chunking, never-raise), MergeEngine,
+%       slot opzionale ai + AITriggerPolicy.
+%   struttura inline: PIICandidate -> PIIMatch (span, tipo, confidence, livello, sorgenti).
+% ----------------------------------------------------------------------------
+% B5 - Registro PII rilevate
+%   §6 (idea): changelog delta-based (stato + storia); i DUE OROLOGI (data
+%       semantica vs impronta tecnica); minimizzazione (mai il valore).
+%       Recuperare da: §"Persistenza del registro delle PII".
+%   §7 (come): 4 tabelle (document/scan/instance/change); freshness (incrementale);
+%       refresh CONFIRMED. GIA' in §7 (§"Dati persistiti" -> registro PII).
+%   struttura inline (§6): documento -> scansione -> istanza (stato) + variazione (log); ER concettuale.
+% ----------------------------------------------------------------------------
+% B6 - Associazione documento-trattamento
+%   §6 (idea): associazione esplicita + regole cartella (prefisso->attivita'),
+%       provenienza MANUAL/RULE; + IL PONTE CROSS-DB: due database separati, join
+%       LOGICO sull'id-stringa (QUI il posto giusto per il pezzo trasversale).
+%       Recuperare da: §"Associazione e verifica" -> sottosez. B6.
+%   §7 (come): FolderRule, riconciliazione (azzera RULE stale), auto-apply a fine scan.
+%   struttura inline: Document.activity_ids (N:N) + FolderRule(prefix->activity_ids).
+% ----------------------------------------------------------------------------
+% B7 - Verifica conformita' + conservazione
+%   §6 (idea): confronto should/is -> orfane/coperte/mancanti; retention (eta' vs
+%       termine + "non verificabile"); + DALLA PII ORFANA ALLA PROPOSTA (il
+%       feedback: orphan -> categoria PROPOSED, il DPO conferma). Recuperare da:
+%       §"Associazione e verifica" -> sottosez. B7 + "Verifica della conservazione".
+%   §7 (come): checker.build_report; vista di corpus /retention; propose_category.
+%   struttura inline (§6): il verdetto (ComplianceReport) come valore di sola lettura.
+% ----------------------------------------------------------------------------
+% B8 - Dashboard DPO
+%   §6 (idea): restituzione al DPO; human-in-the-loop (gia' enunciato in B1);
+%       Post/Redirect/Get come principio. Recuperare da: §"Interfaccia e
+%       restituzione al DPO".
+%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
+%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
+%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
+%       indicatore di scansione attiva.
+% ----------------------------------------------------------------------------
+% TRASVERSALE
+%   §6: nuova sezione "Pattern architetturali e di progettazione" (Strategy / DI /
+%       Factory / Adapter / Composite / Policy / Active Record; l'argomento
+%       Open-Closed che giustifica lo slot opzionale invece di un Registry = YAGNI).
+%   §7: "Deployment containerizzato" (GIA' SCRITTO).
+%   Principi trasversali, enunciati UNA volta: recall-first, minimizzazione, DPO
+%   sovrano (gia' in B1).
 % ============================================================================
+
+\section{B2 - Analisi struttura File System}
+\label{sec:b2-analisi-struttura}
+
+\section{B3 - Estrazione e normalizzazione del testo}
+\label{sec:b3-estrazione-testo}
+
+\section{B4 - Pipeline ibrida di detection di PII}
+\label{sec:b4-pipeline-detection}
+\label{sec:rilevamento-b4}
+
+Il blocco B4 della Figura~\ref{fig:architettura-macro-blocchi} è il motore di rilevamento vero e proprio: dato il testo già estratto e normalizzato dal blocco a monte, individua le PII presenti nel documento e le consegna, unificate, al registro (B5). È un livello \emph{ibrido}, che combina due tecniche indipendenti e complementari --- un'impostazione che la letteratura recente sul rilevamento di PII indica come la più robusta rispetto alle singole tecniche prese isolatamente~\cite{mishraHybridRulebasedNLP2025, rajgarhiaEvaluationStudyHybrid2025}; la sua architettura interna è dettagliata nella Figura~\ref{fig:b4-detection-pipeline}.
+
+\subsection{Due sorgenti complementari dietro un contratto unico}
+\label{sub:b4-sorgenti}
+
+Le due tecniche coprono classi di PII diverse. Le \textbf{espressioni regolari}, affiancate dalla verifica di \emph{checksum} dove il formato la prevede, riconoscono gli \emph{identificatori strutturati} --- IBAN, codice fiscale, numero di carta, indirizzo IP --- dove la forma è rigida e la precisione può essere massima. Il \textbf{riconoscimento di entità nominate} (NER) copre invece i dati meno strutturati e dipendenti dal contesto --- nomi di persona, indirizzi --- dove nessuna regola fissa è sufficiente. La validazione a \emph{checksum} non è un affinamento previsto ma una proprietà già operante: un IBAN o un codice fiscale formalmente ben scritto ma incoerente nella cifra di controllo viene scartato, ed è la ragione per cui il corpus di valutazione (Cap.~\ref{cap:test}) deve generare valori \emph{aritmeticamente validi} --- altrimenti sarebbe il \emph{gold} stesso a essere respinto, gonfiando artificiosamente i falsi negativi.
+
+Entrambe le tecniche sono esposte al resto del sistema attraverso un unico contratto, \texttt{PIIDetector} (nella forma \texttt{detect(testo)} $\rightarrow$ lista di candidati): l'orchestrazione dipende solo da questa forma, non dalla tecnologia sottostante, così una sorgente può essere sostituita senza toccare il resto del livello. Nella realizzazione le due sorgenti poggiano sul motore \textit{open source} Microsoft Presidio~\cite{HomeMicrosoftPresidio}, adottato come base per regex e NER a valle di una valutazione sperimentale (§\ref{sec:valutazione-presidio}).
+
+\paragraph{Estendere il rilevamento senza scrivere codice.} Lo stesso contratto rende possibile \emph{comporre} più rilevatori in un unico posto della pipeline. Su questa possibilità poggia il punto di estensione richiesto dai requisiti (cfr.~§\ref{sub:estensibilita}): accanto ai riconoscitori predefiniti opera un rilevatore \textbf{guidato da configurazione}, che esegue le regole dichiarate in un file esterno. Aggiungere un identificatore proprio di un settore o di un ordinamento --- e la categoria corrispondente nel catalogo --- è quindi una modifica \emph{dichiarativa}, non un intervento sul codice sorgente. La coerenza di questa scelta è stata verificata applicandola a sé stessa: l'unico identificatore che era stato cablato nel motore come caso speciale (il numero AVS svizzero) è stato ricondotto al medesimo meccanismo, così che esista una sola strada per tutti i pattern anziché due.
+
+\subsection{Il merge: unificazione e grado di certezza}
+\label{sub:b4-merge}
+
+Le due sorgenti producono candidati in modo autonomo; il \emph{merge} li unifica in un unico insieme di PII, decidendone il grado di certezza in base a \emph{quante} e \emph{quali} sorgenti concordano su una stessa porzione di testo. Confrontando gli span per sovrapposizione, ogni PII risultante ricade in uno di quattro casi --- un vocabolario chiuso:
+
+\begin{itemize}
+	\item \textbf{Fonte singola} --- rilevata da una sola tecnica, senza sovrapposizioni. Non viene mai scartata (cfr.\ il principio \emph{recall-first} più sotto), ma etichettata come meno certa.
+	\item \textbf{Doppia conferma} --- due o più sorgenti concordano sullo stesso tipo di PII su span sovrapposti: pattern e NER, oppure l'una o l'altra insieme alla passata generativa. È il caso più solido: la confidenza viene rinforzata.
+	\item \textbf{Conflitto} --- gli span si sovrappongono ma le sorgenti assegnano tipi diversi. Il merge \textbf{non arbitra}: conserva entrambe le ipotesi e demanda la risoluzione al blocco a valle, che dispone di più contesto.
+	\item \textbf{Scoperta dall'AI} --- individuata dalla passata generativa selettiva (campionata), assente dalle altre sorgenti. È il caso in cui il modello generativo aggiunge qualcosa che gli algoritmi tradizionali non hanno visto (§\ref{sub:b4-ai-previsto}).
+\end{itemize}
+
+\paragraph{Principio recall-first.} Nessuna sorgente scarta di propria iniziativa un candidato debole: al più lo segnala con confidenza bassa. La ragione è la finalità di conformità del sistema: un falso positivo costa al DPO una verifica in più, mentre una PII \emph{mancata} è un rischio che resta invisibile. Il merge eredita questo principio --- non elimina, ma unifica e classifica --- lasciando ogni eventuale scarto a una decisione umana o a un blocco a valle.
+
+\paragraph{Il ruolo della passata generativa.} La terza sorgente, quando presente, entra nel merge per ultima e vi gioca due ruoli. Se ricade su una PII già trovata e ne concorda il tipo è \emph{confermatrice}: la sua provenienza si aggiunge alle altre e la certezza sale (una fonte singola diventa a doppia conferma, una già doppia acquista una terza voce). Se cade dove nessun'altra sorgente ha visto nulla è \emph{scopritrice}, e produce il quarto caso. Il disaccordo segue lo stesso principio recall-first, ma pesato: un parere generativo singolo che contraddice un'altra fonte mette le due sullo stesso piano (entrambe in conflitto, arbitraggio a valle), ma \textbf{non basta a incrinare} un accordo già raggiunto fra pattern e NER, che resta tale. La certezza, in altre parole, non si perde per una contestazione più debole di ciò che contesta.
+
+\paragraph{Un solo modello dato.} La PII unificata prodotta dal merge non richiede un modello dati intermedio: la sua \emph{certezza} è già descritta da tre attributi che essa porta con sé --- la confidenza (quanto è forte il rilevamento), il livello di conferma appena descritto, e l'elenco delle \emph{provenienze} (quali e quanti detector concordano, ciascuno con la propria confidenza). Mantenere questi campi sul singolo oggetto, invece di duplicarli in strutture parallele, conserva un'unica fonte di verità per la PII rilevata e ne preserva la tracciabilità verso il DPO.
+
+\subsection{Il ramo generativo come secondo parere}
+\label{sub:b4-ai-previsto}
+
+Le due sorgenti descritte finora appartengono al paradigma degli algoritmi \emph{tradizionali}: veloci, deterministici, economici, ma ciechi a tutto ciò che non è previsto in una regola o in un'etichetta. Il ramo generativo affianca loro un modello linguistico come \emph{secondo parere}, per rispondere a una domanda che è di merito e non di ingegneria --- se e quando un modello che legge il documento come farebbe un lettore umano~\cite{brownLanguageModelsAre2020} trovi dato personale che quegli algoritmi non trovano, e se il guadagno giustifichi il suo costo, superiore di ordini di grandezza in tempo ed energia. La scelta del modello e la sua valutazione sono l'oggetto degli studi che precedono la progettazione (§\ref{sec:scelta-modello-llm}, distinzione Task 1 / Task 2 in §\ref{sub:slm-task}); l'esito comparativo è nel Capitolo~\ref{cap:risultati}.
+
+Ciò che qui rileva è la forma architetturale, ed è dettata proprio da quella domanda: perché l'AI sia \emph{confrontabile} con le sorgenti tradizionali, va costruita come una sorgente fra le altre, non come un meccanismo a parte. Il rilevatore generativo è perciò incapsulato dietro lo stesso contratto \texttt{PIIDetector} di regex e NER, così che il merge lo accolga come terza voce (§\ref{sub:b4-merge}) e lo stesso apparato di misura che assegna precisione e richiamo a un rilevatore possa assegnarli al modello generativo senza codice speciale.
+
+\paragraph{Quando accendere l'AI: una politica del chiamante.} Una passata generativa costa da secondi a minuti per documento, quindi non la si esegue su ogni file a ogni scansione (cfr.\ l'impiego \emph{selettivo} previsto dai requisiti, §\ref{sub:ai-selettiva}, e il costo in §\ref{sec:impatto-ambientale}). La decisione su \emph{quali} documenti sottoporre all'AI è però tenuta \textbf{fuori} dal rilevatore --- che si limita ad analizzare il testo che riceve --- e affidata a una \emph{politica} del chiamante: nessuna analisi, tutti i documenti, oppure un campione. Separare la politica dal rilevatore è ciò che consente di innescare l'AI in modi diversi (a campione durante una scansione, o su richiesta su un singolo documento) senza duplicare la logica di rilevamento. La realizzazione del rilevatore e della politica --- prompt a catalogo chiuso, difese anti-allucinazione, campionamento --- è descritta in §\ref{sec:impl-detection}.
+
+\section{B5 - Registro PII rilevate}
+\label{sec:b5-DB-PII}
+
+\section{B6 - Associazione documento-trattamento}
+\label{sec:b6-documento-trattamento}
+
+\section{B7 - Verifica conformità PII presenti}
+\label{sec:b7-verifica-compliance-PII}
+
+\section{B8 - Dashboard per DPO}
+\label{sec:b8-dashboard}
 
 \section{Ingestione e modello dati del ROPA}
 \label{sec:modello-ropa}
@@ -192,15 +396,6 @@ Questo confina l'AI a un compito circoscritto, verificabile e reversibile, coere
 
 Va precisato che l'AI, in questo passaggio, è un'\textbf{alternativa} e non un obbligo. La risoluzione delle categorie è realizzata come strategia intercambiabile dietro un contratto unico, con almeno due realizzazioni: una \textbf{deterministica}, basata su dizionario e riconoscimento di parole chiave, e una \textbf{generativa}, affidata al modello linguistico locale. La configurazione predefinita adotta la prima: il confronto sperimentale (Cap.~\ref{cap:studi}) ha mostrato che il dizionario è una \emph{baseline} forte --- precisa e a costo nullo --- mentre il modello generalizza meglio sulle diciture impreviste ma introduce falsi positivi e latenza. Che il livello 3 venga popolato con o senza AI è quindi una scelta di configurazione, non un vincolo architetturale; in entrambi i casi l'esito resta una \emph{proposta} soggetta alla conferma del DPO.
 
-\subsection{Punti aperti di progettazione}
-\label{sub:ropa-punti-aperti}
-
-Sul modello del ROPA, a differenza di quello della persistenza, alcune decisioni restano tuttora aperte e si riportano qui come lavoro in corso.
-
-\paragraph{Allineamento nLPD--GDPR.} Il modello parte dai campi CNIL (impianto GDPR); vanno annotate le differenze rilevanti dell'art.~12 LPD, in particolare le soglie e le eccezioni previste per le piccole e medie imprese, che incidono su quali trattamenti debbano comparire nel registro.
-
-\paragraph{ROPA non strutturato.} Il modello assume un registro già compilato in forma tabellare. Il caso di un ROPA fornito come testo libero (non nel formato CNIL) richiederebbe un passo di strutturazione più invasivo: va deciso se supportarlo e in che misura, restando entro il vincolo di non delegare all'AI la strutturazione complessiva.
-
 \section{Un blocco previsto e non realizzato: l'analisi della struttura (B2)}
 \label{sec:b2-non-realizzato}
 
@@ -216,54 +411,6 @@ Il blocco B3 trasforma un documento nel suo formato originale (PDF, Word, fogli 
 \paragraph{Uno scope a stadi.} L'estrazione affronta per prima la classe di documenti \emph{born-digital}, quelli in cui il testo è già rappresentato come tale: qui la lettura è diretta e priva di rumore. Rientrano in questa classe i PDF nativi, i file Word --- nel formato corrente e in quello \emph{legacy}, quest'ultimo tramite un convertitore di sistema --- il testo semplice e, con pari dignità, i \textbf{fogli di calcolo} (\texttt{.xlsx}, \texttt{.xlsm}, \texttt{.ods}), le cui celle vengono appiattite in testo. Questi ultimi non sono un'aggiunta opportunistica: elenchi di clienti, dipendenti e fornitori sono fra i contenitori di dati personali più densi di una condivisione aziendale, e ignorarli renderebbe la copertura del sistema irrealistica. L'insieme dei formati leggibili è dichiarato in un solo punto del codice, così che ogni componente a valle --- l'anteprima di scansione, il conteggio dei file ignorati, la scansione batch --- lo erediti senza duplicarne l'elenco. Restano fuori, come estensione pianificata e non come limite dell'impianto, due casi più onerosi: i documenti \emph{scansionati}, che richiedono un passo di riconoscimento ottico dei caratteri (OCR), e i \emph{layout} complessi (tabelle, testo multicolonna), che richiedono una ricostruzione della struttura di pagina. Entrambi si innestano dietro lo stesso confine, sostituendo o arricchendo l'estrattore senza toccare il livello di rilevamento.
 
 \paragraph{Estrazione e rilevamento come \emph{concern} separati.} Tenere l'estrazione dietro un confine netto ha una conseguenza metodologica: la qualità dell'estrazione e quella del rilevamento si possono misurare \emph{separatamente}, attribuendo un eventuale errore all'uno o all'altro stadio. È una proprietà di cui la validazione del rilevamento (Cap.~\ref{cap:test}) si avvale per isolare il costo introdotto dal passaggio attraverso l'estrazione.
-
-\section{Livello di rilevamento ibrido delle PII}
-\label{sec:rilevamento-b4}
-
-Il blocco B4 della Figura~\ref{fig:architettura-macro-blocchi} è il motore di rilevamento vero e proprio: dato il testo già estratto e normalizzato dal blocco a monte, individua le PII presenti nel documento e le consegna, unificate, al registro (B5). È un livello \emph{ibrido}, che combina due tecniche indipendenti e complementari; la sua architettura interna è dettagliata nella Figura~\ref{fig:b4-detection-pipeline}.
-
-\subsection{Due sorgenti complementari dietro un contratto unico}
-\label{sub:b4-sorgenti}
-
-Le due tecniche coprono classi di PII diverse. Le \textbf{espressioni regolari}, affiancate dalla verifica di \emph{checksum} dove il formato la prevede, riconoscono gli \emph{identificatori strutturati} --- IBAN, codice fiscale, numero di carta, indirizzo IP --- dove la forma è rigida e la precisione può essere massima. Il \textbf{riconoscimento di entità nominate} (NER) copre invece i dati meno strutturati e dipendenti dal contesto --- nomi di persona, indirizzi --- dove nessuna regola fissa è sufficiente. La validazione a \emph{checksum} non è un affinamento previsto ma una proprietà già operante: un IBAN o un codice fiscale formalmente ben scritto ma incoerente nella cifra di controllo viene scartato, ed è la ragione per cui il corpus di valutazione (Cap.~\ref{cap:test}) deve generare valori \emph{aritmeticamente validi} --- altrimenti sarebbe il \emph{gold} stesso a essere respinto, gonfiando artificiosamente i falsi negativi.
-
-Entrambe le tecniche sono esposte al resto del sistema attraverso un unico contratto, \texttt{PIIDetector} (nella forma \texttt{detect(testo)} $\rightarrow$ lista di candidati): l'orchestrazione dipende solo da questa forma, non dalla tecnologia sottostante, così una sorgente può essere sostituita senza toccare il resto del livello (cfr. §\ref{sec:valutazione-presidio}).
-
-\paragraph{Estendere il rilevamento senza scrivere codice.} Lo stesso contratto rende possibile \emph{comporre} più rilevatori in un unico posto della pipeline. Su questa possibilità poggia il punto di estensione richiesto dai requisiti (cfr.~§\ref{sub:estensibilita}): accanto ai riconoscitori predefiniti opera un rilevatore \textbf{guidato da configurazione}, che esegue le regole dichiarate in un file esterno. Aggiungere un identificatore proprio di un settore o di un ordinamento --- e la categoria corrispondente nel catalogo --- è quindi una modifica \emph{dichiarativa}, non un intervento sul codice sorgente. La coerenza di questa scelta è stata verificata applicandola a sé stessa: l'unico identificatore che era stato cablato nel motore come caso speciale (il numero AVS svizzero) è stato ricondotto al medesimo meccanismo, così che esista una sola strada per tutti i pattern anziché due.
-
-\subsection{Il merge: unificazione e grado di certezza}
-\label{sub:b4-merge}
-
-Le due sorgenti producono candidati in modo autonomo; il \emph{merge} li unifica in un unico insieme di PII, decidendone il grado di certezza in base a \emph{quante} e \emph{quali} sorgenti concordano su una stessa porzione di testo. Confrontando gli span per sovrapposizione, ogni PII risultante ricade in uno di quattro casi --- un vocabolario chiuso:
-
-\begin{itemize}
-	\item \textbf{Fonte singola} --- rilevata da una sola tecnica, senza sovrapposizioni. Non viene mai scartata (cfr.\ il principio \emph{recall-first} più sotto), ma etichettata come meno certa.
-	\item \textbf{Doppia conferma} --- pattern e NER concordano sullo stesso tipo di PII su span sovrapposti. È il caso più solido: la confidenza viene rinforzata.
-	\item \textbf{Conflitto} --- gli span si sovrappongono ma le due sorgenti assegnano tipi diversi. Il merge \textbf{non arbitra}: conserva entrambe le ipotesi e demanda la risoluzione al blocco a valle, che dispone di più contesto.
-	\item \textbf{Scoperta dall'AI} --- individuata dalla passata generativa selettiva (campionata), assente dalle altre sorgenti. È l'unico dei quattro casi che il sistema, allo stato attuale, non può ancora produrre (§\ref{sub:b4-ai-previsto}).
-\end{itemize}
-
-\paragraph{Principio recall-first.} Nessuna sorgente scarta di propria iniziativa un candidato debole: al più lo segnala con confidenza bassa. La ragione è la finalità di conformità del sistema: un falso positivo costa al DPO una verifica in più, mentre una PII \emph{mancata} è un rischio che resta invisibile. Il merge eredita questo principio --- non elimina, ma unifica e classifica --- lasciando ogni eventuale scarto a una decisione umana o a un blocco a valle.
-
-\paragraph{Un solo modello dato.} La PII unificata prodotta dal merge non richiede un modello dati intermedio: la sua \emph{certezza} è già descritta da tre attributi che essa porta con sé --- la confidenza (quanto è forte il rilevamento), il livello di conferma appena descritto, e l'elenco delle \emph{provenienze} (quali e quanti detector concordano, ciascuno con la propria confidenza). Mantenere questi campi sul singolo oggetto, invece di duplicarli in strutture parallele, conserva un'unica fonte di verità per la PII rilevata e ne preserva la tracciabilità verso il DPO.
-
-% ============================================================================
-% Zotero — fonti da IMPORTARE prima della compilazione (NON editare il .bib a mano).
-% Le chiavi \cite qui sotto sono provvisorie: allinearle a quelle generate da Zotero.
-%   - overeemEmpiricalCharacterizationEvent2021  DOI:10.1016/j.jss.2021.110970 (preprint arXiv:2104.01146)
-%   - kleppmannDesigningDataIntensive2017        ISBN:978-1449373320 (cap. 11)
-%   - fowlerEventSourcing2005                     https://martinfowler.com/eaaDev/EventSourcing.html
-%   - youngCQRSDocuments                          Greg Young, "CQRS Documents" (PDF, practitioner)
-%   - microsoftAzureEventSourcing                 https://learn.microsoft.com/azure/architecture/patterns/event-sourcing
-%   - awsEventSourcingPattern                     https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/event-sourcing.html
-% ============================================================================
-
-\subsection{Il ramo generativo: un innesto predisposto}
-\label{sub:b4-ai-previsto}
-
-La passata AI rappresentata nella Figura~\ref{fig:b4-detection-pipeline} merita una precisazione di stato, perché è l'unica parte del blocco che descrive un'intenzione anziché un comportamento. L'idea è impiegare un modello generativo come \emph{secondo parere} su un campione dei documenti --- non su tutti, per la ragione di costo discussa in~\ref{sec:impatto-ambientale} --- così da misurare quanto l'AI aggiunga rispetto alle due sorgenti deterministiche e su quali categorie.
-
-Ciò che è realizzato è l'\textbf{innesto}: il merge accetta una terza sorgente di candidati, li tratta come le altre nel confronto per sovrapposizione e conserva la loro provenienza generativa quando coprono una porzione di testo che nessun'altra sorgente ha toccato. Ciò che non è realizzato è il rilevatore che quei candidati dovrebbe produrre, né la politica di campionamento che decide quando invocarlo. La distinzione è rilevante nel leggere il capitolo: il vocabolario del merge è definito per quattro casi perché il quarto è \emph{strutturalmente} previsto, ma un'esecuzione odierna del sistema ne produce solo tre.
 
 \section{Persistenza del registro delle PII}
 \label{sec:persistenza-registro}
