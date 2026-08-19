@@ -81,6 +81,21 @@ L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8, la
 %   di progettazione" (nuova). Principi una volta sola: recall-first, minimizzazione, DPO sovrano.
 % ============================================================================
 
+\section{Estrazione del testo (blocco B3)}
+\label{sec:impl-b3-estrazione}
+
+L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I lettori sono volutamente leggeri --- uno per famiglia di formato, con \emph{import} pigro, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}~\cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021}:
+\begin{itemize}
+	\item \texttt{.pdf} tramite PyMuPDF (testo \emph{born-digital});
+	\item \texttt{.docx} tramite python-docx;
+	\item \texttt{.txt} per lettura diretta;
+	\item i fogli \texttt{.xlsx}/\texttt{.xlsm}/\texttt{.ods} riusando il \texttt{sheet\_reader} del blocco B1 (openpyxl/odfpy), con le celle rese come testo;
+	\item il Word \emph{legacy} \texttt{.doc} tramite il binario di sistema \texttt{antiword}, presente nell'immagine container (assente in locale, il file finisce in errore e il lotto prosegue).
+\end{itemize}
+L'elenco dei formati ha un'unica fonte (\texttt{supported\_suffixes()}), così che anteprima, scansione e lettore lo ereditino senza divergere. OCR, layout multi-colonna e formati come \texttt{.xls}/\texttt{.rtf} restano fuori ambito (§\ref{cap:sviluppi-futuri}).
+
+Accanto al testo, l'estrazione stima la \textbf{data di riferimento} del documento (\texttt{extraction/dates.py}), che alimenta il controllo di conservazione (B7, §\ref{sub:b7-retention}). \texttt{reference\_date(path)} interroga per primi i metadati interni del file --- \texttt{modDate}/\texttt{creationDate} del PDF, le \emph{core properties} di DOCX e XLSX --- e ricade sul \emph{mtime} del file system solo quando non trova nulla di utilizzabile, restituendo un \texttt{ReferenceDate} che porta con sé la \textbf{provenienza} (\texttt{DateSource}: \texttt{content\_metadata} oppure \texttt{file\_mtime}), sicché il verdetto di conformità può dichiarare quanto vale la stima che espone. Un'unica guardia di plausibilità scarta le date anteriori al 1990 o collocate nel futuro e passa al candidato successivo; metadati illeggibili non sollevano un'eccezione ma ricadono sul \emph{mtime} --- datare un documento non deve poter interrompere la sua analisi.
+
 \section{Tecnologia di persistenza}
 \label{sec:implementazione-persistenza-tecnologia}
 
