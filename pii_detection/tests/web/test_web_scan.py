@@ -319,6 +319,24 @@ def test_document_ai_trigger_unknown_document_is_404(client: TestClient) -> None
     assert client.post("/document/nope.txt/scan-ai").status_code == 404
 
 
+def test_document_ai_trigger_missing_source_redirects_with_message(
+    client: TestClient, tmp_path: Path
+) -> None:
+    # A browser upload's source is removed after its scan: re-scanning must not start a
+    # doomed job on a dangling path — it redirects back with an explanatory message.
+    folder = _make_tree(tmp_path)
+    _run_scan(client, folder)
+    (folder / "a.txt").unlink()  # simulate the upload cleanup
+
+    resp = client.post("/document/a.txt/scan-ai", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "scan_ai_error" in resp.headers["location"]
+    # The button is gone and the reason is shown on the document page.
+    body = client.get("/document/a.txt").text
+    assert "Analizza con l'AI" not in body
+    assert "Analisi AI on-demand non disponibile" in body
+
+
 # --- active-scan indicator ---------------------------------------------------
 
 

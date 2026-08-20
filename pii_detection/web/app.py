@@ -114,6 +114,11 @@ def document_detail(request: Request, document_id: str) -> HTMLResponse:
             "instances": registry.instances_for(document_id),
             "activities": ropa.load(),
             "report": report,
+            # The on-demand AI re-scan re-reads the source file. Browser uploads are
+            # removed after their scan (data minimization), so their path is dangling:
+            # offer the button only when the file is still on disk.
+            "source_available": document.path is not None and Path(document.path).exists(),
+            "scan_ai_error": request.query_params.get("scan_ai_error"),
         },
     )
 
@@ -157,17 +162,29 @@ def scan_document_ai(request: Request, document_id: str) -> RedirectResponse:
     model runs; when the job finishes, the document page shows the new
     ``AI_DISCOVERED``/``DOUBLE_CONFIRMED`` instances.
 
+    If the source file is gone — the common case for a browser upload, whose files
+    are removed after the scan for data minimization — the re-scan cannot re-extract
+    anything, so instead of starting a job that would fail on a dangling path the user
+    is redirected back to the document with an explanatory message.
+
     :param request: the incoming request, for building the redirect URL.
     :param document_id: identifier of an already-recorded document.
-    :returns: a 303 redirect to the job status page.
-    :raises HTTPException: 404 if the document is unknown, 400 if it has no stored path
-        to re-extract from.
+    :returns: a 303 redirect to the job status page, or back to the document detail
+        (with a ``scan_ai_error`` message) when the source file is no longer available.
+    :raises HTTPException: 404 if the document is unknown.
     """
     document = get_registry().get_document(document_id)
     if document is None:
         raise HTTPException(status_code=404, detail=f"unknown document: {document_id}")
-    if not document.path:
-        raise HTTPException(status_code=400, detail="document has no stored path to re-scan")
+    if not document.path or not Path(document.path).exists():
+        url = request.url_for("document_detail", document_id=document_id).include_query_params(
+            scan_ai_error=(
+                "File sorgente non più disponibile: i documenti caricati dal browser "
+                "vengono rimossi dopo la scansione (minimizzazione). Ri-caricalo, oppure "
+                "scansiona da un percorso lato server scegliendo l'analisi AI."
+            )
+        )
+        return RedirectResponse(url=str(url), status_code=303)
     job_id = start_document_ai_job(document_id, document.path)
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
