@@ -198,10 +198,8 @@ def test_rescan_prunes_removed_file(tmp_path: Path) -> None:
     (folder / "b.txt").unlink()  # the file disappears from the folder
     result = ingest_folder(folder, _pattern(), _EmptyDetector(), repository=repo)
 
-    assert result.removed == ["b.txt"]
-    assert repo.instances_for("b.txt") == []  # its PII is no longer present
-    removed = repo.instances_for("b.txt", include_removed=True)
-    assert removed and all(instance.removed for instance in removed)
+    assert result.removed == ["b.txt"]  # gone from the folder
+    assert repo.instances_for("b.txt") == []  # its PII is no longer recorded
     assert {i.pii_type for i in repo.instances_for("a.txt")} == {"iban"}  # still there
 
 

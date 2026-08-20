@@ -1,24 +1,18 @@
 """Detected-PII registry (block B5): persist the PII found in documents.
 
-Delta-based hybrid changelog --- a mutable current state (:class:`PIIInstance`)
-plus an append-only log (:class:`PIIChange`) --- and **minimization-first**:
-references only, never the PII values. Both steps are implemented: population and
-the re-scan delta (:func:`diff_scan` → ``CONFIRMED``/``MOVED``/``NEW``/``REMOVED``).
+Holds the **current state** of the PII detected per document
+(:class:`PIIInstance`) — each scan fully replaces a document's instances — and is
+**minimization-first**: references only, never the PII values.
 """
 
-from pii_detection.registry.diff import ScanDiff, diff_scan
 from pii_detection.registry.ingest import ingest_document
 from pii_detection.registry.repository import PIIRepository
-from pii_detection.registry.types import ChangeType, Document, PIIChange, PIIInstance, Scan
+from pii_detection.registry.types import Document, PIIInstance, Scan
 
 __all__ = [
     "ingest_document",
     "PIIRepository",
-    "ScanDiff",
-    "diff_scan",
-    "ChangeType",
     "Document",
     "Scan",
     "PIIInstance",
-    "PIIChange",
 ]

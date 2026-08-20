@@ -5,11 +5,10 @@ Composes the pieces that already exist — B3 extraction and B4 detection via
 detected-PII registry (B5). It is the operational path that **populates the
 database from a real document**::
 
-    python -m pii_detection.registry.ingest path/to/document.pdf [--gliner] [--replace]
+    python -m pii_detection.registry.ingest path/to/document.pdf [--gliner]
 
-``--gliner`` swaps spaCy for GLiNER (heavy, container only); ``--replace`` drops
-the document's existing instances first (Step-1 way to avoid duplicates on a
-re-scan, until the Step-2 delta lands).
+``--gliner`` swaps spaCy for GLiNER (heavy, container only). Each ingestion fully
+replaces the document's recorded instances with what is found now.
 """
 
 from __future__ import annotations
@@ -33,7 +32,6 @@ def ingest_document(
     ner: PIIDetector,
     *,
     document_id: str | None = None,
-    replace: bool = False,
     detector_signature: str | None = None,
     ai: PIIDetector | None = None,
     repository: PIIRepository | None = None,
@@ -47,7 +45,6 @@ def ingest_document(
     :param document_id: identifier to record the document under; defaults to the
         file stem. A batch scan passes the path relative to its root, so documents
         with the same name in different folders do not collide.
-    :param replace: drop the document's existing instances first.
     :param detector_signature: fingerprint of the detection engine in use, stored
         with the document so a later scan can tell the engine changed.
     :param ai: optional generative-AI detector run as a second opinion; forwarded
@@ -65,7 +62,6 @@ def ingest_document(
         reference_date=reference_date(path),
         stamp=stamp_for(path),
         detector_signature=detector_signature,
-        replace=replace,
     )
 
 
@@ -84,11 +80,6 @@ def main(argv: list[str] | None = None) -> None:
         help="use GLiNER for the NER instead of spaCy (heavy; container only)",
     )
     parser.add_argument(
-        "--replace",
-        action="store_true",
-        help="drop the document's existing instances before recording this scan",
-    )
-    parser.add_argument(
         "--ai",
         action="store_true",
         help="add the local LLM as a second-opinion detector (needs Ollama)",
@@ -104,7 +95,7 @@ def main(argv: list[str] | None = None) -> None:
 
         ai = build_ai_detector()
     repository = PIIRepository()
-    ingest_document(args.path, pattern, ner, replace=args.replace, ai=ai, repository=repository)
+    ingest_document(args.path, pattern, ner, ai=ai, repository=repository)
 
     instances = repository.instances_for(args.path.stem)
     counts = Counter(instance.pii_type for instance in instances)

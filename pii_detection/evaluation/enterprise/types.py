@@ -4,8 +4,7 @@ The generator is split in two halves on purpose: planning (pure — what files
 exist, where, with which content, size and modification time) and writing
 (effectful). Everything worth asserting lives in the plan, so the tests that
 matter run in milliseconds and never touch a temporary directory, the same way
-:func:`~pii_detection.registry.diff.diff_scan` and
-:func:`~pii_detection.registry.folder_rules.match_activities` are pure.
+:func:`~pii_detection.registry.folder_rules.match_activities` is pure.
 
 The whole plan is immutable and comparable: generating twice with the same seed
 must yield two equal :class:`CorpusPlan` values, which is how reproducibility is

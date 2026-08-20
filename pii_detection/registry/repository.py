@@ -18,15 +18,12 @@ from sqlmodel import Session, SQLModel, col, create_engine, select
 
 from pii_detection.detection.types import PIIMatch
 from pii_detection.extraction.dates import ReferenceDate
-from pii_detection.registry.diff import diff_scan
 from pii_detection.registry.folder_rules import ApplyRulesResult, match_activities
 from pii_detection.registry.freshness import FileStamp
 from pii_detection.registry.types import (
     AssociationSource,
-    ChangeType,
     Document,
     FolderRule,
-    PIIChange,
     PIIInstance,
     Scan,
 )
@@ -76,7 +73,6 @@ class PIIRepository:
                     "registry_document",
                     "registry_scan",
                     "registry_pii_instance",
-                    "registry_pii_change",
                     "registry_folder_rule",
                 )
             ],
@@ -91,18 +87,16 @@ class PIIRepository:
         reference_date: ReferenceDate | None = None,
         stamp: FileStamp | None = None,
         detector_signature: str | None = None,
-        replace: bool = False,
     ) -> Scan:
-        """Persist one scan of a document, computing the delta against its state.
+        """Persist one scan of a document, replacing its recorded instances.
 
         Creates the :class:`~pii_detection.registry.types.Document` if new and a
-        new :class:`~pii_detection.registry.types.Scan`, then compares the matches
-        with the document's current instances (:func:`diff_scan`) and applies the
-        outcome: ``CONFIRMED`` (same position; refresh confidence/level/sources),
-        ``MOVED`` (update position too), ``NEW`` (create instance) and ``REMOVED``
-        (mark the instance gone). Every
-        change links to the previous scan of the same document (``None`` on the
-        first scan). Instances never store the PII value (minimization).
+        new :class:`~pii_detection.registry.types.Scan`, then **fully replaces**
+        the document's instances with the current matches: the previous instances
+        are deleted and one is inserted per match. The registry holds the current
+        state of each document, not a per-PII history, so an empty ``matches`` (a
+        document whose PII is gone, or a pruned file) simply clears it. Instances
+        never store the PII value (minimization).
 
         :param document_id: identifier of the scanned document (its file stem).
         :param matches: the unified PII of this scan; their ``text`` is never stored.
@@ -114,8 +108,6 @@ class PIIRepository:
             so a later scan can tell whether the file changed; refreshed likewise.
         :param detector_signature: fingerprint of the engine that produced these
             matches, so a later scan can tell the engine itself changed.
-        :param replace: if ``True``, wipe the document's history first and record
-            this scan as a fresh bootstrap (all ``NEW``).
         :returns: the created scan.
         """
         with Session(self.engine, expire_on_commit=False) as session:
@@ -132,98 +124,34 @@ class PIIRepository:
             if detector_signature is not None:
                 document.detector_signature = detector_signature
 
-            all_instances = session.exec(
+            for instance in session.exec(
                 select(PIIInstance).where(PIIInstance.document_id == document_id)
-            ).all()
-            if replace:
-                for instance in all_instances:
-                    session.delete(instance)  # cascade removes its changes
-                all_instances = []
-
-            previous = session.exec(
-                select(Scan)
-                .where(Scan.document_id == document_id)
-                .order_by(col(Scan.id).desc())
-            ).first()
-            previous_scan_id = previous.id if previous is not None else None
+            ).all():
+                session.delete(instance)
 
             scan = Scan(document_id=document_id)
             session.add(scan)
             session.flush()  # assign scan.id
             document.last_scanned_at = scan.created_at
 
-            current = [instance for instance in all_instances if not instance.removed]
-            delta = diff_scan(current, matches)
-
-            for instance, match in delta.confirmed:
-                # Same identity (pii_type + position), but the certainty may have
-                # changed: a re-scan where the AI now confirms an existing instance
-                # keeps the span (hence CONFIRMED, not MOVED) yet must refresh
-                # confidence/level/sources, or the new agreement stays invisible.
-                instance.confidence = match.confidence
-                instance.confirmation_level = match.confirmation_level.value
-                instance.sources = [p.detector_id for p in match.sources]
-                instance.last_scan_id = scan.id
-                self._log(session, instance, ChangeType.CONFIRMED, scan.id, previous_scan_id)
-
-            for instance, match in delta.moved:
-                instance.start = match.span.start
-                instance.end = match.span.end
-                instance.confidence = match.confidence
-                instance.confirmation_level = match.confirmation_level.value
-                instance.sources = [p.detector_id for p in match.sources]
-                instance.last_scan_id = scan.id
-                self._log(session, instance, ChangeType.MOVED, scan.id, previous_scan_id)
-
-            for match in delta.new:
-                instance = _instance_from_match(document_id, match, scan.id)
-                session.add(instance)
-                session.flush()  # assign instance.id
-                self._log(session, instance, ChangeType.NEW, scan.id, previous_scan_id)
-
-            for instance in delta.removed:
-                instance.removed = True
-                instance.last_scan_id = scan.id
-                self._log(session, instance, ChangeType.REMOVED, scan.id, previous_scan_id)
+            for match in matches:
+                session.add(_instance_from_match(document_id, match, scan.id))
 
             session.commit()
             return scan
 
-    @staticmethod
-    def _log(
-        session: Session,
-        instance: PIIInstance,
-        change_type: ChangeType,
-        scan_id: int | None,
-        previous_scan_id: int | None,
-    ) -> None:
-        """Append a change-log entry for an instance."""
-        session.add(
-            PIIChange(
-                pii_instance_id=instance.id,
-                change_type=change_type,
-                scan_id=scan_id,
-                previous_scan_id=previous_scan_id,
-            )
-        )
-
-    def instances_for(
-        self, document_id: str, *, include_removed: bool = False
-    ) -> list[PIIInstance]:
-        """List the PII instances recorded for a document.
+    def instances_for(self, document_id: str) -> list[PIIInstance]:
+        """List the PII instances recorded for a document (its current state).
 
         :param document_id: identifier of the document.
-        :param include_removed: also return instances marked removed; by default
-            only the current state (present PII) is returned.
-        :returns: the instances, with their change history eagerly loaded.
+        :returns: the instances currently recorded for the document.
         """
         with Session(self.engine, expire_on_commit=False) as session:
-            instances = session.exec(
-                select(PIIInstance).where(PIIInstance.document_id == document_id)
-            ).all()
-            if include_removed:
-                return list(instances)
-            return [instance for instance in instances if not instance.removed]
+            return list(
+                session.exec(
+                    select(PIIInstance).where(PIIInstance.document_id == document_id)
+                ).all()
+            )
 
     def documents(self) -> list[Document]:
         """List every recorded document, for the dashboard overview (block B8).
@@ -383,10 +311,10 @@ class PIIRepository:
             session.commit()
 
     def clear(self) -> None:
-        """Delete every document and its instances/changes from the registry.
+        """Delete every document and its instances from the registry.
 
         Destructive: leaves an empty but initialized database. Deleting a document
-        cascades to its instances and their changes; the scans are then removed.
+        cascades to its instances; the scans are then removed.
         """
         with Session(self.engine) as session:
             for document in session.exec(select(Document)).all():

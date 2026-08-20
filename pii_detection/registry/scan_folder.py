@@ -84,7 +84,7 @@ class FolderScanResult:
         last scan — distinct from :attr:`skipped`, which is about file *formats*.
     :ivar skipped: paths skipped because their extension is not supported.
     :ivar errors: ``(path, message)`` for files that failed to ingest.
-    :ivar removed: document ids reconciled as gone from the folder (PII ``REMOVED``).
+    :ivar removed: document ids gone from the folder, whose recorded PII was cleared.
     :ivar ai_documents: number of files that also ran the generative-AI pass (all of
         them under ``--ai``, the sampled subset under a sampling policy).
     :ivar by_type: current PII count per ``pii_type`` across the scanned files —
@@ -184,8 +184,8 @@ def ingest_folder(
     moved is the dominant cost of a periodic scan and buys nothing.
 
     When ``prune`` is set, documents already in the registry that were **not** seen
-    in this scan and still have present PII are reconciled as gone: recording an
-    empty scan marks their instances ``REMOVED``. This assumes the registry watches
+    in this scan and still hold recorded PII are cleared: recording an empty scan
+    deletes their instances. This assumes the registry watches
     a single folder tree (one registry per monitored folder). "Seen" here means
     **enumerated on disk**, not "ingested": a file skipped as unchanged, or one that
     failed to extract, is still on disk and must not be reported as removed.
@@ -261,8 +261,8 @@ def ingest_folder(
         for document in repository.documents():
             if document.document_id in seen:
                 continue
-            if repository.instances_for(document.document_id):  # still has present PII
-                repository.record_scan(document.document_id, [])
+            if repository.instances_for(document.document_id):  # still holds recorded PII
+                repository.record_scan(document.document_id, [])  # empty scan clears them
                 result.removed.append(document.document_id)
 
     counts: Counter[str] = Counter()
@@ -351,7 +351,7 @@ def main(argv: list[str] | None = None) -> None:
     if result.skipped:
         print(f"  skipped (unsupported): {len(result.skipped)}")
     if result.removed:
-        print(f"  marked removed (gone from folder): {len(result.removed)}")
+        print(f"  cleared (gone from folder): {len(result.removed)}")
         for document_id in result.removed:
             print(f"    - {document_id}")
     if result.errors:

@@ -1,9 +1,9 @@
 ``registry`` package
 =====================
 
-Detected-PII registry (block B5): persist the PII found in documents as a
-delta-based changelog, storing only references and never the values
-(minimization). Population and the re-scan delta are both implemented.
+Detected-PII registry (block B5): persist the current state of the PII found in
+documents, storing only references and never the values (minimization). Each scan
+fully replaces a document's recorded instances with what it finds now.
 
 Data model (``registry.types``)
 ----------------------------------------
@@ -27,13 +27,6 @@ counterpart of the semantic reference date, kept deliberately cheap (modificatio
 time and size, one ``stat``).
 
 .. automodule:: pii_detection.registry.freshness
-   :members:
-   :member-order: bysource
-
-Delta (``registry.diff``)
-----------------------------------------
-
-.. automodule:: pii_detection.registry.diff
    :members:
    :member-order: bysource
 
