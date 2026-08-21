@@ -13,6 +13,7 @@ from pii_detection.evaluation.run_ai_benchmark import (
     BenchmarkRow,
     MergedPipelineDetector,
     format_benchmark,
+    format_per_category,
     run_benchmark,
 )
 from pii_detection.evaluation.scoring import EvaluationReport, Metrics
@@ -96,3 +97,17 @@ def test_format_benchmark_marks_missing_energy() -> None:
     assert "ai:m" in out
     assert "—" in out  # em dash where energy is unavailable
     assert "1.50" in out or "1.500" in out  # seconds per doc rendered
+
+
+def test_format_per_category_expands_each_row() -> None:
+    report = EvaluationReport(
+        overall=Metrics(1, 0, 1),
+        per_category={"person_name": Metrics(1, 0, 0), "iban": Metrics(0, 0, 1)},
+    )
+    rows = [BenchmarkRow("union:m", report, 1.0, None)]
+
+    out = format_per_category(rows)
+
+    assert "=== union:m ===" in out  # each row is labelled
+    assert "person_name" in out and "iban" in out  # per-category breakdown printed
+    assert "OVERALL" in out  # the report's overall line is kept

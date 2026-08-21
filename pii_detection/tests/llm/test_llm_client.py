@@ -44,7 +44,13 @@ def test_complete_without_system_sends_only_user_turn() -> None:
 def test_defaults_to_deterministic_temperature() -> None:
     fake = _FakeBackend("x")
     LLMClient(model="m", client=fake).complete("hi")
-    assert fake.calls[0][2] == {"temperature": 0.0}
+    assert fake.calls[0][2] == {"temperature": 0.0}  # no num_predict when unset
+
+
+def test_num_predict_caps_generation_when_set() -> None:
+    fake = _FakeBackend("x")
+    LLMClient(model="m", num_predict=512, client=fake).complete("hi")
+    assert fake.calls[0][2] == {"temperature": 0.0, "num_predict": 512}
 
 
 def test_model_comes_from_env(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -29,13 +29,16 @@ seconds and watt-hours on CPU?*
 Run it in the container (the models need Ollama):
 ``python -m pii_detection.evaluation.run_ai_benchmark --limit 10``. On CPU the whole
 corpus × five models is many hours (the 12B ones more), so use ``--limit`` for
-exploratory runs.
+exploratory runs. Add ``--per-category`` to also print each row's per-``pii_type``
+breakdown (via :func:`format_per_category`), which is what the per-detector and
+whole-system tables of the thesis are filled from.
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import sys
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -45,7 +48,7 @@ from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.detection.types import DetectionProvenance, DetectorKind, PIICandidate
 from pii_detection.evaluation.corpus import AnnotatedDocument, load_corpus_dir
-from pii_detection.evaluation.scoring import EvaluationReport, evaluate
+from pii_detection.evaluation.scoring import EvaluationReport, evaluate, format_report
 
 #: Default models to benchmark — the three size tiers (see the module docstring).
 DEFAULT_MODELS = ("phi4-mini", "qwen3:4b", "gemma3:4b", "qwen2.5:7b", "gemma3:12b")
@@ -224,6 +227,25 @@ def format_benchmark(rows: Sequence[BenchmarkRow]) -> str:
     return "\n".join(lines)
 
 
+def format_per_category(rows: Sequence[BenchmarkRow]) -> str:
+    """Render each row's per-category breakdown (P/R/F1/tp/fp/fn), row by row.
+
+    The compact table from :func:`format_benchmark` shows only the micro-averaged
+    line; this expands every row into the full per-``pii_type`` report of
+    :func:`~pii_detection.evaluation.scoring.format_report`, which is what the
+    per-detector and whole-system tables of the thesis need (a category left
+    uncovered is a defect even when the overall figure is good).
+
+    :param rows: the measured rows (baseline, then ``ai:<m>`` / ``union:<m>``).
+    :returns: a multi-line string — one labelled report block per row.
+    """
+    blocks: list[str] = []
+    for row in rows:
+        blocks.append(f"=== {row.label} ===")
+        blocks.append(format_report(row.report))
+    return "\n\n".join(blocks)
+
+
 def _default_base(use_gliner: bool) -> tuple[PIIDetector, PIIDetector]:
     """Build the real Presidio detectors (lazy import: heavy stack)."""
     from pii_detection.detection.presidio_detector import build_default_detectors
@@ -232,11 +254,17 @@ def _default_base(use_gliner: bool) -> tuple[PIIDetector, PIIDetector]:
 
 
 def _default_ai(model: str) -> PIIDetector:
-    """Build the real AI detector for a model name (lazy import)."""
-    from pii_detection.detection.ai_detector import build_ai_detector
+    """Build the real AI detector for a model name (lazy import).
+
+    The client carries the same generated-token cap
+    (:func:`~pii_detection.detection.ai_detector.resolve_num_predict`) the app
+    uses, so a rambling model cannot dominate the measured latency/energy and the
+    benchmark reflects the deployed configuration.
+    """
+    from pii_detection.detection.ai_detector import build_ai_detector, resolve_num_predict
     from pii_detection.llm.client import LLMClient
 
-    return build_ai_detector(client=LLMClient(model=model))
+    return build_ai_detector(client=LLMClient(model=model, num_predict=resolve_num_predict()))
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -256,14 +284,34 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--no-energy", dest="energy", action="store_false", help="skip codecarbon energy tracking"
     )
+    parser.add_argument(
+        "--per-category",
+        action="store_true",
+        help="also print each row's per-category P/R/F1 (for the per-detector tables)",
+    )
     args = parser.parse_args(argv)
+
+    energy = args.energy
+    if energy:
+        try:
+            import codecarbon  # noqa: F401  (availability probe only)
+        except ImportError:
+            print(
+                "warning: codecarbon not installed — running without energy tracking "
+                "(Wh/doc will show '—'). Install '.[eval]' to enable it.",
+                file=sys.stderr,
+            )
+            energy = False
 
     corpus = load_corpus_dir(args.corpus)
     if args.limit is not None:
         corpus = corpus[: args.limit]
     pattern, ner = _default_base(args.gliner)
-    rows = run_benchmark(args.models, corpus, pattern, ner, _default_ai, energy=args.energy)
+    rows = run_benchmark(args.models, corpus, pattern, ner, _default_ai, energy=energy)
     print(format_benchmark(rows))
+    if args.per_category:
+        print()
+        print(format_per_category(rows))
 
 
 if __name__ == "__main__":
@@ -276,5 +324,6 @@ __all__ = [
     "MergedPipelineDetector",
     "run_benchmark",
     "format_benchmark",
+    "format_per_category",
     "main",
 ]

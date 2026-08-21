@@ -8,9 +8,11 @@ from collections.abc import Callable
 import pytest
 
 from pii_detection.detection.ai_detector import (
+    DEFAULT_AI_NUM_PREDICT,
     AITriggerPolicy,
     LLMDetector,
     build_ai_detector,
+    resolve_num_predict,
 )
 from pii_detection.detection.config import PIICategoryCatalog, PIICategoryModel
 from pii_detection.detection.types import ConfirmationLevel, DetectorKind
@@ -146,6 +148,22 @@ def test_policy_from_env_unset_is_disabled(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.delenv("PII_AI_SAMPLING_RATE", raising=False)
     policy = AITriggerPolicy.from_env()
     assert not policy.enabled and not policy.selects("any/doc.pdf")
+
+
+def test_resolve_num_predict_defaults_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PII_LLM_NUM_PREDICT", raising=False)
+    assert resolve_num_predict() == DEFAULT_AI_NUM_PREDICT
+
+
+def test_resolve_num_predict_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PII_LLM_NUM_PREDICT", "256")
+    assert resolve_num_predict() == 256
+
+
+@pytest.mark.parametrize("raw", ["abc", "0", "-5", ""])
+def test_resolve_num_predict_ignores_invalid(monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
+    monkeypatch.setenv("PII_LLM_NUM_PREDICT", raw)
+    assert resolve_num_predict() == DEFAULT_AI_NUM_PREDICT
 
 
 @pytest.mark.parametrize("raw", ["0", "abc", "-5", ""])

@@ -34,6 +34,14 @@ services:
 
   ollama:
     image: ollama/ollama
+    environment:
+      # One model resident at a time. The multi-model benchmark loads models in
+      # sequence; without this Ollama keeps each loaded (keep_alive) so they stack
+      # in RAM and OOM ("model runner has unexpectedly stopped"). Evicting the
+      # previous model when the next loads keeps memory bounded. keep_alive is left
+      # at its default so latency within a single model's pass is not skewed by
+      # per-request reloads.
+      OLLAMA_MAX_LOADED_MODELS: "1"
     volumes:
       - ollama-models:/root/.ollama   # pulled LLM models persist here
     ports:

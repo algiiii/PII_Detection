@@ -74,6 +74,15 @@ PII_LLM_MODEL_ENV = "PII_LLM_MODEL"
 #: Environment variable holding the 1-in-N sampling rate (``0``/absent = off).
 PII_AI_SAMPLING_RATE_ENV = "PII_AI_SAMPLING_RATE"
 
+#: Environment variable overriding the generated-token cap (:data:`DEFAULT_AI_NUM_PREDICT`).
+PII_LLM_NUM_PREDICT_ENV = "PII_LLM_NUM_PREDICT"
+
+#: Default cap on tokens the LLM may generate per chunk. The answer is a short
+#: JSON list of PII values, so a few hundred tokens suffice; the cap stops a
+#: rambling (e.g. reasoning) model from emitting thousands of chain-of-thought
+#: tokens, which would dominate latency/energy and can break the JSON parse.
+DEFAULT_AI_NUM_PREDICT = 1024
+
 _JSON_ARRAY = re.compile(r"\[.*\]", re.DOTALL)
 
 _logger = logging.getLogger(__name__)
@@ -307,6 +316,24 @@ class AITriggerPolicy:
         return self.enabled and _bucket(document_id) % self.sampling_rate == 0
 
 
+def resolve_num_predict() -> int:
+    """Resolve the per-chunk token cap for AI detection.
+
+    Reads :data:`PII_LLM_NUM_PREDICT_ENV`, falling back to
+    :data:`DEFAULT_AI_NUM_PREDICT`; a non-integer or non-positive value is
+    ignored in favour of the default. Shared by :func:`build_ai_detector` and the
+    multi-model benchmark so both measure the same bounded configuration.
+
+    :returns: the token cap to pass as ``num_predict`` to the LLM client.
+    """
+    raw = os.environ.get(PII_LLM_NUM_PREDICT_ENV, "")
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_AI_NUM_PREDICT
+    return value if value > 0 else DEFAULT_AI_NUM_PREDICT
+
+
 def build_ai_detector(
     config_dir: Path | None = None, client: LLMClient | None = None
 ) -> LLMDetector:
@@ -316,13 +343,16 @@ def build_ai_detector(
         packaged :func:`~pii_detection.detection.config.default_config_dir`.
     :param client: the LLM client to drive; defaults to a fresh
         :class:`~pii_detection.llm.client.LLMClient` whose model comes from
-        :data:`PII_LLM_MODEL_ENV` (then the client's own default chain).
+        :data:`PII_LLM_MODEL_ENV` (then the client's own default chain), capped at
+        :func:`resolve_num_predict` tokens per answer.
     :returns: the configured detector, with ``detector_id == "ai.<model>"``.
     :raises ConfigError: if ``categories.yaml`` is missing or malformed.
     """
     base = config_dir if config_dir is not None else default_config_dir()
     catalog = load_category_catalog(base / "categories.yaml")
-    resolved = client if client is not None else LLMClient(model=os.environ.get(PII_LLM_MODEL_ENV))
+    resolved = client if client is not None else LLMClient(
+        model=os.environ.get(PII_LLM_MODEL_ENV), num_predict=resolve_num_predict()
+    )
     return LLMDetector(catalog, resolved)
 
 
@@ -332,8 +362,11 @@ __all__ = [
     "CHUNK_OVERLAP",
     "PII_LLM_MODEL_ENV",
     "PII_AI_SAMPLING_RATE_ENV",
+    "PII_LLM_NUM_PREDICT_ENV",
+    "DEFAULT_AI_NUM_PREDICT",
     "AIResponseParser",
     "LLMDetector",
     "AITriggerPolicy",
+    "resolve_num_predict",
     "build_ai_detector",
 ]
