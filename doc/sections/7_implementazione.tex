@@ -8,7 +8,8 @@
 % 2. Integrazione e test di un modello pre-fine-tunato (gliner-pii)
 % 3. Eventuale esplorazione di fine-tuning solo a scopo esplorativo per il diario tecnico.
 
-\section{Ingestione del ROPA (blocco B1)}
+% -- B1 --
+\section{B1 - Ingestione del ROPA}
 \label{sec:impl-b1-ingestione}
 
 Il blocco B1 realizza il percorso che porta un registro dei trattamenti, così come lo compila un'organizzazione, alla rappresentazione interna descritta nel modello di dominio (§\ref{sec:modello-ropa}). La realizzazione segue il principio \emph{sottrattivo} già motivato in architettura --- del documento sorgente si conserva soltanto ciò che alimenta la verifica di conformità --- e lo traduce in una catena di tre passi disaccoppiati (lettura, interpretazione, persistenza), seguìti da una passata separata di mappatura assistita. Ogni passo è un modulo a sé, così che un cambiamento di formato del file o di strategia di mappatura non tocchi gli altri.
@@ -30,100 +31,6 @@ Il secondo passo (\texttt{normalizer}) trasforma la griglia in un'attività di t
 
 \subsection{Persistenza e mappatura assistita}
 \label{sub:impl-b1-mappatura}
-
-Il terzo passo affida l'attività così ottenuta al \texttt{ROPARepository}, che la scrive nella base dati ROPA riusando lo stesso modello di dominio come schema (\emph{Active Record}, §\ref{sec:dati-persistiti}). La \textbf{risoluzione delle categorie sui \texttt{pii\_type}} del catalogo condiviso --- l'aggancio verso il rilevamento --- è invece una passata \textbf{separata e successiva}, non parte del parsing deterministico: per ogni categoria ancora non risolta, una strategia dietro il contratto \texttt{CategoryMapper} propone i \texttt{pii\_type} corrispondenti al suo testo libero. La strategia è intercambiabile --- un \textbf{dizionario} deterministico (parole chiave), un \textbf{modello generativo} (§\ref{sec:scelta-modello-llm}) o una combinazione dei due --- e la passata è \textbf{idempotente}: ciò che il mapper non sa risolvere resta invariato, così una riesecuzione mappa solo ciò che è nuovo. Il risultato è comunque una \emph{proposta}: lo stato del mapping resta \texttt{PROPOSED} finché il DPO non lo conferma (\emph{human-in-the-loop}, §\ref{sub:ropa-ai}), a ribadire che l'AI arricchisce ma non decide.
-
-L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8, la review montata sotto \texttt{/ropa}), da cui può confermare le mappature, \textbf{importare} un nuovo registro caricandone il file dal browser --- il file viaggia verso il servizio come \emph{byte} via \emph{multipart}, coerente con il deployment containerizzato in cui l'applicazione non accede al file system del client --- e \textbf{rimuovere} un trattamento. L'import riusa senza modifiche la catena di ingestione appena descritta: la stessa lettura, la stessa interpretazione, la stessa mappatura.
-
-% ============================================================================
-% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
-% Speculare a quello in 6_architettura.tex. Struttura dati DENTRO i blocchi.
-% In §7 buona parte c'e' gia' (persistenza, container): riempire i buchi B3/B4/
-% B6/B7/B8. Eliminare a lavoro finito.
-% ----------------------------------------------------------------------------
-% B2 - Analisi struttura FS: nulla in §7 (non implementato).  |  §6: perche' non fatto.
-% ----------------------------------------------------------------------------
-% B3 - Estrazione del testo
-%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
-%       (metadati->mtime, guardia <1990/futuro, degrado grazioso).
-%   §6 (idea): born-digital -> testo normalizzato + reference_date con provenienza.
-% ----------------------------------------------------------------------------
-% B4 - Detection (espandere §"Realizzazione del livello di rilevamento", gia' presente)
-%   §7 (come): Presidio pattern+NER + GLiNER; RegexDetector config-driven (fatto);
-%       + MergeEngine; + LLMDetector (prompt catalogo chiuso, valore->span via
-%       str.find, chunking, never-raise); + slot opzionale ai + AITriggerPolicy
-%       (hash stabile); benchmark run_ai_benchmark (P/R/F1, s/doc, Wh/doc).
-%   §6 (idea): due sorgenti dietro PIIDetector + merge (4 casi) + ramo generativo.
-% ----------------------------------------------------------------------------
-% B5 - Registro PII: GIA' in §"Dati persistiti" (document/scan/instance/change).
-%   Da aggiungere: freshness (scansione incrementale) e refresh CONFIRMED.
-%   §6 (idea): changelog delta-based, due orologi, minimizzazione.
-% ----------------------------------------------------------------------------
-% B6 - Associazione + regole cartella
-%   §7 (come): FolderRule (tabella gia' in "Dati persistiti"); riconciliazione
-%       (azzera RULE stale); auto-apply a fine scan.
-%   §6 (idea): esplicita + prefisso->attivita' + provenienza + ponte cross-DB.
-% ----------------------------------------------------------------------------
-% B7 - Conformita' + conservazione
-%   §7 (come): checker.build_report; vista di corpus /retention; propose_category
-%       (orfana -> DeclaredCategory PROPOSED, solo su conferma DPO).
-%   §6 (idea): should/is -> orfane/coperte/mancanti; retention + non-verificabile;
-%       dalla orfana alla proposta (il feedback).
-% ----------------------------------------------------------------------------
-% B8 - Dashboard DPO
-%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
-%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
-%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
-%       indicatore di scansione attiva.
-%   §6 (idea): restituzione al DPO; human-in-the-loop; Post/Redirect/Get.
-% ----------------------------------------------------------------------------
-% TRASVERSALE: §7 "Deployment containerizzato" (FATTO).  §6: sezione "Pattern
-%   di progettazione" (nuova). Principi una volta sola: recall-first, minimizzazione, DPO sovrano.
-% ============================================================================
-
-\section{Estrazione del testo (blocco B3)}
-\label{sec:impl-b3-estrazione}
-
-L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I lettori sono volutamente leggeri --- uno per famiglia di formato, con \emph{import} pigro, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}~\cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021}:
-\begin{itemize}
-	\item \texttt{.pdf} tramite PyMuPDF (testo \emph{born-digital});
-	\item \texttt{.docx} tramite python-docx;
-	\item \texttt{.txt} per lettura diretta;
-	\item i fogli \texttt{.xlsx}/\texttt{.xlsm}/\texttt{.ods} riusando il \texttt{sheet\_reader} del blocco B1 (openpyxl/odfpy), con le celle rese come testo;
-	\item il Word \emph{legacy} \texttt{.doc} tramite il binario di sistema \texttt{antiword}, presente nell'immagine container (assente in locale, il file finisce in errore e il lotto prosegue).
-\end{itemize}
-L'elenco dei formati ha un'unica fonte (\texttt{supported\_suffixes()}), così che anteprima, scansione e lettore lo ereditino senza divergere. OCR, layout multi-colonna e formati come \texttt{.xls}/\texttt{.rtf} restano fuori ambito (§\ref{cap:sviluppi-futuri}).
-
-Accanto al testo, l'estrazione stima la \textbf{data di riferimento} del documento (\texttt{extraction/dates.py}), che alimenta il controllo di conservazione (B7, §\ref{sub:b7-retention}). \texttt{reference\_date(path)} interroga per primi i metadati interni del file --- \texttt{modDate}/\texttt{creationDate} del PDF, le \emph{core properties} di DOCX e XLSX --- e ricade sul \emph{mtime} del file system solo quando non trova nulla di utilizzabile, restituendo un \texttt{ReferenceDate} che porta con sé la \textbf{provenienza} (\texttt{DateSource}: \texttt{content\_metadata} oppure \texttt{file\_mtime}), sicché il verdetto di conformità può dichiarare quanto vale la stima che espone. Un'unica guardia di plausibilità scarta le date anteriori al 1990 o collocate nel futuro e passa al candidato successivo; metadati illeggibili non sollevano un'eccezione ma ricadono sul \emph{mtime} --- datare un documento non deve poter interrompere la sua analisi.
-
-\section{Tecnologia di persistenza}
-\label{sec:implementazione-persistenza-tecnologia}
-
-Il modello concettuale della persistenza --- il \textit{changelog ibrido delta-based} per il registro delle PII (§\ref{sec:persistenza-registro}) e la gerarchia del registro ROPA (§\ref{sec:modello-ropa}) --- è \textit{technology-agnostic}: restava da fissare la tecnologia concreta con cui realizzarlo. I candidati erano due:
-\begin{itemize}
-	\item una base dati \textbf{relazionale} (SQLite), che offre \textit{join} e interrogazioni relazionali «gratuite» ed è coerente col deployment locale in container senza servizi esterni;
-	\item una persistenza \textbf{su file semi-strutturati} (JSON/JSONL), più leggera ma priva di garanzie relazionali native.
-\end{itemize}
-
-La scelta è ricaduta su \textbf{SQLite}, per ragioni che discendono dalla natura del dato e dai vincoli di progetto:
-\begin{itemize}
-	\item \textbf{Il dato è intrinsecamente relazionale.} Entrambi i registri sono grafi di entità legate da chiavi esterne (documento--scansione--istanza--variazione; attività--macro-categoria--categoria) e le interrogazioni che servono ai blocchi a valle --- stato corrente di un documento, storia di un'istanza, PII orfane, confronto dichiarato-vs-rilevato --- sono \textit{join} e operazioni insiemistiche che un motore relazionale risolve nativamente. Su file JSON andrebbero reimplementate a mano, riscrivendo ciò che un DBMS offre già.
-	\item \textbf{SQLite è \emph{embedded}, senza server.} È un singolo file, nessun processo o servizio esterno da gestire: coerente col deployment containerizzato e, soprattutto, con la \textbf{minimizzazione del dato} --- i dati non lasciano l'infrastruttura on-premise e nessun servizio di terzi è coinvolto.
-	\item \textbf{Una sola definizione (\textit{Active Record}).} Con SQLModel l'entità di dominio \emph{è} la tabella (§\ref{sec:dati-persistiti}): niente coppia dominio/riga né traduzione a mano, coerente col principio DRY.
-	\item \textbf{La porta resta aperta.} SQLModel poggia su SQLAlchemy: migrare a un RDBMS in rete (ad esempio PostgreSQL), qualora si superi il singolo nodo, cambia l'URL di connessione --- letto da variabile d'ambiente (§\ref{sec:containerizzazione}) --- e non il modello dei dati. SQLite è dunque la scelta adeguata \emph{ora}, non un vicolo cieco.
-\end{itemize}
-
-La stessa tecnologia serve entrambi i registri, su due basi dati separate (variabili d'ambiente \texttt{ROPA\_DB\_URL} e \texttt{PII\_DB\_URL}); \emph{che cosa} vi si conserva, campo per campo, è dettagliato nel §\ref{sec:dati-persistiti}.
-
-\section{Dati persistiti nei database}
-\label{sec:dati-persistiti}
-
-Il sistema mantiene due basi dati distinte e separate (§\ref{sec:containerizzazione}): il \textbf{registro ROPA} (blocco B1) e il \textbf{registro delle PII rilevate} (blocco B5). Ogni entità è definita una sola volta come tabella SQLModel --- il modello di dominio \emph{è} lo schema di persistenza (\textit{Active Record}) --- così da non duplicare la struttura. I modelli concettuali e le relazioni sono discussi in §\ref{sub:ropa-modello} e §\ref{sub:persistenza-modello-dati}; questa sezione documenta, \textbf{campo per campo, ciò che viene effettivamente scritto su disco e perché}. La realizzazione corrente è su SQLite (§\ref{sec:implementazione-persistenza-tecnologia}), ma il modello dei dati qui descritto è indipendente dalla tecnologia sottostante.
-
-Un principio attraversa entrambe le basi ed è la chiave di lettura di ogni campo che segue: la \textbf{minimizzazione del dato} (§2.3.11). In particolare il registro delle PII conserva soltanto \emph{riferimenti} --- tipo, posizione, provenienza, documento --- e \textbf{mai il valore} della PII, come si vedrà nell'assenza deliberata di una colonna che lo contenga.
-
-\subsection{Registro ROPA (blocco B1)}
-\label{sub:dati-ropa}
 
 Tre tabelle rispecchiano la gerarchia a tre livelli del registro CNIL (§\ref{sub:ropa-modello}).
 
@@ -152,10 +59,143 @@ Tre tabelle rispecchiano la gerarchia a tre livelli del registro CNIL (§\ref{su
 	\item[\texttt{mapping\_state}] stato del mapping (\texttt{PROPOSED} dall'AI / \texttt{CONFIRMED} dal DPO): materializza il \emph{human-in-the-loop}: l'AI propone la corrispondenza, ma non la fissa mai da sola.
 \end{description}
 
+Il terzo passo affida l'attività così ottenuta al \texttt{ROPARepository}, che la scrive nella base dati ROPA riusando lo stesso modello di dominio come schema (\emph{Active Record}, §\ref{sec:dati-persistiti}). La \textbf{risoluzione delle categorie sui \texttt{pii\_type}} del catalogo condiviso --- l'aggancio verso il rilevamento --- è invece una passata \textbf{separata e successiva}, non parte del parsing deterministico: per ogni categoria ancora non risolta, una strategia dietro il contratto \texttt{CategoryMapper} propone i \texttt{pii\_type} corrispondenti al suo testo libero. La strategia è intercambiabile --- un \textbf{dizionario} deterministico (parole chiave), un \textbf{modello generativo} (§\ref{sec:scelta-modello-llm}) o una combinazione dei due --- e la passata è \textbf{idempotente}: ciò che il mapper non sa risolvere resta invariato, così una riesecuzione mappa solo ciò che è nuovo. Il risultato è comunque una \emph{proposta}: lo stato del mapping resta \texttt{PROPOSED} finché il DPO non lo conferma (\emph{human-in-the-loop}, §\ref{sub:ropa-ai}), a ribadire che l'AI arricchisce ma non decide.
+
+L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8, la review montata sotto \texttt{/ropa}), da cui può confermare le mappature, \textbf{importare} un nuovo registro caricandone il file dal browser --- il file viaggia verso il servizio come \emph{byte} via \emph{multipart}, coerente con il deployment containerizzato in cui l'applicazione non accede al file system del client --- e \textbf{rimuovere} un trattamento. L'import riusa senza modifiche la catena di ingestione appena descritta: la stessa lettura, la stessa interpretazione, la stessa mappatura.
+
+% ============================================================================
+% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
+% Speculare a quello in 6_architettura.tex. Struttura dati DENTRO i blocchi.
+% In §7 buona parte c'e' gia' (persistenza, container): riempire i buchi B3/B4/
+% B6/B7/B8. Eliminare a lavoro finito.
+% ----------------------------------------------------------------------------
+% B2 - Analisi struttura FS: nulla in §7 (non implementato).  |  §6: perche' non fatto.
+% ----------------------------------------------------------------------------
+% B3 - Estrazione del testo
+%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
+%       (metadati->mtime, guardia <1990/futuro, degrado grazioso).
+%   §6 (idea): born-digital -> testo normalizzato + reference_date con provenienza.
+% ----------------------------------------------------------------------------
+% B4 - Detection (espandere §"Realizzazione del livello di rilevamento", gia' presente)
+%   §7 (come): Presidio pattern+NER + GLiNER; RegexDetector config-driven (fatto);
+%       + MergeEngine; + LLMDetector (prompt catalogo chiuso, valore->span via
+%       str.find, chunking, never-raise); + slot opzionale ai + AITriggerPolicy
+%       (hash stabile); benchmark run_ai_benchmark (P/R/F1, s/doc, Wh/doc).
+%   §6 (idea): due sorgenti dietro PIIDetector + merge (4 casi) + ramo generativo.
+% ----------------------------------------------------------------------------
+% B5 - Registro PII: GIA' in §"Dati persistiti" (document/scan/instance).
+%   NB: changelog per-PII (NEW/CONFIRMED/MOVED/REMOVED, tabella change) SCARTATO,
+%   rimosso da §7 (vedi rimozione-tempo.md). NON re-introdurlo in §6.
+%   Da aggiungere: freshness (scansione incrementale) e refresh CONFIRMED.
+%   §6 (idea): due orologi (impronta file vs data semantica), minimizzazione.
+% ----------------------------------------------------------------------------
+% B6 - Associazione + regole cartella
+%   §7 (come): FolderRule (tabella gia' in "Dati persistiti"); riconciliazione
+%       (azzera RULE stale); auto-apply a fine scan.
+%   §6 (idea): esplicita + prefisso->attivita' + provenienza + ponte cross-DB.
+% ----------------------------------------------------------------------------
+% B7 - Conformita' + conservazione
+%   §7 (come): checker.build_report; vista di corpus /retention; propose_category
+%       (orfana -> DeclaredCategory PROPOSED, solo su conferma DPO).
+%   §6 (idea): should/is -> orfane/coperte/mancanti; retention + non-verificabile;
+%       dalla orfana alla proposta (il feedback).
+% ----------------------------------------------------------------------------
+% B8 - Dashboard DPO
+%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
+%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
+%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
+%       indicatore di scansione attiva.
+%   §6 (idea): restituzione al DPO; human-in-the-loop; Post/Redirect/Get.
+% ----------------------------------------------------------------------------
+% TRASVERSALE: §7 "Deployment containerizzato" (FATTO).  §6: sezione "Pattern
+%   di progettazione" (nuova). Principi una volta sola: recall-first, minimizzazione, DPO sovrano.
+% ============================================================================
+
+% -- B3 --
+\section{B2 - Analisi struttura file system}
+\label{sec:impl-b2-analisi-fs}
+Non realizzato, motivazioni nella sezione al capitolo precedente (\ref{sec:b2-analisi-struttura}) e in sviluppi futuri (\ref{cap:sviluppi-futuri}).
+
+% -- B3 --
+\section{B3 - Estrazione del testo}
+\label{sec:impl-b3-estrazione}
+
+L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I reader sono volutamente leggeri --- uno per famiglia di formato, con \emph{import} lazy, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}~\cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021}:
+\begin{itemize}
+	\item \texttt{.pdf} tramite PyMuPDF (testo \emph{born-digital});
+	\item \texttt{.docx} tramite python-docx;
+	\item \texttt{.txt} per lettura diretta;
+	\item i fogli \texttt{.xlsx}/\texttt{.xlsm}/\texttt{.ods} riusando il \texttt{sheet\_reader} del blocco B1 (openpyxl/odfpy), con le celle rese come testo;
+	\item il Word \emph{legacy} \texttt{.doc} tramite il binario di sistema \texttt{antiword}, presente nell'immagine container (assente in locale, il file finisce in errore e il lotto prosegue).
+\end{itemize}
+L'elenco dei formati ha un'unica fonte (\texttt{supported\_suffixes()}), così che anteprima, scansione e lettore lo ereditino senza divergere. OCR, layout multi-colonna e formati come \texttt{.xls}/\texttt{.rtf} restano fuori ambito (§\ref{cap:sviluppi-futuri}).
+
+Accanto al testo, l'estrazione stima la \textbf{data di riferimento} del documento (\texttt{extraction/dates.py}), che alimenta il controllo di conservazione (B7, §\ref{sub:b7-retention}). \texttt{reference\_date(path)} interroga per primi i metadati interni del file --- \texttt{modDate}/\texttt{creationDate} del PDF, le \emph{core properties} di DOCX e XLSX --- e ricade sul \emph{mtime} del file system solo quando non trova nulla di utilizzabile, restituendo un \texttt{ReferenceDate} che porta con sé la \textbf{provenienza} (\texttt{DateSource}: \texttt{content\_metadata} oppure \texttt{file\_mtime}), sicché il verdetto di conformità può dichiarare quanto vale la stima che espone. Un'unica guardia di plausibilità scarta le date anteriori al 1990 o collocate nel futuro e passa al candidato successivo; metadati illeggibili non sollevano un'eccezione ma ricadono sul \emph{mtime} --- datare un documento non deve poter interrompere la sua analisi.
+
+% -- TECNOLOGIA DI PERSISTENZA (da capire se tenere così o scorporare) --
+\section{Tecnologia di persistenza}
+\label{sec:implementazione-persistenza-tecnologia}
+
+Il modello concettuale della persistenza --- il registro delle PII rilevate (§\ref{sec:persistenza-registro}) e la gerarchia del registro ROPA (§\ref{sec:modello-ropa}) --- è \textit{technology-agnostic}: restava da fissare la tecnologia concreta con cui realizzarlo. I candidati erano due:
+\begin{itemize}
+	\item una base dati \textbf{relazionale} (SQLite), che offre \textit{join} e interrogazioni relazionali «gratuite» ed è coerente col deployment locale in container senza servizi esterni;
+	\item una persistenza \textbf{su file semi-strutturati} (JSON/JSONL), più leggera ma priva di garanzie relazionali native.
+\end{itemize}
+
+La scelta è ricaduta su \textbf{SQLite}, per ragioni che discendono dalla natura del dato e dai vincoli di progetto:
+\begin{itemize}
+	\item \textbf{Il dato è intrinsecamente relazionale.} Entrambi i registri sono grafi di entità legate da chiavi esterne (documento--scansione--istanza; attività--macro-categoria--categoria) e le interrogazioni che servono ai blocchi a valle --- stato corrente di un documento, PII orfane, confronto dichiarato-vs-rilevato --- sono \textit{join} e operazioni insiemistiche che un motore relazionale risolve nativamente. Su file JSON andrebbero reimplementate a mano, riscrivendo ciò che un DBMS offre già.
+	\item \textbf{SQLite è \emph{embedded}, senza server.} È un singolo file, nessun processo o servizio esterno da gestire: coerente col deployment containerizzato e, soprattutto, con la \textbf{minimizzazione del dato} --- i dati non lasciano l'infrastruttura on-premise e nessun servizio di terzi è coinvolto.
+	\item \textbf{Una sola definizione (\textit{Active Record}).} Con SQLModel l'entità di dominio \emph{è} la tabella (§\ref{sec:dati-persistiti}): niente coppia dominio/riga né traduzione a mano, coerente col principio DRY.
+	\item \textbf{La porta resta aperta.} SQLModel poggia su SQLAlchemy: migrare a un RDBMS in rete (ad esempio PostgreSQL), qualora si superi il singolo nodo, cambia l'URL di connessione --- letto da variabile d'ambiente (§\ref{sec:containerizzazione}) --- e non il modello dei dati. SQLite è dunque la scelta adeguata \emph{ora}, non un vicolo cieco.
+\end{itemize}
+
+La stessa tecnologia serve entrambi i registri, su due basi dati separate (variabili d'ambiente \texttt{ROPA\_DB\_URL} e \texttt{PII\_DB\_URL}); \emph{che cosa} vi si conserva, campo per campo, è dettagliato nel §\ref{sec:dati-persistiti}.
+
+\section{Dati persistiti nei database}
+\label{sec:dati-persistiti}
+
+Il sistema mantiene due basi dati distinte e separate (§\ref{sec:containerizzazione}): il \textbf{registro ROPA} (blocco B1) e il \textbf{registro delle PII rilevate} (blocco B5). Ogni entità è definita una sola volta come tabella SQLModel --- il modello di dominio \emph{è} lo schema di persistenza (\textit{Active Record}) --- così da non duplicare la struttura. I modelli concettuali e le relazioni sono discussi in §\ref{sub:ropa-modello} e §\ref{sub:persistenza-modello-dati}; questa sezione documenta, \textbf{campo per campo, ciò che viene effettivamente scritto su disco e perché}. La realizzazione corrente è su SQLite (§\ref{sec:implementazione-persistenza-tecnologia}), ma il modello dei dati qui descritto è indipendente dalla tecnologia sottostante.
+
+Un principio attraversa entrambe le basi ed è la chiave di lettura di ogni campo che segue: la \textbf{minimizzazione del dato} (§2.3.11). In particolare il registro delle PII conserva soltanto \emph{riferimenti} --- tipo, posizione, provenienza, documento --- e \textbf{mai il valore} della PII, come si vedrà nell'assenza deliberata di una colonna che lo contenga.
+
+% -- B4 --
+\section{B4 - Livello di rilevamento}
+\label{sec:impl-detection}
+
+Le due scelte tecnologiche che governano questo livello --- costruire il rilevamento a pattern e NER sopra Microsoft Presidio, e quale modello generativo adottare per gli impieghi selettivi --- non sono state compiute qui: sono l'esito degli studi condotti prima della progettazione (§\ref{sec:valutazione-presidio}, §\ref{sec:scelta-modello-llm}), la cui verifica sperimentale è nel Capitolo~\ref{cap:test}. Questa sezione ne descrive la realizzazione, e in particolare la proprietà che ne governa la manutenzione nel tempo.
+
+\subsection{Estensibilità config-driven: aggiungere categorie e pattern}
+\label{sub:estensibilita-detection}
+
+Una proprietà di progetto del livello di rilevamento è che il suo vocabolario non è cablato nel codice ma \textbf{dichiarato in configurazione}. Il catalogo delle categorie di PII (\texttt{categories.yaml}) e i pattern a espressioni regolari personalizzati (\texttt{custom\_patterns.yaml}) sono file validati al caricamento; aggiungere una nuova categoria o un nuovo identificatore strutturato --- un codice aziendale, un riferimento interno, un numero di settore --- è quindi una \textbf{modifica di configurazione, non di codice}. Le regole così dichiarate vengono eseguite a runtime dal riconoscitore generico (\texttt{RegexDetector}) e affiancate ai riconoscitori pre-costruiti di Presidio tramite un \texttt{CompositeDetector}, così da presentarsi al merge come un'unica sorgente di pattern.
+
+La scelta separa \emph{ciò che} si rileva --- competenza del DPO o del manutentore, in configurazione --- da \emph{come} lo si rileva, cioè il motore, che resta stabile. Il file dei pattern personalizzati è riservato agli identificatori che Presidio non copre nativamente (il numero AVS svizzero ne è il primo esempio), per non duplicare ciò che il motore già fornisce. La validazione al caricamento --- il pattern deve compilare, ogni \texttt{pii\_type} deve esistere nel catalogo --- fa fallire subito una configurazione errata, invece di degradare il rilevamento in silenzio. Resta fuori, come sviluppo dichiarato, la validazione a \emph{checksum} degli identificatori: un pattern è riconosciuto per forma, non verificato nel contenuto.
+
+\subsection{Presidio come engine}
+\label{sub:impl-presidio}
+
+Il rilevamento a pattern e a NER poggia su un unico motore, l'\texttt{AnalyzerEngine} di Microsoft Presidio~\cite{HomeMicrosoftPresidio}, che è la dipendenza portante del livello: il sistema non riscrive i riconoscitori, li orchestra. Presidio è usato come \textbf{black box} --- riceve il testo e restituisce i riscontri (tipo di entità, intervallo di caratteri, punteggio), senza che il sistema ne governi gli interni --- con una precisazione che conta: non gli si dice \emph{quali} PII cercare; il motore riporta tutte le entità che i suoi riconoscitori conoscono, ed è il sistema a \textbf{filtrarle e ricondurle} al proprio catalogo.
+
+L'incrocio fra le entità di Presidio e il vocabolario dei \texttt{pii\_type} del sistema è \textbf{dichiarato in configurazione} (\texttt{presidio\_entities.yaml}): un'entità mappata diventa un candidato del tipo corrispondente, un'entità non mappata viene scartata. Quando la NER è affidata a GLiNER~\cite{zaratianaGLiNERGeneralistModel2023} (§\ref{sec:scelta-modello-llm}) si aggiunge un secondo passaggio dichiarativo --- dalle etichette \emph{zero-shot} di GLiNER alle entità di Presidio --- così che la rotta verso il catalogo resti una sola.
+
+Una sottigliezza realizzativa merita di essere detta, perché è ciò che tiene \emph{indipendenti} le due sorgenti che il merge poi confronta (§\ref{sub:b4-merge}). Presidio mescola in un solo engine i riconoscitori a pattern e quelli a NER; da quello \emph{stesso} analizzatore il sistema costruisce \textbf{due} detector distinti --- uno trattiene i soli riscontri a pattern, l'altro quelli a NER, separati per il nome del riconoscitore che li ha prodotti. Senza questa separazione le due tecniche sarebbero un'unica sorgente e non potrebbero \emph{concordare}: non esisterebbe la doppia conferma. Gli identificatori che Presidio non copre nativamente --- il numero AVS svizzero --- sono infine aggiunti dal \texttt{RegexDetector} guidato da configurazione e composti coi riconoscitori di Presidio in un'unica sorgente di pattern (\texttt{CompositeDetector}, §\ref{sub:estensibilita-detection}).
+
+\subsection{Il detector generativo}
+\label{sub:impl-ai-detector}
+
+Il terzo rilevatore --- il ramo generativo (§\ref{sub:b4-ai-previsto}) --- è realizzato dietro lo stesso contratto \texttt{PIIDetector} degli altri (\texttt{LLMDetector}), così da entrare nel merge e nella misura senza codice speciale. Al modello locale si chiedono i \emph{valori} delle PII, non i loro offset --- che un modello linguistico non sa contare in modo affidabile --- e ciascun valore è poi \textbf{rilocalizzato} cercandone le occorrenze nel testo: un valore inventato che nel documento non compare non viene trovato, ed è la prima difesa contro le allucinazioni; la seconda è il catalogo chiuso nel prompt, contro cui ogni tipo proposto è validato.
+
+Il modello è scelto da una variabile d'ambiente dedicata, \texttt{PII\_LLM\_MODEL}, \textbf{distinta} da quella del mapper del ROPA (\texttt{ROPA\_LLM\_MODEL}): le due funzionalità AI possono così adottare pesi diversi, pur puntando per default allo \emph{stesso} modello già presente nell'immagine container --- \texttt{phi4-mini}~\cite{abouelenin2025phi4mini} --- scelto per leggerezza e per non introdurre dipendenze. Di questa scelta va detto anche il limite: un modello piccolo e a inferenza rapida non è l'ideale per \emph{leggere} documenti di molte pagine, dove un modello più capace renderebbe di più. La virtù dell'impostazione è che sostituirlo costa una sola variabile d'ambiente --- il \emph{runtime} (Ollama) serve il nuovo modello senza altri interventi --- ed è per questo che la scelta del peso è demandata alla misura (§\ref{cap:risultati}) anziché cablata. \emph{Quali} documenti ricevano il secondo parere è deciso, fuori dal rilevatore, dalla politica di campionamento descritta in architettura (§\ref{sub:b4-ai-previsto}); i riscontri, comunque prodotti, portano con sé la provenienza generativa che il registro conserva (§\ref{sub:dati-registro-pii}), ed è quella provenienza --- \emph{quale} detector ha trovato \emph{che cosa} --- ad abilitare i gradi di certezza del merge.
+
+% -- B5 --
 \subsection{Registro delle PII rilevate (blocco B5)}
 \label{sub:dati-registro-pii}
 
-Quattro tabelle realizzano il \emph{changelog} delta-based (§\ref{sub:persistenza-modello-dati}): stato corrente più storia. Una quinta tabella, \texttt{registry\_folder\_rule}, risiede nella stessa base dati ma appartiene al blocco di associazione (B6, §\ref{sub:b6-associazione}) ed è descritta in coda a questa sezione. È nel changelog che la minimizzazione si vede nel dettaglio.
+% BOZZA B5 (§7) — resa fisica del registro-snapshot descritto in §\ref{sec:b5-DB-PII}. Rivedere.
+Queste tabelle sono la \textbf{resa fisica} del registro-snapshot descritto in architettura (§\ref{sec:b5-DB-PII}): conservano lo stato corrente delle PII per documento --- non la loro storia nel tempo, semplificazione motivata fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}) --- e mai il valore del dato (minimizzazione, §\ref{sub:minimizzazione}), come si vede campo per campo qui sotto.
+
+Tre tabelle realizzano il registro delle PII rilevate (§\ref{sub:persistenza-modello-dati}): il documento, la scansione e la singola istanza rilevata, che ne è lo \textbf{stato corrente}. Una quarta tabella, \texttt{registry\_folder\_rule}, risiede nella stessa base dati ma appartiene al blocco di associazione (B6, §\ref{sub:b6-associazione}) ed è descritta in coda a questa sezione. È nella tabella delle istanze che la minimizzazione si vede nel dettaglio.
 
 \paragraph{\texttt{registry\_document} --- il documento analizzato.}
 \begin{description}
@@ -172,11 +212,11 @@ Quattro tabelle realizzano il \emph{changelog} delta-based (§\ref{sub:persisten
 \end{description}
 Il vocabolario di \texttt{association\_source} è un'enumerazione chiusa (\texttt{AssociationSource}: \texttt{MANUAL}/\texttt{RULE}), come per gli altri campi a dominio fissato del modello.
 
-\paragraph{\texttt{registry\_scan} --- una scansione, cioè un'osservazione nel tempo.}
+\paragraph{\texttt{registry\_scan} --- una singola esecuzione di analisi.}
 \begin{description}
 	\item[\texttt{id}] chiave surrogata.
-	\item[\texttt{document\_id}] chiave esterna al documento osservato.
-	\item[\texttt{created\_at}] istante della scansione: è l'\textbf{asse temporale} su cui poggia l'intero changelog.
+	\item[\texttt{document\_id}] chiave esterna al documento analizzato.
+	\item[\texttt{created\_at}] istante in cui la scansione è stata eseguita.
 \end{description}
 
 \paragraph{\texttt{registry\_pii\_instance} --- la singola PII, stato corrente e mutabile.}
@@ -190,20 +230,26 @@ Nessuna colonna di questa tabella contiene il \emph{valore} della PII: è il pun
 	\item[\texttt{confirmation\_level}] esito del merge (\texttt{single\_source} / \texttt{double\_confirmed} / \texttt{conflicting} / \texttt{ai\_discovered}): traccia \emph{quanto} è certa la rilevazione.
 	\item[\texttt{sources}] gli identificatori dei detector che l'hanno trovata: traccia \emph{chi} l'ha rilevata (tracciabilità, §2.7.3).
 	\item[\texttt{processing\_activity\_id}] l'attività dichiarata a cui la PII corrisponde, oppure \texttt{None} se la PII è \textbf{orfana} (non riconducibile ad alcun trattamento); popolata dal blocco di associazione (B6), senza chiave esterna fisica finché i due database restano distinti.
-	\item[\texttt{last\_scan\_id}] chiave esterna all'ultima scansione che l'ha osservata.
-	\item[\texttt{removed}] flag di stato: \texttt{True} se l'istanza non è più presente, marcata dalla logica di delta; la riga resta, così la storia non si perde.
+	\item[\texttt{last\_scan\_id}] chiave esterna alla scansione che ha registrato l'istanza.
 \end{description}
+Ogni scansione \textbf{sostituisce} le istanze del documento con ciò che vi trova ora: la tabella descrive lo \textbf{stato corrente} delle PII del documento, non la loro storia nel tempo.
 L'\textbf{assenza} di un campo \texttt{value}/\texttt{text} è una scelta di progetto, non una dimenticanza: garantisce che un registro di conformità non si trasformi a sua volta in un archivio di dati personali.
 
-\paragraph{\texttt{registry\_pii\_change} --- il log append-only delle variazioni.}
-\begin{description}
-	\item[\texttt{id}] chiave surrogata.
-	\item[\texttt{pii\_instance\_id}] chiave esterna all'istanza cui la variazione si riferisce.
-	\item[\texttt{change\_type}] il tipo di variazione, vocabolario chiuso: \texttt{NEW} / \texttt{CONFIRMED} / \texttt{MOVED} / \texttt{REMOVED} (§\ref{sub:persistenza-punti-aperti}).
-	\item[\texttt{scan\_id}] chiave esterna alla scansione che ha prodotto la variazione.
-	\item[\texttt{previous\_scan\_id}] chiave esterna alla scansione \emph{precedente} dello stesso documento --- ciò che lega le rilevazioni nel tempo; vale \texttt{None} alla prima scansione (\emph{bootstrap}).
-	\item[\texttt{timestamp}] istante in cui la variazione è stata registrata.
-\end{description}
+% ---- RIMOSSO: tracciabilità temporale per-PII (changelog delta-based) scartata --------
+% Feature a metà, troppo complessa: non fatta perenne. Vedi rimozione-tempo.md.
+% RIMOSSA ANCHE DAL CODICE (2026-08-20): via ChangeType/PIIChange/diff.py, record_scan
+% ora replace-on-scan. La tabella registry_pii_change NON esiste più. Blocco tenuto
+% commentato solo come traccia storica; si può eliminare del tutto.
+% \paragraph{\texttt{registry\_pii\_change} --- il log append-only delle variazioni.}
+% \begin{description}
+% 	\item[\texttt{id}] chiave surrogata.
+% 	\item[\texttt{pii\_instance\_id}] chiave esterna all'istanza cui la variazione si riferisce.
+% 	\item[\texttt{change\_type}] il tipo di variazione, vocabolario chiuso: \texttt{NEW} / \texttt{CONFIRMED} / \texttt{MOVED} / \texttt{REMOVED}.
+% 	\item[\texttt{scan\_id}] chiave esterna alla scansione che ha prodotto la variazione.
+% 	\item[\texttt{previous\_scan\_id}] chiave esterna alla scansione \emph{precedente} dello stesso documento --- ciò che lega le rilevazioni nel tempo; vale \texttt{None} alla prima scansione (\emph{bootstrap}).
+% 	\item[\texttt{timestamp}] istante in cui la variazione è stata registrata.
+% \end{description}
+% ---- fine blocco rimosso ---------------------------------------------------------------
 
 \paragraph{\texttt{registry\_folder\_rule} --- la regola cartella→trattamento (blocco B6).}
 Fisicamente nella stessa base dati del registro delle PII, ma logicamente parte dell'associazione (§\ref{sub:b6-associazione}): mappa un prefisso di percorso ai trattamenti che i documenti sotto di esso ereditano.
@@ -213,19 +259,25 @@ Fisicamente nella stessa base dati del registro delle PII, ma logicamente parte 
 	\item[\texttt{created\_at}] istante di creazione della regola.
 \end{description}
 
-In sintesi: il registro ROPA conserva il dichiarato (con il testo originale accanto alla forma strutturata, per audit), mentre il registro delle PII conserva soltanto \emph{riferimenti} a ciò che è stato rilevato e la loro storia --- mai i valori. Le due basi restano separate; i campi \texttt{Document.activity\_ids} (associazione N:N, B6) e \texttt{PIIInstance.processing\_activity\_id} (trattamento giustificante per singola PII, popolato da B7) sono i punti in cui i due mondi si collegano \emph{logicamente}, sull'identificatore-stringa del trattamento.
+In sintesi: il registro ROPA conserva il dichiarato (con il testo originale accanto alla forma strutturata, per audit), mentre il registro delle PII conserva soltanto \emph{riferimenti} a ciò che è stato rilevato --- mai i valori. Le due basi restano separate; i campi \texttt{Document.activity\_ids} (associazione N:N, B6) e \texttt{PIIInstance.processing\_activity\_id} (trattamento giustificante per singola PII, popolato da B7) sono i punti in cui i due mondi si collegano \emph{logicamente}, sull'identificatore-stringa del trattamento.
 
-\section{Realizzazione del livello di rilevamento}
-\label{sec:impl-detection}
+% -- B7 --
+\section{B7 - Verifica di conformità}
+\label{sec:impl-b7-conformita}
 
-Le due scelte tecnologiche che governano questo livello --- costruire il rilevamento a pattern e NER sopra Microsoft Presidio, e quale modello generativo adottare per gli impieghi selettivi --- non sono state compiute qui: sono l'esito degli studi condotti prima della progettazione (§\ref{sec:valutazione-presidio}, §\ref{sec:scelta-modello-llm}), la cui verifica sperimentale è nel Capitolo~\ref{cap:test}. Questa sezione ne descrive la realizzazione, e in particolare la proprietà che ne governa la manutenzione nel tempo.
+% NB: qui va la realizzazione di B7. Per ora è scritto il solo controllo di
+% conservazione (splittato dal §6, §\ref{sub:b7-retention}); il confronto
+% dichiarato-vs-rilevato (checker.build_report -> orfane/coperte/mancanti,
+% propose_category) resta da riempire.
 
-\subsection{Estensibilità config-driven: aggiungere categorie e pattern}
-\label{sub:estensibilita-detection}
+\subsection{Il controllo di conservazione}
+\label{sub:impl-b7-retention}
 
-Una proprietà di progetto del livello di rilevamento è che il suo vocabolario non è cablato nel codice ma \textbf{dichiarato in configurazione}. Il catalogo delle categorie di PII (\texttt{categories.yaml}) e i pattern a espressioni regolari personalizzati (\texttt{custom\_patterns.yaml}) sono file validati al caricamento; aggiungere una nuova categoria o un nuovo identificatore strutturato --- un codice aziendale, un riferimento interno, un numero di settore --- è quindi una \textbf{modifica di configurazione, non di codice}. Le regole così dichiarate vengono eseguite a runtime dal riconoscitore generico (\texttt{RegexDetector}) e affiancate ai riconoscitori pre-costruiti di Presidio tramite un \texttt{CompositeDetector}, così da presentarsi al merge come un'unica sorgente di pattern.
+Il concetto del controllo di conservazione è in architettura (§\ref{sub:b7-retention}); qui se ne descrive la realizzazione. Il verdetto confronta la durata dichiarata dal ROPA --- \texttt{retention\_months} della macro-categoria (§\ref{sub:dati-ropa}) --- con l'\textbf{età del documento}, cioè la sua \texttt{reference\_date} con la relativa provenienza (\texttt{DateSource}), stimata dall'estrazione (§\ref{sec:impl-b3-estrazione}): una categoria è in \emph{violazione} quando un suo dato è ancora presente e la data del documento supera il termine dichiarato.
 
-La scelta separa \emph{ciò che} si rileva --- competenza del DPO o del manutentore, in configurazione --- da \emph{come} lo si rileva, cioè il motore, che resta stabile. Il file dei pattern personalizzati è riservato agli identificatori che Presidio non copre nativamente (il numero AVS svizzero ne è il primo esempio), per non duplicare ciò che il motore già fornisce. La validazione al caricamento --- il pattern deve compilare, ogni \texttt{pii\_type} deve esistere nel catalogo --- fa fallire subito una configurazione errata, invece di degradare il rilevamento in silenzio. Resta fuori, come sviluppo dichiarato, la validazione a \emph{checksum} degli identificatori: un pattern è riconosciuto per forma, non verificato nel contenuto.
+Il caso più insidioso non è la violazione ma il \textbf{silenzio}. Quando la macro-categoria non esprime una durata fissa ma un criterio (\texttt{retention\_months} vale \texttt{None}, per esempio «per la durata del rapporto»), il primo prototipo saltava il controllo e il documento usciva \emph{conforme} senza che nessuno avesse verificato. Ora quel caso produce l'esito esplicito \texttt{retention\_unresolved} (\emph{conservazione non verificabile}), calcolato \textbf{fuori} dalla guardia sulla data --- la lacuna è nel registro, non nel documento --- così da distinguerlo dalla conformità effettiva. La \textbf{regola su quali categorie contino} (solo le confermate, oppure anche le proposte) è definita in un unico punto (\texttt{\_macro\_types}) e usata identica dal confronto delle categorie e dal controllo di conservazione, perché uno stesso documento non possa risultare orfano per metà verdetto e coperto per l'altra.
+
+Due dettagli di robustezza completano il quadro. Il parsing del periodo di conservazione riconosce anche le \textbf{unità francesi} (\texttt{an}/\texttt{ans}/\texttt{mois}): il template è quello CNIL e una dicitura come «5 ans» non riconosciuta disattiverebbe di fatto il controllo. E la stessa lettura è disponibile come \textbf{vista di corpus} (\texttt{compliance retention} da CLI, pagina \texttt{/retention} nella dashboard): riusa lo stesso calcolo su tutto il registro, legge il ROPA \textbf{una sola volta}, non scrive nulla e ordina i documenti per mesi di sforamento; i documenti non associati ad alcun trattamento sono esclusi, perché senza un termine dichiarato non c'è nulla da confrontare.
 
 \section{Deployment containerizzato e portabilità}
 \label{sec:containerizzazione}
