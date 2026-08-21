@@ -1,0 +1,35 @@
+=== Tier 1 — clean text (detection only) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            1.00    1.00   1.00   20    0    0
+credit_card        1.00    1.00   1.00   10    0    0
+date_of_birth      1.00    1.00   1.00   20    0    0
+email              0.98    1.00   0.99   60    1    0
+health_data        1.00    1.00   1.00   10    0    0
+iban               1.00    1.00   1.00   20    0    0
+ip_address         1.00    1.00   1.00   20    0    0
+italian_id         1.00    1.00   1.00   60    0    0
+person_name        0.75    1.00   0.86   60   20    0
+phone              0.88    0.83   0.85   50    7   10
+swiss_avs          1.00    1.00   1.00   10    0    0
+-----------------------------------------------------
+OVERALL            0.92    0.97   0.95  340   28   10
+
+=== Tier 2 — extracted from PDF (B3 + detection) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            1.00    1.00   1.00   20    0    0
+credit_card        1.00    1.00   1.00   10    0    0
+date_of_birth      1.00    1.00   1.00   20    0    0
+email              0.98    1.00   0.99   60    1    0
+health_data        1.00    1.00   1.00   10    0    0
+iban               1.00    1.00   1.00   20    0    0
+ip_address         1.00    1.00   1.00   20    0    0
+italian_id         1.00    1.00   1.00   60    0    0
+person_name        0.75    1.00   0.86   60   20    0
+phone              0.84    0.80   0.82   48    9   12
+swiss_avs          1.00    1.00   1.00   10    0    0
+-----------------------------------------------------
+OVERALL            0.92    0.97   0.94  338   30   12
+
+Extraction tax (F1 clean - F1 extracted): +0.006

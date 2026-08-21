@@ -1,0 +1,51 @@
+
+=== Presidio pattern (regex/checksum) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.00    0.00   0.00    0    0    1
+credit_card        1.00    1.00   1.00    1    0    0
+date_of_birth      0.00    0.00   0.00    0    0    1
+email              1.00    1.00   1.00    3    0    0
+health_data        0.00    0.00   0.00    0    0    1
+iban               1.00    1.00   1.00    3    0    0
+ip_address         1.00    0.33   0.50    1    0    2
+italian_id         1.00    1.00   1.00    2    0    0
+person_name        0.00    0.00   0.00    0    0    2
+phone              1.00    1.00   1.00    1    0    0
+swiss_avs          0.00    0.00   0.00    0    0    1
+-----------------------------------------------------
+OVERALL            1.00    0.58   0.73   11    0    8
+
+=== Presidio NER (GLiNER) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            1.00    1.00   1.00    1    0    0
+credit_card        0.00    0.00   0.00    0    0    1
+date_of_birth      1.00    1.00   1.00    1    0    0
+email              0.00    0.00   0.00    0    0    3
+health_data        1.00    1.00   1.00    1    0    0
+iban               0.00    0.00   0.00    0    0    3
+ip_address         1.00    0.67   0.80    2    0    1
+italian_id         0.00    0.00   0.00    0    0    2
+person_name        0.50    1.00   0.67    2    2    0
+phone              0.00    0.00   0.00    0    0    1
+swiss_avs          0.00    0.00   0.00    0    0    1
+-----------------------------------------------------
+OVERALL            0.78    0.37   0.50    7    2   12
+
+=== Presidio union (pattern + NER) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            1.00    1.00   1.00    1    0    0
+credit_card        1.00    1.00   1.00    1    0    0
+date_of_birth      1.00    1.00   1.00    1    0    0
+email              1.00    1.00   1.00    3    0    0
+health_data        1.00    1.00   1.00    1    0    0
+iban               1.00    1.00   1.00    3    0    0
+ip_address         1.00    1.00   1.00    3    0    0
+italian_id         1.00    1.00   1.00    2    0    0
+person_name        0.50    1.00   0.67    2    2    0
+phone              1.00    1.00   1.00    1    0    0
+swiss_avs          0.00    0.00   0.00    0    0    1
+-----------------------------------------------------
+OVERALL            0.90    0.95   0.92   18    2    1
