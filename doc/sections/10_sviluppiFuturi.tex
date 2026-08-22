@@ -17,10 +17,14 @@ ricerca. È soprattutto la terza condizione a spiegare gli esiti che seguono: a 
 utilità pratica, una funzionalità che non genera alcun dato da valutare compete con il
 tempo destinato a ciò che invece ne genera. \medskip
 
-Le sezioni che seguono trattano una funzionalità ciascuna secondo lo stesso schema --- che
+Le tre sezioni che seguono trattano una funzionalità ciascuna secondo lo stesso schema --- che
 cosa avrebbe portato, che cosa sarebbe costata, perché è stata accantonata e a quali
 condizioni potrebbe essere ripresa --- e la Tabella~\ref{tab:funzionalita-scartate} ne
-riassume la valutazione. L'ultima sezione raccoglie invece i limiti già dichiarati altrove
+riassume la valutazione. A queste si aggiunge una capacità di natura diversa --- il
+tracciamento temporale delle singole PII (§\ref{sec:sf-tracciamento-temporale}) --- che non è
+stata accantonata ma \emph{progettata} nel dettaglio e poi rinviata per ragioni di tempo: se
+ne riportano qui l'analisi degli approcci e il modello dati, così che la ripresa parta dal
+disegno già svolto. L'ultima sezione raccoglie infine i limiti già dichiarati altrove
 nel documento, che restano aperti come naturale prosecuzione del lavoro svolto.
 
 \section{Analisi contestuale della struttura del file system}
@@ -216,6 +220,172 @@ valore più alto, ed è l'unica esclusa in via definitiva. A determinare gli esi
 terza colonna: dove la funzionalità non produce un risultato valutabile, il suo costo compete
 direttamente con il tempo destinato a ciò che invece lo produce.
 
+\section{Tracciamento temporale delle PII rilevate}
+\label{sec:sf-tracciamento-temporale}
+
+A differenza delle tre funzionalità precedenti, questa non è stata scartata: è stata
+\textbf{progettata}, se ne sono confrontati gli approcci realizzativi e se ne è scelto uno, ma
+la realizzazione è stata rinviata per ragioni di tempo. Il registro delle PII effettivamente
+costruito si limita perciò allo \textbf{stato corrente} (§\ref{sec:persistenza-registro}):
+ogni scansione sostituisce le PII registrate di un documento con quelle che vi trova al
+momento. Si riporta qui il disegno svolto, così che una ripresa non debba ripartire da zero.
+
+\subsection{Il requisito di tracciamento temporale}
+\label{sub:persistenza-requisito}
+
+Le linee guida di progetto prospettavano che il sistema mantenesse una traccia tale per cui, se
+un utente in seguito modifica un file, fosse possibile accorgersi che una determinata PII è
+stata cancellata o modificata rispetto a una rilevazione precedente. Il registro dovrebbe cioè
+poter rispondere non solo alla domanda «quali PII sono presenti ora?», ma anche «\textit{che
+cosa è cambiato} rispetto alla scansione precedente?».
+
+Questo è un requisito di \textbf{tracciamento temporale} e ha una conseguenza diretta sul
+modello dati: non basta uno stato corrente scollegato dal passato, serve un meccanismo che
+leghi esplicitamente le rilevazioni successive dello stesso documento. È il criterio rispetto
+al quale sono valutate le opzioni che seguono.
+
+\subsection{Approcci valutati}
+\label{sub:persistenza-approcci}
+
+Il problema non si riduce a una scelta binaria tra snapshot ed event logger: esistono tre approcci distinti, con profili di complessità e garanzie molto diversi, riassunti nella Tabella~\ref{tab:persistenza-opzioni}.
+
+\begin{table}[htbp]
+	\centering
+	\caption{Approcci valutati per la persistenza del registro delle PII.}
+	\label{tab:persistenza-opzioni}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|c|l|l|l|}
+			\hline
+			\textbf{\#} & \textbf{Approccio}                      & \textbf{Idea di fondo}                                                         & \textbf{Fonte di verità}              \\
+			\hline
+			A           & Snapshot completi                       & Ogni scansione salva l'intero stato rilevato, indipendente dalle altre         & Ultimo snapshot                       \\
+			\hline
+			B           & Event sourcing puro                     & Si salvano solo gli eventi; lo stato corrente è \textit{derivato} col replay   & Il log degli eventi                   \\
+			\hline
+			C           & \textbf{Changelog ibrido (delta-based)} & Stato corrente mutabile \textit{e} log append-only secondario delle variazioni & Lo stato corrente (log complementare) \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\subsubsection{Opzione A --- Snapshot completi}
+
+A ogni esecuzione della pipeline si salva un'istantanea completa di tutte le PII rilevate \texttt{(pii\_type, document\_path, position, associated\_processing, scan\_date)} autoconsistente e indipendente dalle altre. Il modello dati è minimale (una sola entità, nessuna logica di correlazione), non esiste rischio di derivare uno stato errato perché ogni snapshot \textit{è} lo stato, e la realizzazione è immediata.
+
+Il limite è però esattamente sul requisito del §\ref{sub:persistenza-requisito}: non esiste \textbf{alcuna relazione esplicita tra scansioni consecutive}. Con due snapshot presi a distanza di ore, ricostruire «che cosa è cambiato» richiede un confronto (diff) calcolato a posteriori, riga per riga, senza alcuna struttura che leghi le due fotografie. A ciò si aggiunge la ridondanza dei dati (le PII invariate vengono riscritte a ogni scansione) e il fatto che il tracciamento temporale non è una proprietà del modello ma un'operazione applicativa da implementare comunque. L'opzione non è scartata perché errata, ma perché sposta interamente sul livello applicativo il lavoro di correlazione che il requisito richiede, senza offrire una struttura dati che lo supporti.
+
+\subsubsection{Opzione B --- Event sourcing puro}
+
+Lo stato dell'applicazione non viene mai salvato direttamente: si registra ogni cambiamento come evento immutabile in un log append-only, e lo stato corrente si ottiene \textit{rigiocando} (replay) l'intera sequenza di eventi. Nella formulazione originale di Fowler, il log diventa la fonte di verità principale e lo stato è puramente derivato~\cite{fowlerEventSourcing2005}. Il pattern offre per costruzione una storia completa e immutabile --- si può ricostruire lo stato a qualsiasi istante passato --- con auditabilità nativa, proprietà interessante per un sistema di conformità; qui il tracciamento temporale non è un'aggiunta, ma il modello stesso.
+
+Su questo approccio la letteratura è però netta. Lo studio empirico di Overeem et al., basato su interviste con 25 ingegneri che hanno adottato il pattern in sistemi reali, identifica cinque sfide ricorrenti, tra cui una curva di apprendimento ripida e l'evoluzione dello schema (\textit{schema evolution}): non difficoltà percepite, ma \textit{liabilities} documentate del pattern~\cite{overeemEmpiricalCharacterizationEvent2021}. Inoltre, poiché lo stato corrente non è memorizzato ma va ricostruito, anche l'interrogazione più semplice («quali PII ci sono ora in questo documento?») richiede di rigiocare gli eventi; per rendere efficienti le letture, l'event sourcing viene quasi sempre affiancato al pattern CQRS (\textit{Command Query Responsibility Segregation}), che introduce un \textit{secondo} modello di lettura mantenuto in parallelo, cioè ulteriore complessità architetturale~\cite{youngCQRSDocuments, microsoftAzureEventSourcing, awsEventSourcingPattern}. A questo si sommano la crescita illimitata del log e la gestione di proiezioni, versioning degli eventi e consistenza eventuale. La stessa documentazione di riferimento raccomanda di adottare il pattern \textbf{solo} quando i benefici di auditabilità e ricostruzione storica giustificano la complessità introdotta, notando che per la maggior parte dei sistemi la gestione dati tradizionale è sufficiente~\cite{microsoftAzureEventSourcing}.
+
+\subsubsection{Opzione C --- Changelog ibrido delta-based}
+
+L'approccio che si sarebbe adottato mantiene \textbf{due} strutture complementari:
+\begin{enumerate}
+	\item uno \textbf{stato corrente mutabile} --- la lista delle PII attualmente presenti, interrogabile direttamente senza alcuna ricostruzione;
+	\item un \textbf{log append-only delle variazioni} (\textit{changelog}), \textit{secondario}, che registra ogni delta tra una scansione e la successiva e lega esplicitamente ogni variazione alla scansione precedente dello stesso documento.
+\end{enumerate}
+
+La differenza cruciale rispetto all'opzione B è che il log \textbf{non è l'unica fonte di verità}: lo stato corrente esiste già come dato di prima classe, quindi nessun replay è necessario per le operazioni quotidiane. Il changelog serve a rispondere alla domanda «che cosa è cambiato», non a ricostruire lo stato. L'approccio combina due concetti presenti in letteratura: il \textbf{dataset delta-driven} proprio del \textit{Change Data Capture} (CDC), che cattura le variazioni tra uno stato e il successivo \textit{senza} fare del log la fonte di verità esclusiva, mantenendo lo stato corrente come dato normale e interrogabile~\cite{kleppmannDesigningDataIntensive2017}; e l'idea di \textbf{log immutabile append-only} come traccia di audit, mutuata dall'event sourcing ma applicata in forma non esclusiva.
+
+\begin{quote}
+	\textit{Nota terminologica.} Il CDC descritto da Kleppmann cattura i cambiamenti leggendo il \textit{transaction log} di un database sorgente. Nel sistema qui proposto, invece, i cambiamenti vengono \textit{rilevati} confrontando i risultati di scansioni successive di documenti esterni: non esiste un database sorgente di cui intercettare le transazioni. Il modello è dunque \textit{ispirato} al paradigma delta-based del CDC, non un'implementazione di CDC in senso stretto.
+\end{quote}
+
+\subsection{Motivazione della scelta}
+\label{sub:persistenza-scelta}
+
+L'opzione C è quella che si sarebbe adottata, come risultato di un confronto esplicito di \textit{trade-off}, sintetizzato nella Tabella~\ref{tab:persistenza-confronto}, e si articola in quattro punti:
+
+\begin{enumerate}
+	\item \textbf{Risolve il difetto di A.} Il changelog lega ogni variazione alla scansione precedente dello stesso documento: le scansioni non sono più fotografie isolate e la domanda «che cosa è cambiato» ha una risposta strutturale, non un diff calcolato a posteriori.
+	\item \textbf{Evita il costo di B.} Lo stato corrente è memorizzato e interrogabile direttamente: niente replay, niente proiezioni, niente CQRS, niente consistenza eventuale da gestire. Le sfide di adozione documentate da Overeem et al.~\cite{overeemEmpiricalCharacterizationEvent2021} non si applicano, perché non si sta adottando event sourcing puro.
+	\item \textbf{Conserva l'auditabilità dove serve.} Se servisse la ricostruzione storica completa, resta possibile rigiocando il changelog --- ma è una \textit{possibilità}, non un requisito per il funzionamento quotidiano: si ottiene gran parte del beneficio di B senza pagarne il prezzo in anticipo.
+	\item \textbf{È coerente con la minimizzazione del dato.} Registrando solo riferimenti e non valori, sia lo stato corrente sia il changelog restano leggeri e privi di PII effettive.
+\end{enumerate}
+
+\begin{table}[htbp]
+	\centering
+	\caption{Sintesi comparativa dei tre approcci di persistenza.}
+	\label{tab:persistenza-confronto}
+	\small
+	\resizebox{\textwidth}{!}{%
+		\begin{tabular}{|l|c|c|c|}
+			\hline
+			\textbf{Criterio}                    & \textbf{A --- Snapshot} & \textbf{B --- Event sourcing}                      & \textbf{C --- Changelog ibrido} \\
+			\hline
+			Relazione esplicita tra scansioni    & \ding{55}               & \ding{51}                                          & \ding{51}                       \\
+			\hline
+			Interrogazione stato corrente        & immediata               & replay / CQRS                                      & immediata                       \\
+			\hline
+			Complessità realizzativa             & bassa                   & alta                                               & medio-bassa                     \\
+			\hline
+			Auditabilità / storia completa       & \ding{55}               & \ding{51}                                          & parziale (estendibile)          \\
+			\hline
+			Ridondanza dei dati                  & alta                    & nessuna                                            & bassa                           \\
+			\hline
+			Coerenza con minimizzazione del dato & \ding{51}               & \ding{51}                                          & \ding{51}                       \\
+			\hline
+			Rischio di stato derivato errato     & nullo                   & presente                                           & nullo                           \\
+			\hline
+			Sfide di adozione documentate        & ---                     & 5~\cite{overeemEmpiricalCharacterizationEvent2021} & non applicabili                 \\
+			\hline
+		\end{tabular}%
+	}
+\end{table}
+
+\subsection{Modello dati concettuale del changelog}
+\label{sub:persistenza-changelog-modello}
+
+Al modello dello stato corrente (§\ref{sub:persistenza-modello-dati}) il tracciamento temporale aggiungerebbe una seconda entità. \texttt{PIIChange} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra»: comprende un identificatore, il riferimento all'\texttt{PIIInstance}, il \texttt{change\_type} (vocabolario chiuso: \texttt{NEW} / \texttt{CONFIRMED} / \texttt{MOVED} / \texttt{REMOVED}), il riferimento alla \texttt{Scan} che ha prodotto la variazione, il riferimento alla \texttt{previous\_scan} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}. Lo stato corrente (\texttt{PIIInstance}) acquisterebbe inoltre un indicatore \texttt{removed}, per segnare le istanze non più presenti senza cancellarne la riga.
+
+Rispetto all'ER dello stato corrente, il modello esteso introdurrebbe due relazioni: \texttt{PIIInstance}~(1)--(N)~\texttt{PIIChange} (\textit{ha storia}) e \texttt{Scan}~(1)--(N)~\texttt{PIIChange} (\textit{genera}). La Figura~\ref{fig:er-changelog-futuro} ne dà una sintesi grafica.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			entity/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			ext/.style={rectangle, draw, dashed, rounded corners, minimum width=3.2cm,
+					minimum height=1cm, align=center, fill=gray!10, font=\small},
+			rel/.style={font=\footnotesize\itshape, fill=white, inner sep=1.5pt},
+			card/.style={font=\footnotesize},
+			link/.style={thick},
+		]
+		\node (doc)  [entity] at (0, 3)    {\texttt{Document}};
+		\node (inst) [entity] at (0, 0)    {\texttt{PIIInstance}};
+		\node (chg)  [entity] at (0, -3)   {\texttt{PIIChange}};
+		\node (scan) [entity] at (5, 0)    {\texttt{Scan}};
+		\node (act)  [ext]    at (-5.5, 0) {\texttt{ProcessingActivity}\\{\footnotesize(ROPA, B1)}};
+
+		% Document (1)--(N) PIIInstance : contiene
+		\draw [link] (doc) -- node[card, pos=0.15, right]{1}
+		node[rel]{contiene} node[card, pos=0.85, right]{N} (inst);
+		% PIIInstance (1)--(N) PIIChange : ha storia
+		\draw [link] (inst) -- node[card, pos=0.15, right]{1}
+		node[rel]{ha storia} node[card, pos=0.85, right]{N} (chg);
+		% Document (1)--(N) Scan : osservato in
+		\draw [link] (doc) -- node[card, pos=0.15, above]{1}
+		node[rel, pos=0.55]{osservato in} node[card, pos=0.85, above]{N} (scan);
+		% Scan (1)--(N) PIIChange : genera
+		\draw [link] (scan) -- node[card, pos=0.15, below]{1}
+		node[rel, pos=0.55]{genera} node[card, pos=0.85, below]{N} (chg);
+		% PIIInstance (N)--(0..1) ProcessingActivity : corrisponde a
+		\draw [link] (inst) -- node[card, pos=0.15, above]{N}
+		node[rel]{corrisponde a} node[card, pos=0.85, above]{0..1} (act);
+		% Document (N)--(N) ProcessingActivity : appartiene a (associazione B6, N:N)
+		\draw [link, dashed] (doc) to[out=180, in=90]
+		node[card, pos=0.08, above]{N}
+		node[rel, pos=0.5]{appartiene a (B6)}
+		node[card, pos=0.92, left]{N} (act);
+	\end{tikzpicture}
+	\caption[Diagramma ER del changelog delle PII (design rinviato)]{Modello dati esteso per il tracciamento temporale (design rinviato): allo stato corrente (\texttt{PIIInstance}) si affianca il log append-only delle variazioni (\texttt{PIIChange}), legato alle scansioni (\texttt{Scan}) e all'istanza di cui registra la storia. I legami con \texttt{ProcessingActivity} del registro ROPA (tratteggiati, blocco B1) e con \texttt{Document} sono quelli già descritti per lo stato corrente (§\ref{sub:persistenza-modello-dati}).}
+	\label{fig:er-changelog-futuro}
+\end{figure}
+
 \section{Limiti dichiarati e direzioni residue}
 \label{sec:sf-direzioni}
 Oltre alle funzionalità sopra discusse, restano aperti alcuni limiti già riconosciuti nel
@@ -238,9 +408,6 @@ corso del documento, che costituiscono la naturale prosecuzione del lavoro:
 	      sintetici, più ordinati del reale, e vanno intese come limite superiore; la verifica sul
 	      patrimonio documentale effettivo di un'organizzazione resta un passaggio non eludibile
 	      prima dell'adozione (cfr.~\ref{sub:rischio-dataset}, \ref{sub:rischio-domain-silo}).
-	\item \textbf{Passata generativa selettiva.} Il punto di innesto per un rilevatore basato su
-	      modello generativo, da impiegare su un campione di documenti, è previsto e predisposto
-	      ma non ancora attivo (cfr.~\ref{sub:b4-ai-previsto}).
 	\item \textbf{Datazione dal contenuto.} La data di riferimento di un documento è oggi stimata
 	      dai metadati e dal file system; ricavarla dal corpo del testo --- dove spesso compare in
 	      chiaro --- renderebbe la verifica della conservazione assai più solida, ma richiede un
