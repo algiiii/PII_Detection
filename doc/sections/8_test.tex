@@ -29,7 +29,7 @@ tutti superati (${\sim}16$ secondi in \textit{container}); la Tabella~\ref{tab:t
 ne riepiloga la distribuzione per area. Il dettaglio dei singoli casi non appartiene alla
 tesi: la reference tecnica generata dai docstring del codice documenta le API verificate.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Distribuzione dei test di unità per area del sistema (378 casi, tutti superati).}
 	\label{tab:test-unit}
@@ -60,13 +60,82 @@ tesi: la reference tecnica generata dai docstring del codice documenta le API ve
 \end{table}
 
 % =====================================================================
+\section{Generazione dei corpus sintetici}
+\label{sec:generazione-corpus}
+% =====================================================================
+
+La validazione del rilevamento richiede documenti annotati --- testo di cui si conosca in
+anticipo, con certezza, dove sono le PII e di che tipo. Non esistono \textit{benchmark}
+pubblici adatti, e usare documenti reali sarebbe in contraddizione con l'oggetto stesso del
+lavoro (trattare PII reali per costruirne uno strumento di tutela); la contromisura, prevista
+in sede di analisi dei rischi (§\ref{sub:rischio-dataset}), è \textbf{generare corpus
+sintetici e riproducibili a partire da un seme}. Questa sezione ne descrive la realizzazione.
+Il principio che governa l'intero apparato è uno solo: il \textit{gold} non è mai scritto a
+parte, ma \textbf{derivato dalla stessa sorgente} che produce il testo, così che annotazione
+e documento non possano divergere.
+
+\paragraph{Annotazione in linea e \textit{gold} gratuito.} Ogni PII è marcata nel testo con
+la sintassi \texttt{\{\{pii\_type:value\}\}} --- per esempio
+\texttt{\{\{iban:IT60X05\dots\}\}}. Un unico \textit{loader} rimuove i marcatori,
+restituendo al tempo stesso il testo pulito su cui girano i rilevatori e gli \textit{span} di
+\textit{ground truth} nelle coordinate di quel testo: nessuno conta gli \textit{offset} a
+mano, e non c'è modo che il \textit{gold} si disallinei dal documento, perché è calcolato da
+esso in un solo passaggio. Su questa convenzione poggiano tutti i corpus descritti sotto.
+
+\paragraph{Valori realistici e validi al \textit{checksum}.} Il generatore
+(\texttt{corpus\_generator}) produce documenti annotati con valori \textbf{realistici} ---
+nomi, indirizzi, condizioni sanitarie, prodotti da \texttt{Faker} --- e, dove la categoria
+prevede una cifra di controllo, \textbf{aritmeticamente validi}: IBAN (regola \textit{mod-97}
+ISO 7064), numero di carta (algoritmo di Luhn), numero AVS svizzero (EAN-13), codice fiscale
+italiano (generato con la libreria \texttt{python-codicefiscale}). La validità al
+\textit{checksum} non è un dettaglio estetico ma una condizione necessaria alla correttezza
+della misura: i riconoscitori di Presidio \emph{verificano} quelle cifre di controllo, e un
+valore formalmente plausibile ma incoerente verrebbe scartato in silenzio --- facendo del
+generatore stesso la causa di un mancato rilevamento e gonfiando artificiosamente i falsi
+negativi (§\ref{sec:estrazione-b3} rimanda a questa proprietà già in fase di architettura).
+Per non dipendere da Presidio nel garantirla, ogni valore è \textbf{ri-verificato} con
+algoritmi puri e indipendenti prima di entrare nel corpus. La generazione è governata da un
+\textbf{seme}: a parità di seme il corpus è identico, quindi ogni misura è riproducibile.
+
+\paragraph{Resa in documenti reali (Tier 2).} Per valutare la pipeline
+\emph{end-to-end} --- estrazione compresa --- il testo generato è reso in file veri
+(\texttt{render}): i marcatori sono rimossi, il testo pulito è scritto in \textbf{PDF/DOCX} e,
+accanto ai file, è emesso un \textit{gold} per \textbf{valore} (\texttt{gold.jsonl}, coppie
+\texttt{(pii\_type, value)}). La granularità cambia --- non più \textit{span}, ma valori ---
+perché una volta che l'estrazione ha spostato gli \textit{offset} la posizione originale non
+esiste più; ma la sorgente resta unica e i file e il \textit{gold} sono \textbf{derivati nello
+stesso passaggio}, di nuovo senza possibilità di deriva. La resa è deliberatamente semplice
+(colonna singola, \emph{born-digital}): serve a esercitare il collegamento
+estrazione~$\rightarrow$~rilevamento su documenti nativi digitali, non a riprodurre il caos
+tipografico reale (multi-colonna, tabelle, scansioni), che richiederebbe OCR e analisi di
+\textit{layout} ed è dichiarato fuori perimetro (§\ref{sec:sf-formati}).
+
+\paragraph{Il corpus aziendale (scala e falsi positivi).} Accanto ai due corpus «piatti»,
+un terzo generatore costruisce da un seme un intero \textbf{albero di cartelle} aziendale
+(dell'ordine delle centinaia di documenti, da poche righe a decine di pagine), pensato per la
+valutazione a scala e per lo stress della scansione ricorsiva. Tre sue proprietà sono
+metodologicamente rilevanti. Anzitutto è \textbf{pianificato come valore}: una funzione pura
+(\texttt{plan\_corpus}) decide in anticipo quali file esistono, con quale contenuto, lunghezza
+e data, senza toccare il disco --- così le proprietà che contano (riproducibilità, mix di
+lunghezze, quota di documenti senza PII, copertura delle categorie) sono verificabili in
+millisecondi. In secondo luogo contiene una \textbf{quota deliberata di documenti privi di
+qualsiasi PII} (verbali, listini, manuali) con elementi \textbf{distrattori} (protocolli,
+importi, codici articolo): è l'unico modo per misurare i \textbf{falsi positivi}, altrimenti
+non osservabili su un corpus in cui ogni documento contiene PII (§\ref{sub:rischio-falsi-positivi}).
+Infine il \textbf{rumore è dichiarato}: ogni file volutamente problematico (formati non
+supportati, PDF vuoto o troncato, file di lock) porta con sé nel \textit{manifest} il
+comportamento atteso, così il test asserisce l'esito esatto invece di sperare che il sistema
+non si rompa.
+
+% =====================================================================
 \section{Metodo di valutazione}
 \label{sec:test-metodo}
 % =====================================================================
 
-\paragraph{Due corpora, due granularità.} La qualità del rilevamento è misurata su corpus
-\textbf{sintetici} e riproducibili da seme, così da disporre di un \textit{gold} certo senza
-mai trattare PII reali (§\ref{sub:rischio-dataset}). Se ne usano due, complementari:
+\paragraph{Due corpora, due granularità.} La qualità del rilevamento è misurata sui corpus
+\textbf{sintetici} descritti sopra (§\ref{sec:generazione-corpus}), riproducibili da seme e
+con \textit{gold} certo senza mai trattare PII reali. Nel capitolo se ne usano due,
+complementari:
 
 \begin{itemize}
 	\item un \textbf{corpus di unità}, un insieme ridotto di documenti annotati \emph{in
@@ -115,7 +184,7 @@ questi parametri le cifre di §\ref{sec:test-ai-multimodello} non sarebbero ripr
 interpretabili. Tre condizioni meritano di essere sottolineate, perché spiegano
 l'\emph{ordine di grandezza} dei risultati.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Ambiente di prova: hardware, risorse del \textit{container} e parametri di inferenza.}
 	\label{tab:test-ambiente}
@@ -224,7 +293,7 @@ categorie quasi disgiunti, ed è la loro unione a dare il salto di qualità
 (§\ref{sub:test-trad-vs-ai}).
 
 % ..................... Tabella 1: Presidio pattern .....................
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Rilevatore a pattern di Presidio (regex + checksum), per categoria (corpus di unità).}
 	\label{tab:test-pattern}
@@ -261,7 +330,7 @@ categorie quasi disgiunti, ed è la loro unione a dare il salto di qualità
 \end{table}
 
 % ..................... Tabella 2: Presidio NER .....................
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Rilevatore NER (GLiNER, \texttt{gliner\_multi\_pii}), per categoria (corpus di unità).}
 	\label{tab:test-ner}
@@ -298,7 +367,7 @@ categorie quasi disgiunti, ed è la loro unione a dare il salto di qualità
 \end{table}
 
 % ..................... Tabella 3: AI generativa .....................
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Rilevatore generativo (\texttt{phi4-mini}), per categoria (corpus di unità).}
 	\label{tab:test-ai}
@@ -356,7 +425,7 @@ nuovo e non introduce regressioni, ma nemmeno guadagni. La domanda «l'AI genera
 suo costo?» trova qui la sua prima risposta sul versante della \emph{qualità} (nulla di
 aggiunto); il versante del \emph{costo} la rende netta (§\ref{sec:test-ai-multimodello}).
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Tradizionale contro agentico: metriche complessive sul corpus di unità (P, R, F1).}
 	\label{tab:test-detection-confronto}
@@ -392,7 +461,7 @@ P 0.86, R 0.95, F1 \textbf{0.90}. Che questa riga coincida con quella tradiziona
 (§\ref{sub:test-trad-vs-ai}) è essa stessa il risultato: su documenti \emph{born-digital} e
 ben formati il livello generativo non aggiunge copertura.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Sistema completo (pattern + NER + AI \texttt{phi4-mini}, fusi), per categoria (corpus di unità).}
 	\label{tab:test-sistema-intero}
@@ -448,7 +517,7 @@ categorie sotto il soffitto sono \texttt{person\_name} (precision 0.75: over-tag
 nomi, 20 falsi positivi) e \texttt{phone}, la sola a soffrire l'estrazione (recall
 $0.83 \rightarrow 0.80$: alcune spezzature di riga dividono il numero).
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Validazione end-to-end sul corpus esteso: testo pulito contro testo estratto (350 valori).}
 	\label{tab:test-estrazione}
@@ -491,7 +560,7 @@ secondi e i wattora in più su CPU?} Per ciascun modello si riportano la riga de
 tradizionali (\texttt{union:}); la baseline tradizionale (senza AI) è la riga di
 riferimento.
 
-\begin{table}[htbp]
+\begin{table}[H]
 	\centering
 	\caption{Studio multi-modello: qualità (P/R/F1) contro costo (s/doc, Wh/doc, EUR/1000 doc). Baseline = sistema senza AI.}
 	\label{tab:test-ai-benchmark}
@@ -579,6 +648,30 @@ si tronca \emph{prima} che il modello arrivi alla risposta, che quindi non c'è.
 lentezza del ragionare a vuoto, è il peggio dei due mondi --- massimo costo, output nullo ---
 e conferma che un modello \emph{reasoning} è inadatto a un compito estrattivo con budget di
 inferenza limitato.
+
+% ---------------------------------------------------------------------
+\subsection{Il vincolo dell'inferenza su CPU: una verifica sulla GPU}
+\label{sub:test-gpu}
+% ---------------------------------------------------------------------
+
+Poiché le latenze osservate dipendono dall'inferenza su sola CPU (§\ref{sub:test-ambiente}),
+è stato condotto un controllo per capire quanto quel vincolo pesi davvero: si è eseguito lo
+stesso modello (\texttt{phi4-mini}) su Ollama in esecuzione \emph{nativa} sull'host, dove la
+GPU integrata dell'Apple M2 Pro (Metal) è disponibile, confrontandolo con la misura
+containerizzata su CPU. L'esito è netto e circoscritto: la latenza del solo passo generativo
+scende da ${\sim}82.6$ a ${\sim}9.4$ secondi per documento (${\sim}9\times$ più veloce), ma
+\textbf{la qualità non cambia}. È un risultato atteso, non una sorpresa: la GPU esegue lo
+stesso identico calcolo del modello, solo più in fretta --- non lo rende «più bravo». La
+qualità di una risposta dipende dal modello e dal prompt, non dall'hardware su cui gira; la
+lieve oscillazione di F1 osservata fra i due backend è rumore numerico (calcolo in virgola
+mobile non bit-identico fra CPU e Metal, versioni diverse del \textit{runtime}), non un
+guadagno reale. La verifica ha quindi un doppio valore. Da un lato \emph{delimita} il
+vincolo: l'esecuzione su CPU penalizza la \emph{velocità}, non l'accuratezza, e non è perciò
+un limite «bloccante» sul piano dei risultati. Dall'altro \emph{non} sposta la conclusione
+del capitolo: anche nel caso migliore l'inferenza generativa resta di quasi due ordini di
+grandezza più lenta del rilevamento tradizionale (${\sim}9.4$ contro ${\sim}0.13$ s/doc), e
+l'accelerazione GPU non è comunque disponibile nel \textit{target} di \textit{deployment}
+containerizzato, dove la GPU non è esposta alla \textit{VM} (§\ref{sub:test-ambiente}).
 
 \paragraph{Conclusione.} Sul corpus in esame la risposta alla domanda della tesi è netta:
 il rilevamento generativo, come secondo parere, \textbf{non ripaga il proprio costo}. La
