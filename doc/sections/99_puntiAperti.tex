@@ -41,18 +41,23 @@ Voci già isolate come «punti aperti di progettazione» in §\ref{sub:ropa-punt
 \subsection{Persistenza del registro PII}
 \label{sub:pa-persistenza}
 
-\paragraph{Snapshot o event-logger} Da decidere se il metodo per salvare le differenze tra versioni del FS analizzato seguano il paradigma degli snapshot o del'event-logger.
+\emph{Risolto per rinvio.} Il tracciamento temporale delle PII (changelog per singola PII) è stato progettato ma \textbf{non realizzato} in questa iterazione: il registro conserva lo stato corrente (§\ref{sec:persistenza-registro}) e l'analisi degli approcci è confluita fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}). Le decisioni aperte qui sotto (snapshot/event-logger, PA-6/7/8) sono perciò chiuse: si vedano gli approcci A/B/C e il modello dati in §\ref{sec:sf-tracciamento-temporale}.
 
-\paragraph{PA-6 — Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova un'istanza confermata in precedenza, va deciso se scrivere attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED} (esplicita, log autoesplicativo ma con confronto attivo a ogni scansione) o dedurre lo stato «rimossa» a posteriori (implicita, più semplice ma non autosufficiente). Ipotesi preferita: esplicita.
-
-\paragraph{PA-7 — Significato dell'evento «modifica».} Poiché il registro non salva i valori delle PII, un evento di «modifica» può riferirsi solo al cambio di \textbf{posizione} (\texttt{MOVED}) o a una \textbf{riclassificazione} del tipo. Va confermata l'ipotesi di non prevedere un generico \texttt{MODIFIED}, ma di scomporlo in variazioni dal significato preciso.
-
-\paragraph{PA-8 — Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{change\_type} come enumerazione chiusa (\texttt{NEW}, \texttt{CONFIRMED}, \texttt{MOVED}, \texttt{REMOVED}). Resta da confermare se il set è completo per tutti i casi d'uso previsti (dipende anche da PA-6).
+% ---- RISOLTO PER RINVIO (2026-08-20): feature temporale spostata in §10, decisioni chiuse.
+% Testo conservato come traccia storica; da eliminare a pulizia del capitolo.
+% \paragraph{Snapshot o event-logger} Da decidere se il metodo per salvare le differenze tra versioni del FS analizzato seguano il paradigma degli snapshot o del'event-logger.
+%
+% \paragraph{PA-6 — Registrazione della «scomparsa» di una PII: esplicita o implicita?} Quando una scansione non ritrova un'istanza confermata in precedenza, va deciso se scrivere attivamente una \texttt{PIIChange} di tipo \texttt{REMOVED} (esplicita, log autoesplicativo ma con confronto attivo a ogni scansione) o dedurre lo stato «rimossa» a posteriori (implicita, più semplice ma non autosufficiente). Ipotesi preferita: esplicita.
+%
+% \paragraph{PA-7 — Significato dell'evento «modifica».} Poiché il registro non salva i valori delle PII, un evento di «modifica» può riferirsi solo al cambio di \textbf{posizione} (\texttt{MOVED}) o a una \textbf{riclassificazione} del tipo. Va confermata l'ipotesi di non prevedere un generico \texttt{MODIFIED}, ma di scomporlo in variazioni dal significato preciso.
+%
+% \paragraph{PA-8 — Vocabolario chiuso dei tipi di variazione.} Si propone di formalizzare \texttt{change\_type} come enumerazione chiusa (\texttt{NEW}, \texttt{CONFIRMED}, \texttt{MOVED}, \texttt{REMOVED}). Resta da confermare se il set è completo per tutti i casi d'uso previsti (dipende anche da PA-6).
+% ---- fine blocco risolto ----
 
 \subsection{Scelte implementative}
 \label{sub:pa-implementazione}
 
-\paragraph{PA-9 — Tecnologia di persistenza.} Il modello concettuale è \emph{technology-agnostic}; va scelta la tecnologia concreta tra base dati relazionale (es. SQLite, con \emph{join} nativi) e persistenza su file semi-strutturati (JSON/JSONL, più leggera ma senza garanzie relazionali). La decisione è deliberatamente rimandata a valle della chiusura del modello dati (in particolare di PA-6, PA-7, PA-8) (cfr.~§\ref{sec:implementazione-persistenza-tecnologia}).
+\paragraph{PA-9 — Tecnologia di persistenza.} Il modello concettuale è \emph{technology-agnostic}; va scelta la tecnologia concreta tra base dati relazionale (es. SQLite, con \emph{join} nativi) e persistenza su file semi-strutturati (JSON/JSONL, più leggera ma senza garanzie relazionali) (cfr.~§\ref{sec:implementazione-persistenza-tecnologia}).
 
 \paragraph{PA-10 — Riuso di Microsoft Presidio come livello di detection.} Va deciso, su base empirica, se costruire il livello regex/NER sopra Presidio (incapsulato dietro il contratto \texttt{PIIDetector}) anziché scriverlo da zero. Il giudizio è affidato a una misurazione diretta (precision/recall/F1) sullo stesso corpus della baseline (cfr.~§\ref{sec:valutazione-presidio}).
 
@@ -68,6 +73,6 @@ Non decisioni, ma segnaposto e sezioni incomplete sparse nel testo, raccolti qui
 
 \begin{itemize}
 	\item \textbf{TB-1} — Architettura: confronto strutturato e scelta del modello NER (tabella dei tre approcci di PA-11) da inserire nel Capitolo~\ref{cap:architettura}.
-	\item \textbf{TB-2} — Architettura: diagramma ER in TikZ del modello di persistenza (\texttt{PIIInstance}, \texttt{PIIChange}, \texttt{Document}, \texttt{Scan}, \texttt{ProcessingActivity}), da produrre dopo la chiusura di PA-6/7/8 (cfr.~§\ref{sub:persistenza-modello-dati}).
+	% TB-2 RISOLTO (2026-08-20): l'ER è prodotto — stato corrente in Fig.~\ref{fig:er-registro-pii} (§\ref{sub:persistenza-modello-dati}); il modello esteso con \texttt{PIIChange} (design rinviato) in Fig.~\ref{fig:er-changelog-futuro} (§\ref{sec:sf-tracciamento-temporale}). Voce chiusa.
 	\item \textbf{TB-3} — Implementazione: roadmap implementativa e di validazione (baseline zero-shot GLiNER, integrazione modello pre-fine-tunato, eventuale esplorazione di fine-tuning) nel Capitolo~\ref{cap:implementazione}.
 \end{itemize}
