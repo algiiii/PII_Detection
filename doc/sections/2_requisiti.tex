@@ -28,7 +28,7 @@ Il rilevamento deve coprire almeno i dati identificativi, i dati di contatto, gl
 
 \subsection{Ingestione del/i ROPA}
 \label{sub:ingestione-ropa}
-Il sistema deve accettare in input uno o più registri delle attività di trattamento (ROPA) in formato strutturato, da utilizzare come riferimento normativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR \cite{RegolamentoUE20162016} e dell'art.~12 nLPD \cite{RS2351Legge}, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
+Il sistema deve accettare in input uno o più registri delle attività di trattamento (ROPA) in formato strutturato, da utilizzare come riferimento dichiarativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR \cite{RegolamentoUE20162016} e dell'art.~12 nLPD \cite{RS2351Legge}, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
 
 Il sistema deve supportare almeno i formati di foglio di calcolo ODS e XLSX, nei quali i registri sono comunemente redatti e distribuiti dalle autorità di controllo \cite{cnilRecordProcessingActivities}. Per ogni attività di trattamento, il formato di ingestione deve includere almeno i seguenti campi:
 \begin{itemize}
@@ -127,9 +127,9 @@ Sull'asse della conservazione va precisato che cosa il sistema può realmente ga
 
 Il requisito si considera soddisfatto quando, dato un corpus documentale di test con anomalie note, il sistema le identifica correttamente su entrambi gli assi, senza segnalare come non conformi i documenti che non lo sono.
 
-\subsection{Riferimento al registro delle attività di trattamento come fonte normativa}
+\subsection{Riferimento al registro delle attività di trattamento come fonte dichiarativa}
 \label{sub:ropa-fonte-normativa}
-Il sistema deve trattare il ROPA forniti in input come riferimento normativo autoritativo per ogni valutazione di conformità, e non deve generare, inferire o modificare autonomamente le attività di trattamento: il ROPA rappresenta la \textit{ground truth} dichiarativa dell'organizzazione \cite{amaralNLPbasedAutomatedCompliance2023}. \medskip
+Il sistema deve trattare il ROPA forniti in input come riferimento dichiarativo autoritativo per ogni valutazione di conformità, e non deve generare, inferire o modificare autonomamente le attività di trattamento: il ROPA rappresenta la \textit{ground truth} dichiarativa dell'organizzazione \cite{amaralNLPbasedAutomatedCompliance2023}. \medskip
 
 L'art.~30 GDPR \cite{RegolamentoUE20162016} e l'art.~12 nLPD \cite{RS2351Legge} impongono al titolare del trattamento la tenuta di un registro che documenti, tra l'altro, le categorie di interessati, le categorie di dati personali trattati, le finalità, la durata di conservazione e le categorie di destinatari. Il sistema si fonda su questo documento come base di confronto, senza sindacarne la correttezza né sostituirsi alla responsabilità del titolare nella sua compilazione. \medskip
 
