@@ -149,7 +149,7 @@ Il secondo input del sistema rappresenta l'insieme dei file che vanno analizzati
 % ## BLOCCHI ##
 
 % -- B1 --
-\section{B1 - Normalizzazione ROPA}
+\section{Normalizzazione ROPA - B1}
 \label{sec:b1-ropa}
 Questo blocco è responsabile per la lettura e trasformazione del registro dei trattamenti in una forma standardizzata del sistema. Questo passaggio è obbligatorio, in quanto il termine di paragone per la verifica di conformità è tra il Registro dei Trattamenti e le PII identificate nei documenti: senza una struttura fissa e standardizzata, un confronto sarebbe estremamente dispendioso e complesso.
 
@@ -199,33 +199,20 @@ Il popolamento dei primi due livelli del modello --- l'attività di trattamento 
 Soprattutto, l'esito del modello è una \emph{proposta}, non una decisione: la mappatura resta tale finché il DPO non la conferma. È l'istanza, in questo blocco, di un principio che attraversa l'intero sistema: qualunque sia l'origine di un'inferenza --- un dizionario deterministico, un modello generativo, una regola che associa una cartella a un trattamento, la segnalazione di una PII orfana --- l'atto che la rende parte della \emph{verità dichiarativa} è sempre umano. Il sistema propone, il DPO dispone. È il gemello, sul versante della decisione, dei principi di \emph{recall-first} e di \emph{minimizzazione}: come quelli evitano rispettivamente di scartare e di trattenere, questo evita di \textbf{decidere al posto dell'umano}. La realizzazione --- i due mapper intercambiabili, il prompt, la validazione, la conferma --- è descritta in §\ref{sub:impl-b1-mappatura}.
 
 % -- B2 --
-\section{B2 - Analisi struttura File System}
+\section{Analisi struttura File System - B2}
 \label{sec:b2-analisi-struttura}
 Feature presente nell'architettura originale, ma non implementata per vincoli tempistici e di scarsa sicurezza e utilità del possibile risultato. Se ne discute più diffusamente fra gli sviluppi futuri (§\ref{sec:sf-analisi-struttura}).
 
 % -- B3 --
-\section{B3 - Estrazione e normalizzazione del testo}
+\section{Estrazione e normalizzazione del testo - B3}
 \label{sec:b3-estrazione-testo}
 
 Il blocco B3 sta a monte del rilevamento: trasforma un file, in uno dei formati supportati (§\ref{sub:input-FS}), nel \textbf{testo normalizzato} su cui opererà il motore di detection. Il suo prodotto è deliberatamente semplice --- un flusso di testo lineare, spogliato della formattazione --- ed è \emph{questo}, non il documento originale, ciò che entra nel blocco B4: la medesima forma di testo è consumata allo stesso modo dai rilevatori a regole e dal modello generativo, sicché a valle nessuno deve più sapere da quale formato il documento provenisse. La normalizzazione è leggera (spazi e a-capo) e non tenta di ricostruire il \emph{layout}: il sistema tratta documenti \emph{born-digital}, non scansioni, e l'OCR resta fuori ambito (cfr.~§\ref{cap:sviluppi-futuri}).
 
 Una scelta di progetto merita di essere resa esplicita, perché ribalta un'assunzione iniziale. L'estrazione era stata concepita attorno a uno strumento dedicato --- Docling~\cite{livathinosDoclingEfficientOpenSource2025} --- pensato per convertire formati complessi in testo pulito, fruibile tanto da un modello generativo quanto dai rilevatori a regole. All'atto dell'implementazione, però, i formati che selezionati per essere supportati si sono rivelati sufficentemente semplici da non richiedere quell'apparato: bastano conversioni leggere che riducono ogni file a un flusso di testo direttamente analizzabile. Docling resta possibile risorsa qualora l'insieme dei formati si allargasse a documenti realmente complessi (§\ref{cap:sviluppi-futuri}); allo stato attuale sarebbe complessità non ripagata. Coerentemente con la separazione fra architettura e realizzazione, le scelte implementative appartengono al capitolo di implementazione (§\ref{sec:impl-b3-estrazione}).
 
-% ---------------------------------------------------------------------------
-% Bozza mista originale (NON cancellare --- traccia da cui e' derivato il testo sopra
-% e le indicazioni §6/§7; da rimuovere a lavoro finito):
-% Questa registrazione serve come in base per poi scrivere il la sezione B3 per quanto riguarda l'estrazione, la normalizzazione del testo dei documenti del sistema. Questa sezione in particolare inizialmente era stata pensata per essere. Soltanto basata su dockling Una applicazione. esterna che Il suo compito è quello di convertire formati particolarmente. Complessi in testo facilmente leggibile sia da AI, ma anche da rilevatori Basati su regole come presidio, quello che viene usato nel progetto, d'altronde. Dopo però L'inizio dell'implementazione La cosa è stata più semplice del previsto in quanto i tipi di file. Che ho deciso di trattare Erano molto più primitivi di quello che mi aspettassi. Infatti. È bastato utilizzare delle librerie in Python molto più leggere e che permettevano. Di trasformare al volo il file in questione direttamente diciamo. In una streaming di testo che poteva essere molto più facilmente. Parsata dal Dal motore di rilevamento. I tipi di file supportati. Sono quelli più utilizzati a livello enterprise, a livello customer. Ma questa sezione c'è già precedentemente. sui tipi di file appunto supportati nella sezione del file system. Nella in questa sezione di architettura. Non vanno messi i nomi delle librerie in sé andranno messi poi nella sicuramente nella sezione di implementazione con anche tipo di tipo di estensione del file con. Il nome della libreria e il suo eventuale utilizzo, ovviamente senza entrare eccessivamente nel dettaglio, ma comunque è giusto. Dirlo. Quindi questo è per quanto riguarda il blocco B3. Cosa da mettere secondo me che ha senso in questa sezione qual è l'effettivo. Output di questo blocco o meglio che cosa entra direttamente nel blocco B4 della detection. Secondo me, appunto centrale. Però iniziamo a scrivere questo
-% ---------------------------------------------------------------------------
-
-
-% -------
-% [B4] Trascrizione dettata originale --- preservata come traccia; i punti "vai a controllare" sono stati verificati sul codice e recepiti nella realizzazione (§7 sec:impl-detection). Da rimuovere a lavoro finito.
-% Adesso passiamo al blocco. B Quattro Allora questo blocco è già scritto, però questa registrazione serve per capire se. È scritto tutto quello che effettivamente voglio metterci dentro Allora. Questo è il cuore del Sistema, perché dall'output di B3, quindi un. Testo libero senza formattazioni e pronto per essere ingerito per il rilevamento. Qui avviene appunto il rilevamento. Il rilevamento è suddiviso in più detector Tutti. Con le loro peculiarità e senza ovviamente detector ridondanti. Ci sono tre livelli come credo, ma tra parentesi vai a controllare perché non mi ricordo se l'ho scritto. Ci sono tre livelli di detector, ognuno che si occupa di Specificità diversa. I due principali, quelli che sono usati per ogni singolo documento. Sono I detector di presidio, infatti Microsoft presidio è forse la dipendenza più importante di questo sistema. Presidio è utilizzato Come credo, ma anche questo vai a controllare per sicurezza è utilizzato come black box. Nel senso che viene fornito il testo vengono date le pia che sono da trovare e poi vengono semplicemente restituiti i range in cui. È stata trovata una certa PI Che la tipologia di PI ovviamente c'è un lavoro di catalogo nostro del sistema delle categorie De dei dati sensibili e sempre presidio ha il suo catalogo di categorie di dati sensibili. Di conseguenza, vai a controllare come è stato fatto C'è sicuramente un mapper che incrocia questi due cataloghi. Dopodiché, una volta ottenuto Il sostanzialmente l'esito, il risultato di presidio viene salvato. Dentro al database pdb più o meno con la stessa meccanica in cui sono viene salvato in Europa. Attenzione che questo database ha molte colonne e come per il caso d'Europa. Voglio spiegare cosa sono lo schematico di questo database dentro al capitolo dell'implementazione. Presidio altre peculiarità in caso poi. Proponi qualcuna. oppure cose particolari, diciamo worth mensioning. In questo blocco e nel detector utilizzando presidio. Capitolo a parte è sicuramente quello relativo al detector. Facoltativo con l'AI, facoltativo e selettivo. In quanto caratteristica fondamentale è il fatto che nel database delle PI è salvato. Diciamo. Il metodo di rilevamento che ha trovato una certa PI. Questo apre la strada a una serie di possibilità tra cui il fatto che. Una certa PI può avere più gradi di certezza. E più Stati, per esempio, se due detector hanno trovato la stessa FI e l'hanno categorizzata nello stesso modo. Esce Come da types.py esce double confern oppure se ci sono per esempio Il nerd di presidio ha trovato un indirizzo mentre il le reex di presidio hanno trovato qualcos'altro Nella stesso nel nostro intervallo esce conflicting. Però. Però la cosa importante è che nessuna ipotesi di nessun detector viene scartato. È tutto tenuto in caso semplicemente è scritta la stessa lo stesso intervallo. Come PI diverse, ma è è ridondante sostanzialmente però sono le due opinioni separate. Cosa importante da dire è che oltre a presidio c'è il detective con AI generativa utilizzando un determinato modello. Essendo funzionalità accessoria. E essendo che deve girare in CPU ed essendo che non sono ancora stati effettuati i test, anche se questa parte è meglio non metterla. È stato utilizzato lo stesso modello già presente nell'immagine del container per motivi sia di leggerezza sia di praticità sia di dipendenze. E soprattutto di Per semplicità, appunto. Lo stesso modello utilizzato già nel per quanto riguarda. L'arricchimento d'Europa Questo modello per questa tipologia di task non è particolarmente adatto in quanto un modello piccolo, leggero. E che ha una velocità di inferenza relativamente veloce. Di conseguenza non è in grado, non non performa al meglio. Quando si tratta di leggere. Documenti numerose pagine. La cosa importante, però è sempre che il Modello in questione è facilmente scambiabile. Dovrebbe essere soltanto una va d'ambiente, ma controlla che sia effettivamente così, perché se non è così bisogna cambiarlo. Per essere una semplicissima variabile d'ambiente, basta cambiarla e o lama fa tutto da solo, teoricamente. Ok Quindi anche qua è giusto scrivere l'output del blocco, la del blocco è il popolamento. Che però in realtà va più va anche in B5, quindi non so se è ha senso metterlo comunque semplicemente il popolamento del database per quanto riguarda le PI. Ci sono sicuramente delle cose da da aggiungere in caso proponimile. E adesso vediamo come metterlo a posto.
-
-% ------
-
 % -- B4 --
-\section{B4 - Pipeline ibrida di detection di PII}
+\section{Pipeline ibrida di detection di PII - B4}
 \label{sec:b4-pipeline-detection}
 \label{sec:rilevamento-b4}
 
@@ -268,25 +255,9 @@ Ciò che qui rileva è la forma architetturale, ed è dettata proprio da quella 
 \subsection{Quando usare l'AI.} Una passata generativa costa da secondi a minuti per documento, quindi non la si esegue su ogni file a ogni scansione (cfr.\ l'impiego \emph{selettivo} previsto dai requisiti, §\ref{sub:ai-selettiva}, e il costo in §\ref{sec:impatto-ambientale}). La decisione su \emph{quali} documenti sottoporre all'AI è però tenuta \textbf{fuori} dal rilevatore --- che si limita ad analizzare il testo che riceve --- e affidata a una \emph{decisione} dell'utilzzatore: nessuna analisi o una serie di ricorrenze di utilizzo dell'AI (1 ogni 10, 100, 1000 o scansione). Separare la politica dal rilevatore è ciò che consente di innescare l'AI in modi diversi (a campione durante una scansione, o su richiesta su un singolo documento) senza duplicare la logica di rilevamento. La realizzazione del detector e della politica --- prompt a catalogo chiuso, difese anti-allucinazione, campionamento --- è descritta in §\ref{sec:impl-detection}.
 
 % -- B5 --
-\section{B5 - Registro PII rilevate}
+\section{Registro PII rilevate - B5}
 \label{sec:b5-DB-PII}
 
-% ============================================================================
-% NOTA DI DIVISIONE §6/§7 (per lo stub B5).
-% QUI (architettura) va SOLO il concetto: cosa deve fare il registro
-% (stato corrente delle PII per documento, snapshot rimpiazzato a ogni
-% scansione), la minimizzazione (mai il valore), le entità CONCETTUALI e i
-% "due orologi" (data semantica vs impronta tecnica). NIENTE colonne.
-% Lo SCHEMA FISICO (tabelle registry_document / registry_scan /
-% registry_pii_instance, campo per campo) sta in §7 implementazione
-% (§\ref{sec:dati-persistiti}), già aggiornato al codice: senza tabella del
-% changelog (registry_pii_change) e senza colonna `removed`.
-% Il modello concettuale (con ER) è in §\ref{sub:persistenza-modello-dati}.
-% ============================================================================
-
-% BOZZA B5 (§6 — CONCETTO). Rivedere. Register: architettura, niente colonne.
-% Deriva dal discorso dettato; la parte "quali tabelle/campi" sta in §7
-% (§\ref{sub:dati-registro-pii}, già scritta e allineata al codice).
 Il blocco B5 della Figura~\ref{fig:architettura-macro-blocchi} è il \textbf{contenitore dei dati personali rilevati} nei documenti. Raccoglie ciò che il livello di rilevamento (B4) individua e lo tiene a disposizione dei blocchi sottostanti --- l'associazione ai trattamenti (B6) e la verifica di conformità (B7) --- come stato su cui interrogarsi.
 
 Nella concezione iniziale il registro doveva anche seguire l'\textbf{evoluzione} delle PII nel tempo, riconoscendo fra scansioni ricorrenti che cosa fosse cambiato da una all'altra. Quella capacità è stata ricondotta a una forma più semplice: il registro conserva uno \textbf{snapshot} della situazione corrente del file system analizzato, che ogni nuova scansione \emph{sostituisce}. Il disegno del tracciamento temporale --- progettato e poi non realizzato in questa iterazione --- è documentato fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}).
@@ -294,7 +265,7 @@ Nella concezione iniziale il registro doveva anche seguire l'\textbf{evoluzione}
 Un vincolo di progetto governa \emph{che cosa} può entrare nel registro: la \textbf{minimizzazione del dato} (§\ref{sub:minimizzazione}). Il registro non conserva mai il valore della PII, ma solo \textbf{riferimenti} a essa --- il tipo, la posizione nel documento, la provenienza del rilevamento. Salvare i valori sarebbe una contraddizione prima ancora che un rischio: uno strumento che esiste per \emph{mappare} dove stanno i dati personali, se li duplicasse, diventerebbe una seconda copia di ciò che deve proteggere --- una ridondanza che aggiunge esposizione senza aggiungere informazione. La resa concreta di questo principio, a livello di tabelle e campi --- inclusa l'assenza deliberata di una colonna che contenga il valore --- appartiene al capitolo di implementazione (§\ref{sub:dati-registro-pii}).
 
 % -- B6 --
-\section{B6 - Associazione documento-trattamento}
+\section{Associazione documento-trattamento - B6}
 \label{sec:b6-documento-trattamento}
 Questo blocco si occupa di associare un certo documento ad uno o più trattamenti del ROPA. Questa associazione è informazione cardine del sistema, in quanto stabilisce \textbf{quali categorie di dati è lecito che siano presenti} in un certo documento.
 
@@ -314,7 +285,7 @@ L'associazione è resa esplicita e responsabilità del DPO. Una modalità di ass
 Oggi l'attribuzione è sempre del DPO; l'architettura lascia però il posto a un proponente futuro (per contenuto o assistito dall'AI) che suggerisca l'associazione lasciando all'umano la conferma --- lo stesso schema human-in-the-loop del mapping del ROPA (§\ref{sub:B1-AI}).
 
 % -- B7 --
-\section{B7 - Verifica conformità PII presenti}
+\section{Verifica conformità PII presenti - B7}
 \label{sec:b7-verifica-compliance-PII}
 Una volta fissata l'associazione tra documento e trattamento, il lavoro del blocco B7 è semplicemente di confronto tra i due. La verifica avviene usando \emph{tutti} i trattamenti a cui il documento è associato. Quali mappature concorrano a formare quell'insieme è un parametro esplicito del confronto: il verdetto \emph{autorevole} considera le sole mappature confermate dal DPO (§\ref{sub:B1-AI}), mentre la consultazione interattiva conta anche quelle ancora proposte, così da restare informativa prima che la revisione del registro sia stata completata. La distinzione va tenuta presente nel leggere un verdetto, perché la stessa categoria può risultare orfana nell'una lettura e coperta nell'altra; ciò che invece non è ammissibile è che i due criteri convivano \emph{dentro} un medesimo verdetto, e la regola su quali categorie contino è perciò definita in un unico punto e usata da tutti i controlli, conservazione inclusa. Dall'altro l'insieme dei \texttt{pii\_type} \emph{rilevati}: i tipi delle PII effettivamente presenti nel documento secondo il registro. Confrontando i due insiemi, ogni tipo ricade in una voce di un \textbf{vocabolario chiuso}, che è il linguaggio con cui il sistema riporta il verdetto al DPO:
 
@@ -343,7 +314,8 @@ L'età del documento è però una \textbf{stima, e come tale dichiarata}: il sis
 
 Il verdetto distingue infine due esiti da non confondere: la \textbf{violazione}, quando il documento eccede un termine dichiarato, e la \textbf{conservazione non verificabile}, quando il registro esprime un \emph{criterio} anziché una durata --- caso in cui il \textbf{silenzio non è conformità}, ma un controllo che nessuno ha potuto svolgere. Come il resto della restituzione, questo esito è leggibile sull'intero \textbf{corpus}, non soltanto documento per documento (§\ref{sec:b8-dashboard}).
 
-\section{B8 - Dashboard per DPO}
+% -- B8 --
+\section{Dashboard per DPO - B8}
 \label{sec:b8-dashboard}
 
 Il blocco B8 chiude la catena: rende consultabile ciò che i blocchi precedenti hanno prodotto. La scelta architetturale che lo caratterizza è che il sistema si presenta come una \textbf{applicazione web unica}, servita su una sola porta, e non come una raccolta di comandi da terminale. La ragione è di destinatario: il DPO non è necessariamente una figura tecnica, e uno strumento di conformità utilizzabile solo da chi sa invocare un comando resta, di fatto, inutilizzato. Le interfacce a riga di comando continuano a esistere e sono pienamente funzionali, ma il loro ruolo è quello di strumenti di servizio --- automazione, esecuzioni schedulate, diagnostica --- non di via d'accesso ordinaria.
@@ -355,73 +327,3 @@ La dashboard calcola il verdetto di conformità nel momento in cui una pagina vi
 \subsection{Visualizzazione e minimizzazione} La minimizzazione del dato (§\ref{sub:minimizzazione}) non è un vincolo della sola persistenza ma attraversa anche la restituzione: le PII sono presentate al DPO come \emph{riferimenti} --- categoria, posizione nel documento, provenienza del rilevamento, stato di conformità --- e in nessuna schermata compare il valore del dato personale rilevato. Una dashboard che mostrasse i valori trasformerebbe lo strumento di verifica in una nuova copia dei dati da proteggere, vanificando la scelta compiuta a monte nel registro. \medskip
 
 La restituzione è organizzata su due livelli complementari. La vista \emph{per documento} permette di verificare che il documento in questione sia in regola, riunendo tutte le PII rilevate, l'associazione ai trattamenti e il verdetto in un unico luogo. Le viste \emph{per corpus} rispondono invece alle domande che un responsabile pone su un intero archivio --- che cosa è oltre il termine di conservazione, quali documenti nessuna regola ha ancora associato --- e sono ciò che rende lo strumento praticabile su volumi reali, dove l'esame documento per documento non è una procedura eseguibile.
-
-% ============================================================================
-% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
-% Struttura dati DENTRO i blocchi. In §6 il lavoro e' quasi tutto RECUPERO dalle
-% vecchie sezioni tematiche piu' in basso (237+): svuotarle in questi stub e poi
-% cancellarle. Eliminare questo scaffold a lavoro finito.
-% ----------------------------------------------------------------------------
-% B2 - Analisi struttura FS (NON realizzato)
-%   §6: perche' previsto e non fatto (l'utile e' gia' dato dalle regole
-%       cartella->trattamento, B6). Recuperare da: §"Un blocco previsto e non
-%       realizzato" (piu' in basso).  |  §7: nulla (non implementato).
-% ----------------------------------------------------------------------------
-% B3 - Estrazione e normalizzazione del testo
-%   §6 (idea): estrazione born-digital -> testo normalizzato; la DATA DI
-%       RIFERIMENTO con provenienza (metadati->mtime) come dato del blocco;
-%       niente OCR/layout. Recuperare da: §"Livello di estrazione del testo".
-%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
-%       (catena metadati->mtime, guardia <1990/futuro, degrado grazioso).
-%   struttura inline (§6): il documento normalizzato + reference_date con la fonte.
-% ----------------------------------------------------------------------------
-% B4 - Pipeline ibrida di detection
-%   §6 (idea): due sorgenti dietro PIIDetector + il merge (4 casi) + il ramo
-%       generativo. GIA' SCRITTO piu' in basso (§"Livello di rilevamento ibrido":
-%       sorgenti / merge / ramo AI) -> SPOSTARE qui.
-%   §7 (come): Presidio pattern+NER, GLiNER, RegexDetector config-driven (gia' in
-%       §7), LLMDetector (prompt, valore->span, chunking, never-raise), MergeEngine,
-%       slot opzionale ai + AITriggerPolicy.
-%   struttura inline: PIICandidate -> PIIMatch (span, tipo, confidence, livello, sorgenti).
-% ----------------------------------------------------------------------------
-% B5 - Registro PII rilevate
-%   §6 (idea): changelog delta-based (stato + storia); i DUE OROLOGI (data
-%       semantica vs impronta tecnica); minimizzazione (mai il valore).
-%       Recuperare da: §"Persistenza del registro delle PII".
-%   §7 (come): 4 tabelle (document/scan/instance/change); freshness (incrementale);
-%       refresh CONFIRMED. GIA' in §7 (§"Dati persistiti" -> registro PII).
-%   struttura inline (§6): documento -> scansione -> istanza (stato) + variazione (log); ER concettuale.
-% ----------------------------------------------------------------------------
-% B6 - Associazione documento-trattamento
-%   §6 (idea): associazione esplicita + regole cartella (prefisso->attivita'),
-%       provenienza MANUAL/RULE; + IL PONTE CROSS-DB: due database separati, join
-%       LOGICO sull'id-stringa (QUI il posto giusto per il pezzo trasversale).
-%       Recuperare da: §"Associazione e verifica" -> sottosez. B6.
-%   §7 (come): FolderRule, riconciliazione (azzera RULE stale), auto-apply a fine scan.
-%   struttura inline: Document.activity_ids (N:N) + FolderRule(prefix->activity_ids).
-% ----------------------------------------------------------------------------
-% B7 - Verifica conformita' + conservazione
-%   §6 (idea): confronto should/is -> orfane/coperte/mancanti; retention (eta' vs
-%       termine + "non verificabile"); + DALLA PII ORFANA ALLA PROPOSTA (il
-%       feedback: orphan -> categoria PROPOSED, il DPO conferma). Recuperare da:
-%       §"Associazione e verifica" -> sottosez. B7 + "Verifica della conservazione".
-%   §7 (come): checker.build_report; vista di corpus /retention; propose_category.
-%   struttura inline (§6): il verdetto (ComplianceReport) come valore di sola lettura.
-% ----------------------------------------------------------------------------
-% B8 - Dashboard DPO
-%   §6 (idea): restituzione al DPO; human-in-the-loop (gia' enunciato in B1);
-%       Post/Redirect/Get come principio. Recuperare da: §"Interfaccia e
-%       restituzione al DPO".
-%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
-%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
-%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
-%       indicatore di scansione attiva.
-% ----------------------------------------------------------------------------
-% TRASVERSALE
-%   §6: nuova sezione "Pattern architetturali e di progettazione" (Strategy / DI /
-%       Factory / Adapter / Composite / Policy / Active Record; l'argomento
-%       Open-Closed che giustifica lo slot opzionale invece di un Registry = YAGNI).
-%   §7: "Deployment containerizzato" (GIA' SCRITTO).
-%   Principi trasversali, enunciati UNA volta: recall-first, minimizzazione, DPO
-%   sovrano (gia' in B1).
-% ============================================================================

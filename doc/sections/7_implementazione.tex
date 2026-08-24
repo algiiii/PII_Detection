@@ -2,7 +2,7 @@
 \label{cap:implementazione}
 
 % -- B1 --
-\section{B1 - Ingestione del ROPA}
+\section{Ingestione del ROPA - B1}
 \label{sec:impl-b1-ingestione}
 
 Il blocco B1 realizza il percorso che porta un registro dei trattamenti, così come lo compila un'organizzazione, alla rappresentazione interna descritta nell'approfondimento sul modello (§\ref{sub:impl-b1-mappatura}). La realizzazione segue il principio \emph{sottrattivo} già motivato in architettura --- del documento sorgente si conserva soltanto ciò che alimenta la verifica di conformità --- e lo traduce in una catena di tre passi disaccoppiati (lettura, interpretazione, persistenza), seguiti da una passata separata di mappatura assistita. Ogni passo è un modulo a sé, così che un cambiamento di formato del file o di strategia di mappatura non tocchi gli altri.
@@ -56,61 +56,13 @@ Il terzo passo affida l'attività così ottenuta al \texttt{ROPARepository}, che
 
 L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8 \ref{sec:impl-b8}, la review montata sotto \texttt{/ropa}), da cui può confermare le mappature, \textbf{importare} un nuovo registro caricandone il file dal browser --- il file viaggia verso il servizio come \emph{byte} via \emph{multipart}, coerente con il deployment containerizzato in cui l'applicazione non accede al file system del client --- e \textbf{rimuovere} un trattamento. L'import riusa senza modifiche la catena di ingestione appena descritta: la stessa lettura, la stessa interpretazione, lo stesso mapping.
 
-% ============================================================================
-% SCAFFOLDING (temporaneo) — mappa parallela §6 (idea) <-> §7 (realizzazione).
-% Speculare a quello in 6_architettura.tex. Struttura dati DENTRO i blocchi.
-% In §7 buona parte c'e' gia' (persistenza, container): riempire i buchi B3/B4/
-% B6/B7/B8. Eliminare a lavoro finito.
-% ----------------------------------------------------------------------------
-% B2 - Analisi struttura FS: nulla in §7 (non implementato).  |  §6: perche' non fatto.
-% ----------------------------------------------------------------------------
-% B3 - Estrazione del testo
-%   §7 (come): lettori PDF/DOCX/txt + fogli + .doc legacy; extraction/dates.py
-%       (metadati->mtime, guardia <1990/futuro, degrado grazioso).
-%   §6 (idea): born-digital -> testo normalizzato + reference_date con provenienza.
-% ----------------------------------------------------------------------------
-% B4 - Detection (espandere §"Realizzazione del livello di rilevamento", gia' presente)
-%   §7 (come): Presidio pattern+NER + GLiNER; RegexDetector config-driven (fatto);
-%       + MergeEngine; + LLMDetector (prompt catalogo chiuso, valore->span via
-%       str.find, chunking, never-raise); + slot opzionale ai + AITriggerPolicy
-%       (hash stabile); benchmark run_ai_benchmark (P/R/F1, s/doc, Wh/doc).
-%   §6 (idea): due sorgenti dietro PIIDetector + merge (4 casi) + ramo generativo.
-% ----------------------------------------------------------------------------
-% B5 - Registro PII: GIA' in §"Dati persistiti" (document/scan/instance).
-%   NB: changelog per-PII (NEW/CONFIRMED/MOVED/REMOVED, tabella change) SCARTATO,
-%   rimosso da §7 (vedi rimozione-tempo.md). NON re-introdurlo in §6.
-%   Da aggiungere: freshness (scansione incrementale) e refresh CONFIRMED.
-%   §6 (idea): due orologi (impronta file vs data semantica), minimizzazione.
-% ----------------------------------------------------------------------------
-% B6 - Associazione + regole cartella
-%   §7 (come): FolderRule (tabella gia' in "Dati persistiti"); riconciliazione
-%       (azzera RULE stale); auto-apply a fine scan.
-%   §6 (idea): esplicita + prefisso->attivita' + provenienza + ponte cross-DB.
-% ----------------------------------------------------------------------------
-% B7 - Conformita' + conservazione
-%   §7 (come): checker.build_report; vista di corpus /retention; propose_category
-%       (orfana -> DeclaredCategory PROPOSED, solo su conferma DPO).
-%   §6 (idea): should/is -> orfane/coperte/mancanti; retention + non-verificabile;
-%       dalla orfana alla proposta (il feedback).
-% ----------------------------------------------------------------------------
-% B8 - Dashboard DPO
-%   §7 (come): app FastAPI unica (una porta); pagine (dashboard / documento /
-%       /retention / /scan / /rules; review ROPA montata sotto /ropa); trigger AI
-%       (menu campionamento, per-documento ASINCRONO via ScanJob); due fasi;
-%       indicatore di scansione attiva.
-%   §6 (idea): restituzione al DPO; human-in-the-loop; Post/Redirect/Get.
-% ----------------------------------------------------------------------------
-% TRASVERSALE: §7 "Deployment containerizzato" (FATTO).  §6: sezione "Pattern
-%   di progettazione" (nuova). Principi una volta sola: recall-first, minimizzazione, DPO sovrano.
-% ============================================================================
-
-% -- B3 --
-\section{B2 - Analisi struttura file system}
+% -- B2 --
+\section{Analisi struttura file system - B2}
 \label{sec:impl-b2-analisi-fs}
 Non realizzato, motivazioni nella sezione al capitolo precedente (\ref{sec:b2-analisi-struttura}) e in sviluppi futuri (\ref{cap:sviluppi-futuri}).
 
 % -- B3 --
-\section{B3 - Estrazione del testo}
+\section{Estrazione del testo - B3}
 \label{sec:impl-b3-estrazione}
 
 L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I reader sono volutamente leggeri --- uno per categoria di formato, con lazy import, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}:
@@ -125,7 +77,7 @@ L'elenco dei formati ha un'unica fonte (\texttt{supported\_suffixes()}), così c
 
 Accanto al testo, l'estrazione stima la \textbf{data di riferimento} del documento (\texttt{extraction/dates.py}), che alimenta il controllo di conservazione (B7, §\ref{sub:b7-retention}). \texttt{reference\_date(path)} interroga per primi i metadati interni del file --- \texttt{modDate}/\texttt{creationDate} del PDF, le \emph{core properties} di DOCX e XLSX --- e ricade sul \emph{mtime} del file system solo quando non trova nulla di utilizzabile, restituendo un \texttt{ReferenceDate} che porta con sé la \textbf{provenienza} (\texttt{DateSource}: \texttt{content\_metadata} oppure \texttt{file\_mtime}), sicché il verdetto di conformità può dichiarare quanto vale la stima che espone. Un'unica misura di plausibilità è stata introdotta, scartando le date anteriori al 1990 o collocate nel futuro e passa al candidato successivo; metadati illeggibili non sollevano un'eccezione ma ricadono sul \emph{mtime}.
 
-% -- TECNOLOGIA DI PERSISTENZA (da capire se tenere così o scorporare) --
+% -- TECNOLOGIA DI PERSISTENZA --
 \section{Tecnologia di persistenza}
 \label{sec:implementazione-persistenza-tecnologia}
 
@@ -145,7 +97,7 @@ La scelta è ricaduta su \textbf{SQLite}, per ragioni che discendono dalla natur
 La stessa tecnologia serve entrambi i registri, su due basi dati separate (variabili d'ambiente \texttt{ROPA\_DB\_URL} e \texttt{PII\_DB\_URL}); \emph{che cosa} vi si conserva, campo per campo, è spiegato nelle relative sezioni di ROPA \ref{sub:impl-b1-mappatura} e PII \ref{sub:dati-registro-pii}.
 
 % -- B4 --
-\section{B4 - Livello di rilevamento}
+\section{Livello di rilevamento - B4}
 \label{sec:impl-detection}
 
 Le due scelte tecnologiche che governano questo livello --- costruire il rilevamento a pattern e NER sopra Microsoft Presidio, e quale modello generativo adottare per gli impieghi selettivi --- non sono state compiute qui: sono l'esito degli studi condotti prima della progettazione (§\ref{sec:valutazione-presidio}, §\ref{sec:scelta-modello-llm}), la cui verifica sperimentale è nel Capitolo~\ref{cap:test}. Questa sezione ne descrive la realizzazione, e in particolare la proprietà che ne governa la manutenzione nel tempo.
@@ -191,7 +143,7 @@ La decisione su \emph{quali} documenti ricevano il secondo parere è tenuta \tex
 Poiché chiedersi se l'AI vale il suo costo è nello scope di questo lavoro, la realizzazione include l'apparato per rispondervi: un benchmark (\texttt{run\_ai\_benchmark}) che misura, sullo stesso corpus e con lo stesso metro delle sorgenti tradizionali, tre configurazioni --- la sola baseline tradizionale, l'AI da sola (\texttt{ai:}\emph{modello}) e la loro unione (\texttt{union:}\emph{modello}) --- su più modelli raggruppati in tre fasce di taglia. Per ciascuna riporta qualità (precision, recall, F1, anche \textbf{per categoria}) e costo (secondi per documento ed energia stimata per documento, quest'ultima come confronto via \emph{codecarbon}). Alcune cautele nascono dall'esecuzione reale su CPU: il tetto \texttt{num\_predict} che rende ogni modello \emph{bounded}, e il vincolo di un solo modello residente in memoria (\texttt{OLLAMA\_MAX\_LOADED\_MODELS}) per non esaurire la RAM caricandone cinque in fila. I numeri che ne risultano sono l'oggetto del Capitolo~\ref{cap:test} e del Capitolo~\ref{cap:risultati}; qui rileva che la misura è \textbf{riproducibile}.
 
 % -- B5 --
-\section{B5 - Registro PII rilevate}
+\section{Registro PII rilevate - B5}
 \label{sec:impl-b5}
 \label{sub:dati-registro-pii}
 
@@ -242,7 +194,7 @@ L'\textbf{assenza} di un campo \texttt{value}/\texttt{text} è una scelta di pro
 In sintesi: il registro ROPA conserva il dichiarato (con il testo originale accanto alla forma strutturata, per audit), mentre il registro delle PII conserva soltanto \emph{riferimenti} a ciò che è stato rilevato --- mai i valori. I due Database restano separati; i campi \texttt{Document.activity\_ids} (associazione N:N, B6) e \texttt{PIIInstance.processing\_activity\_id} (trattamento giustificante per singola PII, popolato da B7) sono i punti in cui le due macro categorie di dati del sistema si collegano \emph{logicamente}, sull'identificatore-stringa del trattamento.
 
 % -- B6 --
-\section{B6 - Associazione documento-trattamento}
+\section{Associazione documento-trattamento - B6}
 \label{sec:impl-b6}
 \label{sub:b6-associazione}
 
@@ -277,7 +229,7 @@ Fisicamente nella stessa base dati del registro delle PII, ma logicamente parte 
 \end{description}
 
 % -- B7 --
-\section{B7 - Verifica di conformità}
+\section{Verifica di conformità - B7}
 \label{sec:impl-b7-conformita}
 
 Il cuore della verifica è un confronto insiemistico, realizzato come funzione (\texttt{build\_report}) affiancata da un sottile strato di I/O (\texttt{check\_document}) che le procura gli insiemi e ne persiste l'esito. Da un lato l'insieme \textbf{dichiarato}: l'unione dei \texttt{pii\_type} di tutte le \texttt{DeclaredCategory} dei trattamenti associati al documento (§\ref{sub:b6-associazione}). Dall'altro l'insieme \textbf{rilevato}: i \texttt{pii\_type} che il registro riporta per quel documento. Il confronto assegna a ogni tipo una delle quattro voci del vocabolario chiuso descritto in architettura --- coperta, orfana, mancante, non risolvibile (§\ref{sec:b7-verifica-compliance-PII}).
@@ -296,7 +248,7 @@ Il caso più insidioso non è la violazione ma il \textbf{silenzio}. Quando la m
 Il parsing del periodo di conservazione riconosce anche le \textbf{unità francesi} (\texttt{an}/\texttt{ans}/\texttt{mois}): il template è quello CNIL e una dicitura come «5 ans» non riconosciuta disattiverebbe di fatto il controllo. E la stessa lettura è disponibile come \textbf{vista di corpus} (\texttt{compliance retention} da CLI, pagina \texttt{/retention} nella dashboard): riusa lo stesso calcolo su tutto il registro, legge il ROPA \textbf{una sola volta}, non scrive nulla e ordina i documenti per mesi di sforamento; i documenti non associati ad alcun trattamento sono esclusi, perché senza un termine dichiarato non c'è nulla da confrontare.
 
 % -- B8 --
-\section{B8 - Dashboard DPO}
+\section{Dashbrd DPO - B8}
 \label{sec:impl-b8}
 
 Il blocco B8 chiude la catena e ne è l'unica \textbf{superficie d'accesso ordinaria}: rende consultabile ciò che i blocchi precedenti hanno prodotto (§\ref{sec:b8-dashboard}). È realizzato come un'\textbf{unica applicazione web} (\texttt{pii\_detection/web/}, FastAPI e template Jinja2), servita su una sola porta; le interfacce a riga di comando restano strumenti di servizio, non la via d'accesso del DPO.
