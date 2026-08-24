@@ -1,25 +1,19 @@
 \chapter{Stato dell'arte}
 \label{cap:stato-arte}
 
-\section{Il problema: dalla \textit{data anonymization} alla \textit{data governance}} % 1
-\label{sec:definizione}
-Gran parte degli strumenti che trattano dati personali in testo libero nasce per rispondere a una domanda operativa: \emph{come rimuovo questo dato?} La rassegna dello stato dell'arte del settore \cite{lisonAnonymisationModelsText2021} lo conferma: le famiglie di tecniche censite --- e con esse i corpus di riferimento su cui vengono valutate \cite{pilanTextAnonymizationBenchmark2022} --- sono tutte orientate alla rimozione o alla sostituzione del dato. L'anonimizzazione, la pseudonimizzazione e il mascheramento condividono infatti il medesimo presupposto --- il dato personale è un ostacolo da neutralizzare prima che il documento venga condiviso, pubblicato o impiegato per addestrare un modello. È un presupposto legittimo, ma risponde a un problema diverso da quello affrontato in questa tesi. \medskip
-
-La domanda della \textit{data governance} \cite{abrahamDataGovernanceConceptual2019} non è come rimuovere un dato, bensì se quel dato \textbf{possa legittimamente trovarsi} dove si trova: se rientri fra le categorie che l'organizzazione ha dichiarato di trattare per quella finalità, e se sia conservato entro il termine dichiarato. Il dato non va quindi eliminato ma \textbf{messo in relazione} con ciò che l'organizzazione afferma di sé nel proprio registro dei trattamenti. Ne discende una conseguenza che orienta l'intera architettura: il rilevamento delle PII smette di essere il fine del sistema e ne diventa un \textbf{presupposto}. Un rilevatore, per quanto accurato, non risponde ancora ad alcuna domanda di conformità finché ciò che trova non viene confrontato con ciò che è stato dichiarato.
-
-\subsection{Ambiguità contestuale e frammentazione dei domini}
+\section{Ambiguità contestuale e frammentazione dei domini} % 1
 \label{sub:ambiguita-contestuale}
 Sul piano tecnico, la difficoltà del testo non strutturato non consiste nel \emph{leggere} il documento, ma nel disambiguare le informazioni in base al contesto in cui compaiono. Una medesima sequenza di caratteri può essere un identificativo personale o un codice gestionale a seconda di ciò che la circonda; un nome proprio può designare una persona fisica, una via o una ragione sociale. La formattazione, che rende affidabile il riconoscimento di un IBAN o di un codice fiscale, non offre alcun appiglio per queste categorie. \medskip
 
 A questa difficoltà si somma quella che la letteratura descrive come problema del \textit{domain-silo} \cite{jhaPIIBenchUnifiedMultiSource2026}: i sistemi di rilevamento vengono addestrati e valutati su dati provenienti da un dominio specifico e degradano sensibilmente su testi eterogenei. È precisamente la condizione in cui si trova una condivisione documentale aziendale reale, dove contratti, verbali, corrispondenza, fogli di calcolo e manualistica convivono nella stessa cartella: un corpus che nessun singolo dominio di addestramento rappresenta.
 
-\subsection{La verifica automatizzata della conformità}
+\section{La verifica automatizzata della conformità} % 2
 \label{sub:compliance-checking}
 Il confronto fra quanto un'organizzazione dichiara e quanto effettivamente tratta è, di per sé, un problema di ricerca autonomo. Amaral et al. \cite{amaralNLPbasedAutomatedCompliance2023} affrontano il caso duale a quello qui considerato --- la verifica automatizzata, mediante tecniche di NLP, della conformità di un accordo sul trattamento dei dati (DPA) rispetto agli obblighi del GDPR --- mostrando come un requisito normativo espresso in prosa possa essere reso in criteri verificabili meccanicamente. \medskip
 
 Il presente lavoro sposta il termine di confronto: non l'informativa rispetto alla norma, ma il \textbf{contenuto documentale effettivo} rispetto al registro dei trattamenti dell'organizzazione. Il registro fornisce l'atteso --- quali categorie di dati personali, per quali finalità, per quanto tempo --- e il rilevamento fornisce l'osservato; la verifica consiste nel differenziale fra i due insiemi. Questa impostazione richiede che il registro, tipicamente redatto in prosa libera, sia reso confrontabile a livello di macchina: un'esigenza che ricade sull'ingestione del registro e sulla riconduzione delle categorie dichiarate a un vocabolario condiviso con il rilevatore.
 
-\section{Background tecnologico} % 2
+\section{Background tecnologico} % 3
 \label{sec:background-tecnologico}
 Questa sezione è specificamente indicata per inserire definizioni e spiegazioni su argomenti discussi successivamente.
 
@@ -61,7 +55,7 @@ A differenza dei paradigmi supervised e unsupervised descritti in \ref{sub:super
 Il meccanismo con cui questo paradigma viene realizzato nella NER è lo \textit{span-matching}: architetture come GLiNER \cite{zaratianaGLiNER2PIIMultilingualModel2026} ricevono in ingresso sia il documento da analizzare sia le descrizioni testuali delle entità da individuare (ad esempio «numero di previdenza sociale»), e calcolano la similarità semantica fra le porzioni di testo e la descrizione dell'etichetta cercata. Estendere le categorie riconosciute non richiede quindi un riaddestramento, ma l'aggiornamento della lista di istruzioni testuali fornite in input --- proprietà che risponde direttamente ai vincoli di flessibilità e di riservatezza locale richiamati sopra \cite{zhangPersonallyIdentifiableInformation2025}. Le prestazioni effettivamente misurate su questa famiglia di modelli sono discusse nel confronto empirico (cfr.~\ref{sub:confronto-empirico}).
 
 
-\section{Approcci tecnici di PII detection} % 3
+\section{Approcci tecnici di PII detection} % 4
 \label{sec:approcci-PII-detection}
 Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse in studi accademici. Ognuna di queste ha dei punti di forza e di debolezza, infatti esiste una area di problemi dove ogni singola opzione diventa la migliore, riducendo o addirittura annullando gli effetti negativi. \medskip
 
@@ -217,7 +211,7 @@ L'esame delle soluzioni commerciali non ha finalità comparative rispetto al sis
 	      \textbf{Limiti}: resta un prodotto proprietario e non ispezionabile. Il modello impiegato non è sostituibile, e l'assenza di accesso al funzionamento interno impedisce sia di verificare come un esito sia stato prodotto, sia di estendere il rilevamento a categorie o ordinamenti non previsti dal fornitore.
 \end{itemize}
 
-\section{Sintesi del gap e posizionamento del progetto}
+\section{Sintesi del gap e posizionamento del progetto} % 6
 \label{sec:sintesi-gap}
 Alla luce di questa panoramica, il \textbf{gap nel mercato} risulta evidente. Le organizzazioni, in particolare le PMI svizzere, si confrontano con un panorama fortemente polarizzato:
 
