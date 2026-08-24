@@ -19,8 +19,10 @@
 #   GLINER    1=usa GLiNER per il NER      (default: 1; metti 0 per spaCy in locale)
 #   MODELS    modelli AI da confrontare   (default: lista a tre fasce di taglia)
 #   LIMIT     valuta solo i primi N doc   (default: vuoto = tutto il corpus)
-#   CORPUS    cartella del corpus annotato (default: quello generato, 60 doc /
-#             350 occorrenze; metti "" per il corpus piccolo impacchettato)
+#   CORPUS    corpus annotato: cartella di .txt oppure un sources.jsonl
+#             (default: il corpus aziendale, 300 doc / 2918 occorrenze)
+#   TREE      radice del corpus aziendale per la tassa di estrazione
+#             (default: corpus/generated; metti "" per il corpus reso in PDF)
 #   SKIP_UNIT / SKIP_DETECT / SKIP_PIPELINE / SKIP_AI = 1 per saltare una fase
 #
 # ESEMPI
@@ -39,10 +41,11 @@ OUTDIR="${OUTDIR:-doc/eval_results}"
 GLINER="${GLINER:-1}"
 MODELS="${MODELS:-phi4-mini qwen3:4b gemma3:4b qwen2.5:7b gemma3:12b}"
 LIMIT="${LIMIT:-}"
-# Il corpus di riferimento del capitolo: 60 documenti / 350 occorrenze annotate,
-# lo stesso da cui `render` produce i PDF della tassa di estrazione — così tutte
-# le tabelle poggiano sullo stesso terreno.
-CORPUS="${CORPUS-pii_detection/evaluation/documents_generated}"
+# Il corpus di riferimento del capitolo: l'albero aziendale, 300 documenti /
+# 2918 occorrenze, di cui 96 senza PII (i soli su cui i falsi positivi siano
+# osservabili). Ogni tabella del capitolo poggia su questo stesso terreno.
+CORPUS="${CORPUS-corpus/generated/sources.jsonl}"
+TREE="${TREE-corpus/generated}"
 
 # nel container l'interprete di sistema va bene se non c'è il venv
 if [ ! -x "$PY" ]; then PY="python"; fi
@@ -53,6 +56,7 @@ mkdir -p "$OUTDIR"
 gliner_flag=""; [ "$GLINER" = "1" ] && gliner_flag="--gliner"
 limit_flag="";  [ -n "$LIMIT" ]    && limit_flag="--limit $LIMIT"
 corpus_flag=""; [ -n "$CORPUS" ]   && corpus_flag="--corpus $CORPUS"
+tree_flag="";   [ -n "$TREE" ]     && tree_flag="--enterprise $TREE"
 
 hr() { printf '\n\033[1m=== %s ===\033[0m\n' "$1"; }
 
@@ -87,10 +91,12 @@ fi
 # =============================================================================
 if [ "${SKIP_PIPELINE:-0}" != "1" ]; then
   hr "§8.3.3  Pipeline end-to-end (estrai->detect->score) + tassa di estrazione"
-  # 1) rende il corpus sintetico in PDF/DOCX (idempotente) ...
-  $PY -m pii_detection.evaluation.render >/dev/null
-  # 2) ... poi valuta pattern+NER sul testo pulito e su quello estratto.
-  $PY -m pii_detection.evaluation.run_pipeline $gliner_flag \
+  # Sul corpus aziendale il testo pulito viene da sources.jsonl e quello estratto
+  # dai file veri in tree/: non c'e' nulla da rendere. Solo se TREE e' vuoto si
+  # ricade sul corpus reso in PDF, che va prima generato.
+  if [ -z "$TREE" ]; then $PY -m pii_detection.evaluation.render >/dev/null; fi
+  # shellcheck disable=SC2086
+  $PY -m pii_detection.evaluation.run_pipeline $gliner_flag $tree_flag \
     | tee "$OUTDIR/03_pipeline_extraction_tax.txt"
 fi
 
