@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 
 from pii_detection.evaluation.corpus import (
+    load_annotated_corpus,
     load_corpus_dir,
+    load_corpus_jsonl,
     parse_annotated_text,
 )
 
@@ -55,3 +57,46 @@ class TestLoadDir:
         docs = load_corpus_dir()
         assert len(docs) >= 1
         assert any(s.pii_type == "iban" for d in docs for s in d.spans)
+
+
+class TestLoadJsonl:
+    def test_missing_file_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            load_corpus_jsonl(tmp_path / "assente.jsonl")
+
+    def test_parses_records_in_order(self, tmp_path: Path) -> None:
+        path = tmp_path / "sources.jsonl"
+        path.write_text(
+            '{"document_id": "a/b.pdf", "annotated": "x {{email:a@b.c}}"}\n'
+            "\n"  # blank lines are skipped
+            '{"document_id": "c.txt", "annotated": "niente"}\n',
+            encoding="utf-8",
+        )
+        docs = load_corpus_jsonl(path)
+        assert [d.document_id for d in docs] == ["a/b.pdf", "c.txt"]
+        assert docs[0].spans[0].pii_type == "email"
+        assert docs[1].spans == ()
+
+    def test_malformed_line_raises_with_line_number(self, tmp_path: Path) -> None:
+        path = tmp_path / "sources.jsonl"
+        path.write_text('{"document_id": "a", "annotated": "ok"}\n{"nope": 1}\n', encoding="utf-8")
+        with pytest.raises(ValueError, match=":2:"):
+            load_corpus_jsonl(path)
+
+
+class TestLoadAnnotatedCorpus:
+    def test_dispatches_on_directory(self, tmp_path: Path) -> None:
+        (tmp_path / "a.txt").write_text("x {{iban:IT60X05}}", encoding="utf-8")
+        assert [d.document_id for d in load_annotated_corpus(tmp_path)] == ["a"]
+
+    def test_dispatches_on_jsonl_file(self, tmp_path: Path) -> None:
+        path = tmp_path / "sources.jsonl"
+        path.write_text('{"document_id": "d.pdf", "annotated": "{{phone:+39 0}}"}\n', encoding="utf-8")
+        assert [d.document_id for d in load_annotated_corpus(path)] == ["d.pdf"]
+
+    def test_none_falls_back_to_packaged_corpus(self) -> None:
+        assert len(load_annotated_corpus(None)) >= 1
+
+    def test_missing_path_raises(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            load_annotated_corpus(tmp_path / "assente")

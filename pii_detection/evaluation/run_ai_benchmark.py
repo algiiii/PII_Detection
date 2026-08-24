@@ -47,7 +47,7 @@ from pathlib import Path
 from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.detection.types import DetectionProvenance, DetectorKind, PIICandidate
-from pii_detection.evaluation.corpus import AnnotatedDocument, load_corpus_dir
+from pii_detection.evaluation.corpus import AnnotatedDocument, load_annotated_corpus
 from pii_detection.evaluation.scoring import EvaluationReport, evaluate, format_report
 
 #: Default models to benchmark — the three size tiers (see the module docstring).
@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--models", nargs="+", default=list(DEFAULT_MODELS), help="Ollama model names to benchmark"
     )
-    parser.add_argument("--corpus", type=Path, default=None, help="annotated corpus dir (default: packaged)")
+    parser.add_argument("--corpus", type=Path, default=None, help="annotated corpus: a dir of .txt or a sources.jsonl (default: packaged)")
     parser.add_argument("--limit", type=int, default=None, help="score only the first N documents")
     parser.add_argument(
         "--gliner", action="store_true", help="use GLiNER for the NER (heavy; container only)"
@@ -303,7 +303,7 @@ def main(argv: list[str] | None = None) -> None:
             )
             energy = False
 
-    corpus = load_corpus_dir(args.corpus)
+    corpus = load_annotated_corpus(args.corpus)
     if args.limit is not None:
         corpus = corpus[: args.limit]
     pattern, ner = _default_base(args.gliner)

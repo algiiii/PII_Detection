@@ -19,6 +19,8 @@
 #   GLINER    1=usa GLiNER per il NER      (default: 1; metti 0 per spaCy in locale)
 #   MODELS    modelli AI da confrontare   (default: lista a tre fasce di taglia)
 #   LIMIT     valuta solo i primi N doc   (default: vuoto = tutto il corpus)
+#   CORPUS    cartella del corpus annotato (default: quello generato, 60 doc /
+#             350 occorrenze; metti "" per il corpus piccolo impacchettato)
 #   SKIP_UNIT / SKIP_DETECT / SKIP_PIPELINE / SKIP_AI = 1 per saltare una fase
 #
 # ESEMPI
@@ -37,6 +39,10 @@ OUTDIR="${OUTDIR:-doc/eval_results}"
 GLINER="${GLINER:-1}"
 MODELS="${MODELS:-phi4-mini qwen3:4b gemma3:4b qwen2.5:7b gemma3:12b}"
 LIMIT="${LIMIT:-}"
+# Il corpus di riferimento del capitolo: 60 documenti / 350 occorrenze annotate,
+# lo stesso da cui `render` produce i PDF della tassa di estrazione — così tutte
+# le tabelle poggiano sullo stesso terreno.
+CORPUS="${CORPUS-pii_detection/evaluation/documents_generated}"
 
 # nel container l'interprete di sistema va bene se non c'è il venv
 if [ ! -x "$PY" ]; then PY="python"; fi
@@ -46,6 +52,7 @@ mkdir -p "$OUTDIR"
 # flag condivisi
 gliner_flag=""; [ "$GLINER" = "1" ] && gliner_flag="--gliner"
 limit_flag="";  [ -n "$LIMIT" ]    && limit_flag="--limit $LIMIT"
+corpus_flag=""; [ -n "$CORPUS" ]   && corpus_flag="--corpus $CORPUS"
 
 hr() { printf '\n\033[1m=== %s ===\033[0m\n' "$1"; }
 
@@ -68,7 +75,8 @@ fi
 if [ "${SKIP_DETECT:-0}" != "1" ]; then
   hr "§8.3.1  Presidio pattern / NER / union (per categoria)  ->  tab:test-pattern, tab:test-ner"
   # Stampa tre report per-categoria: pattern da solo, NER da solo, union.
-  $PY -m pii_detection.evaluation.run_presidio_baseline $gliner_flag \
+  # shellcheck disable=SC2086
+  $PY -m pii_detection.evaluation.run_presidio_baseline $gliner_flag $corpus_flag \
     | tee "$OUTDIR/02_presidio_per_category.txt"
 fi
 
@@ -97,7 +105,7 @@ if [ "${SKIP_AI:-0}" != "1" ]; then
   # --per-category espande ogni riga (ai:<m>, union:<m>) nel dettaglio per pii_type;
   # la tabella compatta in testa dà P/R/F1 + s/doc + Wh/doc per il confronto di taglia.
   # shellcheck disable=SC2086
-  $PY -m pii_detection.evaluation.run_ai_benchmark $gliner_flag $limit_flag \
+  $PY -m pii_detection.evaluation.run_ai_benchmark $gliner_flag $limit_flag $corpus_flag \
       --models $MODELS --per-category \
     | tee "$OUTDIR/04_ai_benchmark.txt"
 fi

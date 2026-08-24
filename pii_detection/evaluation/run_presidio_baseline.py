@@ -12,6 +12,7 @@ Loads the real Italian spaCy model, so it is slow; run it on demand.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from pii_detection.detection.config import (
     default_config_dir,
@@ -24,7 +25,7 @@ from pii_detection.detection.presidio_detector import (
 )
 from pii_detection.detection.protocol import PIIDetector
 from pii_detection.detection.types import DetectorKind, PIICandidate
-from pii_detection.evaluation.corpus import load_corpus_dir
+from pii_detection.evaluation.corpus import load_annotated_corpus
 from pii_detection.evaluation.scoring import evaluate, format_report
 
 
@@ -59,13 +60,19 @@ def main() -> None:
         action="store_true",
         help="use GLiNER for the NER instead of spaCy (heavy; needs the [ner] deps)",
     )
+    parser.add_argument(
+        "--corpus",
+        type=Path,
+        default=None,
+        help="annotated corpus: a dir of .txt or a sources.jsonl (default: the packaged one)",
+    )
     args = parser.parse_args()
 
     catalog = load_category_catalog(default_config_dir() / "categories.yaml")
     entities = load_presidio_entities(default_config_dir() / "presidio_entities.yaml", catalog)
     analyzer = build_italian_analyzer(use_gliner=args.gliner)
     pattern, ner = build_presidio_detectors(entities, analyzer)
-    corpus = list(load_corpus_dir())
+    corpus = list(load_annotated_corpus(args.corpus))
 
     ner_label = "Presidio NER (GLiNER)" if args.gliner else "Presidio NER (spaCy)"
     rows: list[tuple[str, PIIDetector]] = [
