@@ -10,7 +10,7 @@
 
 \subsection{Disponibilità e qualità dei dataset di valutazione}
 \label{sub:rischio-dataset}
-La letteratura sul trattamento delle PII è orientata in prevalenza all'anonimizzazione, e i corpus pubblici disponibili sono costruiti per quel fine: scarseggiano insiemi di valutazione pensati per la sola \textit{detection}, annotati in modo esaustivo e liberamente utilizzabili. Il problema è noto e non specifico di questo lavoro: il principale ostacolo alle soluzioni supervisionate è riconosciuto proprio nel costo di costruzione di un corpus annotato di dimensioni adeguate~\cite{africanoPIIDetectionLowResource2024}. A ciò si aggiunge un vincolo proprio di questo progetto: un corpus di dati reali sarebbe esso stesso un archivio di dati personali, in contraddizione diretta con il principio di minimizzazione che il sistema è chiamato a rispettare (cfr.~\ref{sub:minimizzazione}). \medskip
+La letteratura sul trattamento delle PII è orientata in prevalenza all'anonimizzazione~\cite{lisonAnonymisationModelsText2021}, e i corpus pubblici disponibili sono costruiti per quel fine~\cite{pilanTextAnonymizationBenchmark2022}: scarseggiano insiemi di valutazione pensati per la sola \textit{detection}, annotati in modo esaustivo e liberamente utilizzabili. Il problema è noto e non specifico di questo lavoro: il principale ostacolo alle soluzioni supervisionate è riconosciuto proprio nel costo di costruzione di un corpus annotato di dimensioni adeguate~\cite{africanoPIIDetectionLowResource2024}. A ciò si aggiunge un vincolo proprio di questo progetto: un corpus di dati reali sarebbe esso stesso un archivio di dati personali, in contraddizione diretta con il principio di minimizzazione che il sistema è chiamato a rispettare (cfr.~\ref{sub:minimizzazione}). \medskip
 
 Se il rischio si materializza, il sistema resta privo di una base di misura: le prestazioni del rilevamento non sarebbero verificabili in modo riproducibile e ogni scelta architetturale --- quale rilevatore adottare, se l'AI aggiunga valore --- si ridurrebbe a una preferenza soggettiva, indebolendo l'intero impianto argomentativo della tesi. \medskip
 
@@ -113,7 +113,7 @@ I modi in cui questo rischio si manifesta sono tre, di gravità crescente: tempi
 
 Le contromisure riguardano il modo in cui l'elaborazione va organizzata. Ogni documento deve essere elaborato in \textbf{isolamento}: un file che non può essere letto va registrato come errore lasciando proseguire l'analisi, cosicché nessun singolo elemento possa comprometterla. I componenti costosi da inizializzare vanno predisposti una sola volta e riusati per l'intero lotto, e il testo estratto va mantenuto in memoria per la sola durata dell'elaborazione del documento, come già impone il vincolo di minimizzazione (cfr.~\ref{sub:minimizzazione}). Le esecuzioni successive alla prima devono infine rielaborare i soli documenti modificati (cfr.~\ref{sub:rianalisi-incrementale}), il che rende il costo a regime proporzionale al cambiamento anziché al volume. Resta un rischio residuo sul fronte della parallelizzazione richiesta dal requisito di prestazioni (cfr.~\ref{sub:prestazioni}): su corpus molto ampi l'elaborazione incrementale riduce il lavoro ricorrente ma non quello della prima passata, per la quale la riduzione dei tempi passa dalla distribuzione del carico su più processi.
 
-\subsection{Qualità e completezza dei ROPA in input}
+\subsection{Qualità e completezza del ROPA in input}
 \label{sub:rischio-qualita-ropa}
 Il registro delle attività di trattamento è il termine di paragone rispetto al quale ogni verdetto viene formulato, ma è un documento redatto dall'organizzazione, spesso in prosa sbrigativa: categorie indicate con formule generiche («dati anagrafici»), durate di conservazione espresse come criterio anziché come termine, attività dichiarate in modo incompleto. Il sistema, in altre parole, dipende da un input che non controlla e che è tipicamente meno preciso di quanto il confronto richiederebbe. \medskip
 
@@ -196,7 +196,7 @@ La Tabella~\ref{tab:matrice-rischi} posiziona i quindici rischi identificati sec
 			\hline
 			\ref{sub:rischio-scalabilita}          & Scalabilità                   & Media                & Moderato         & Media             \\
 			\hline
-			\ref{sub:rischio-qualita-ropa}         & Qualità dei ROPA in input     & Alta                 & Critico          & \textbf{Alta}     \\
+			\ref{sub:rischio-qualita-ropa}         & Qualità del ROPA in input     & Alta                 & Critico          & \textbf{Alta}     \\
 			\hline
 			\ref{sub:rischio-conformita-normativa} & Aggiornamento normativo       & Bassa                & Moderato         & Bassa             \\
 			\hline
