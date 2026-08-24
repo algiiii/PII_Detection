@@ -2,6 +2,12 @@
 \chapter{Architettura del sistema}
 \label{cap:architettura}
 
+Questo capitolo descrive l'architettura del sistema: da quali componenti è costituito, di che cosa risponde ciascuno di essi e in quale ordine si scambiano i dati. Il piano dell'esposizione è quello del \emph{progetto} --- la struttura adottata, le decisioni che l'hanno determinata e le alternative scartate con le rispettive ragioni --- mentre le tecniche e gli strumenti con cui ogni componente è stato poi realizzato appartengono al Capitolo~\ref{cap:implementazione}.
+
+La struttura scompone il sistema in otto blocchi funzionali, indicati con le sigle B1--B8, ciascuno con una responsabilità unica e un confine esplicito verso i blocchi adiacenti. Due di essi operano \emph{una tantum} sui dati che descrivono l'organizzazione --- il registro dei trattamenti e la struttura dell'archivio documentale --- mentre i restanti formano la pipeline ricorrente, rieseguita a ogni scansione: estrazione del testo, rilevamento delle PII, registrazione, associazione al trattamento, verifica di conformità e restituzione al DPO. La Figura~\ref{fig:architettura-macro-blocchi} riassume i blocchi e i flussi che li collegano; la Figura~\ref{fig:b4-detection-pipeline} espande il blocco di rilevamento, l'unico la cui articolazione interna richieda uno schema dedicato.
+
+L'esposizione segue lo stesso ordine. La prima sezione inquadra i due input del sistema, il registro dei trattamenti e l'insieme dei documenti da analizzare; le sezioni successive trattano un blocco ciascuna, nella sequenza in cui i dati li attraversano. La medesima scomposizione governa anche il capitolo di implementazione, così che a ogni sezione di architettura corrisponda quella omologa sulla realizzazione.
+
 \begin{figure}[htbp]
 	\centering
 	\begin{tikzpicture}[
@@ -122,8 +128,6 @@
 % Le figure d'apertura del capitolo restano confinate qui, prima delle sezioni.
 \FloatBarrier
 
-La figura \ref{fig:architettura-macro-blocchi} rappresenta graficamente l'intero sistema, e costituisce la ground truth per quanto riguarda la sua implementazione. I seguenti capitoli sono suddivisi seguendo rigorosamente i blocchi dell'architettura prevista dal grafico.
-
 % -- INPUT DEL SISTEMA --
 \section{Input del sistema}
 \label{sec:input-sistema}
@@ -158,7 +162,7 @@ Questo blocco è responsabile per la lettura e trasformazione del registro dei t
 
 Avere uno schema esplicito garantisce che il database sia interrogabile in maniera prevedibile dal blocco di confronto B7 (\ref{sec:b7-verifica-compliance-PII}) e mantenibile nel tempo.
 
-L'AI non viene esclusa, ma spostata in un ambito più creativo durante la creazione del database del registro dei trattamenti (\ref{DA METTERE}).
+L'AI non viene perciò esclusa dal blocco, ma confinata all'unico punto in cui un'interpretazione è indispensabile: la riconduzione delle categorie dichiarate in testo libero al vocabolario condiviso delle categorie di PII, descritta in §\ref{sub:B1-AI}.
 
 \subsection{Template registro CNIL}
 \label{sub:B1-cnil}
@@ -184,7 +188,7 @@ Per lo scopo del lavoro, \textbf{non verranno salvati tutti i dati} presenti in 
 \end{itemize}
 
 % qui da valutare se mettere la discussione con relatore
-La struttura scelta per rappresentare il registro segue la sua gerarchia naturale su \textbf{tre livelli}. Al primo, l'\textbf{attività di trattamento}, con la sua identità (un nome e una finalità). Al secondo, i \textbf{blocchi di categorie} che vi appartengono, ciascuno con la propria \textbf{durata di conservazione}, che le categorie raccolte nel blocco ereditano. Al terzo, le \textbf{singole categorie dichiarate}, ognuna ricondotta al vocabolario condiviso delle categorie di PII --- lo stesso usato dal rilevamento (B4). È quest'ultimo aggancio a rendere il confronto fra ciò che il registro \emph{dichiara} e ciò che il motore \emph{rileva} (B7) una semplice operazione insiemistica: e una categoria che non si risolve in alcun tipo rilevabile resta \textbf{esplicita} nel modello --- dichiarata ma non verificabile dal motore --- e come tale va segnalata al DPO, non scambiata per conforme. La durata di conservazione, infine, è tenuta accanto al testo originale in forma \emph{confrontabile dalla macchina}, così che il superamento del termine (B7) sia \emph{calcolato} al momento del controllo e non registrato come stato. La resa concreta di questo modello --- tabelle, campi e tipi --- è nella sezione di implementazione (§\ref{sec:dati-persistiti}).
+La struttura scelta per rappresentare il registro segue la sua gerarchia naturale su \textbf{tre livelli}. Al primo, l'\textbf{attività di trattamento}, con la sua identità (un nome e una finalità). Al secondo, i \textbf{blocchi di categorie} che vi appartengono, ciascuno con la propria \textbf{durata di conservazione}, che le categorie raccolte nel blocco ereditano. Al terzo, le \textbf{singole categorie dichiarate}, ognuna ricondotta al vocabolario condiviso delle categorie di PII --- lo stesso usato dal rilevamento (B4). È quest'ultimo aggancio a rendere il confronto fra ciò che il registro \emph{dichiara} e ciò che il motore \emph{rileva} (B7) una semplice operazione insiemistica: e una categoria che non si risolve in alcun tipo rilevabile resta \textbf{esplicita} nel modello --- dichiarata ma non verificabile dal motore --- e come tale va segnalata al DPO, non scambiata per conforme. La durata di conservazione, infine, è tenuta accanto al testo originale in forma \emph{confrontabile dalla macchina}, così che il superamento del termine (B7) sia \emph{calcolato} al momento del controllo e non registrato come stato. La resa concreta di questo modello --- tabelle, campi e tipi --- è nella sezione di implementazione (§\ref{sub:impl-b1-mappatura}).
 
 
 \subsection{Ruolo AI in ROPA}
@@ -197,7 +201,7 @@ Soprattutto, l'esito del modello è una \emph{proposta}, non una decisione: la m
 % -- B2 --
 \section{B2 - Analisi struttura File System}
 \label{sec:b2-analisi-struttura}
-Feature presente nell'architettura originale, ma non implementata per vincoli tempistici e di scarsa sicurezza e utilità del possibile risultato. Presente in maniera più approfondita nella sezione degli Sviluppi Futuri \ref{SEZIONE}
+Feature presente nell'architettura originale, ma non implementata per vincoli tempistici e di scarsa sicurezza e utilità del possibile risultato. Se ne discute più diffusamente fra gli sviluppi futuri (§\ref{sec:sf-analisi-struttura}).
 
 % -- B3 --
 \section{B3 - Estrazione e normalizzazione del testo}
@@ -287,7 +291,7 @@ Il blocco B5 della Figura~\ref{fig:architettura-macro-blocchi} è il \textbf{con
 
 Nella concezione iniziale il registro doveva anche seguire l'\textbf{evoluzione} delle PII nel tempo, riconoscendo fra scansioni ricorrenti che cosa fosse cambiato da una all'altra. Quella capacità è stata ricondotta a una forma più semplice: il registro conserva uno \textbf{snapshot} della situazione corrente del file system analizzato, che ogni nuova scansione \emph{sostituisce}. Il disegno del tracciamento temporale --- progettato e poi non realizzato in questa iterazione --- è documentato fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}).
 
-Un vincolo di progetto governa \emph{che cosa} può entrare nel registro: la \textbf{minimizzazione del dato} (§\ref{sub:minimizzazione}). Il registro non conserva mai il valore della PII, ma solo \textbf{riferimenti} a essa --- il tipo, la posizione nel documento, la provenienza del rilevamento. Salvare i valori sarebbe una contraddizione prima ancora che un rischio: uno strumento che esiste per \emph{mappare} dove stanno i dati personali, se li duplicasse, diventerebbe una seconda copia di ciò che deve proteggere --- una ridondanza che aggiunge esposizione senza aggiungere informazione. La resa concreta di questo principio, a livello di tabelle e campi --- inclusa l'assenza deliberata di una colonna che contenga il valore --- appartiene al capitolo di implementazione (§\ref{sub:dati-registro-pii}); il modello concettuale con l'ER è in §\ref{sub:persistenza-modello-dati}.
+Un vincolo di progetto governa \emph{che cosa} può entrare nel registro: la \textbf{minimizzazione del dato} (§\ref{sub:minimizzazione}). Il registro non conserva mai il valore della PII, ma solo \textbf{riferimenti} a essa --- il tipo, la posizione nel documento, la provenienza del rilevamento. Salvare i valori sarebbe una contraddizione prima ancora che un rischio: uno strumento che esiste per \emph{mappare} dove stanno i dati personali, se li duplicasse, diventerebbe una seconda copia di ciò che deve proteggere --- una ridondanza che aggiunge esposizione senza aggiungere informazione. La resa concreta di questo principio, a livello di tabelle e campi --- inclusa l'assenza deliberata di una colonna che contenga il valore --- appartiene al capitolo di implementazione (§\ref{sub:dati-registro-pii}).
 
 % -- B6 --
 \section{B6 - Associazione documento-trattamento}
@@ -307,21 +311,21 @@ La relazione è molti-a-molti: un documento può appartenere a più trattamenti 
 
 L'associazione è resa esplicita e responsabilità del DPO. Una modalità di associazione non comporta nessuna funzionalità diversa: porta solo semplicità e rapidità nell'associare numerosi documenti, specialmente se possono essere divisi logicamente in più aree.
 
-Oggi l'attribuzione è sempre del DPO; l'architettura lascia però il posto a un proponente futuro (per contenuto o assistito dall'AI) che suggerisca l'associazione lasciando all'umano la conferma --- lo stesso schema human-in-the-loop del mapping del ROPA (§\ref{sub:ropa-ai}).
+Oggi l'attribuzione è sempre del DPO; l'architettura lascia però il posto a un proponente futuro (per contenuto o assistito dall'AI) che suggerisca l'associazione lasciando all'umano la conferma --- lo stesso schema human-in-the-loop del mapping del ROPA (§\ref{sub:B1-AI}).
 
 % -- B7 --
 \section{B7 - Verifica conformità PII presenti}
 \label{sec:b7-verifica-compliance-PII}
-Una volta fissata l'associazione tra documento e trattamento, il lavoro del blocco B7 è semplicemente di confronto tra i due. La verifica avviene usando \emph{tutti} i trattamenti a cui il documento è associato. Quali mappature concorrano a formare quell'insieme è un parametro esplicito del confronto: il verdetto \emph{autorevole} considera le sole mappature confermate dal DPO (§\ref{sub:ropa-ai}), mentre la consultazione interattiva conta anche quelle ancora proposte, così da restare informativa prima che la revisione del registro sia stata completata. La distinzione va tenuta presente nel leggere un verdetto, perché la stessa categoria può risultare orfana nell'una lettura e coperta nell'altra; ciò che invece non è ammissibile è che i due criteri convivano \emph{dentro} un medesimo verdetto, e la regola su quali categorie contino è perciò definita in un unico punto e usata da tutti i controlli, conservazione inclusa. Dall'altro l'insieme dei \texttt{pii\_type} \emph{rilevati}: i tipi delle PII effettivamente presenti nel documento secondo il registro. Confrontando i due insiemi, ogni tipo ricade in una voce di un \textbf{vocabolario chiuso}, che è il linguaggio con cui il sistema riporta il verdetto al DPO:
+Una volta fissata l'associazione tra documento e trattamento, il lavoro del blocco B7 è semplicemente di confronto tra i due. La verifica avviene usando \emph{tutti} i trattamenti a cui il documento è associato. Quali mappature concorrano a formare quell'insieme è un parametro esplicito del confronto: il verdetto \emph{autorevole} considera le sole mappature confermate dal DPO (§\ref{sub:B1-AI}), mentre la consultazione interattiva conta anche quelle ancora proposte, così da restare informativa prima che la revisione del registro sia stata completata. La distinzione va tenuta presente nel leggere un verdetto, perché la stessa categoria può risultare orfana nell'una lettura e coperta nell'altra; ciò che invece non è ammissibile è che i due criteri convivano \emph{dentro} un medesimo verdetto, e la regola su quali categorie contino è perciò definita in un unico punto e usata da tutti i controlli, conservazione inclusa. Dall'altro l'insieme dei \texttt{pii\_type} \emph{rilevati}: i tipi delle PII effettivamente presenti nel documento secondo il registro. Confrontando i due insiemi, ogni tipo ricade in una voce di un \textbf{vocabolario chiuso}, che è il linguaggio con cui il sistema riporta il verdetto al DPO:
 
 \begin{description}
 	\item[Coperta] un tipo \emph{rilevato} che è anche \emph{dichiarato} da almeno uno dei trattamenti associati. È il caso conforme: il dato presente è previsto dal registro.
 	\item[Orfana] un tipo \emph{rilevato} che \textbf{nessuno} dei trattamenti associati dichiara. È il segnale di conformità cardine: un dato personale presente nel documento che il ROPA non prevede --- un trattamento di fatto non dichiarato (art.~30 GDPR, art.~12 nLPD). Si dice «orfana» perché priva di un trattamento-genitore che la giustifichi.
 	\item[Mancante] un tipo \emph{dichiarato} da un trattamento associato ma \textbf{non} riscontrato nel documento. Non è di per sé una violazione: può indicare una sovra-dichiarazione, oppure semplicemente che quel documento non contiene quel dato.
-	\item[Non risolvibile] una categoria \emph{dichiarata} nel ROPA che non si risolve in alcun \texttt{pii\_type} (insieme vuoto, §\ref{sub:ropa-modello}): è dichiarata ma non rilevabile dal motore. Resta esplicita e va segnalata al DPO, invece di essere scambiata per conforme.
+	\item[Non risolvibile] una categoria \emph{dichiarata} nel ROPA che non si risolve in alcun \texttt{pii\_type} (insieme vuoto, §\ref{sec:b1-ropa}): è dichiarata ma non rilevabile dal motore. Resta esplicita e va segnalata al DPO, invece di essere scambiata per conforme.
 \end{description}
 
-Sotto la cardinalità molti-a-molti la definizione di orfana è deliberatamente \textbf{permissiva}: un tipo è orfano solo se \emph{nessuno} dei trattamenti associati lo dichiara (unione, non intersezione). Un dato coperto anche da un solo trattamento pertinente è giustificato. Specularmente, a ogni singola PII rilevata la verifica assegna il primo trattamento associato che ne dichiara il tipo come «trattamento giustificante» (\texttt{processing\_activity\_id}), oppure nessuno se la PII è orfana: è il momento in cui il riferimento opzionale (0..1) lasciato vuoto dal registro (§\ref{sub:persistenza-modello-dati}) viene finalmente popolato.
+Sotto la cardinalità molti-a-molti la definizione di orfana è deliberatamente \textbf{permissiva}: un tipo è orfano solo se \emph{nessuno} dei trattamenti associati lo dichiara (unione, non intersezione). Un dato coperto anche da un solo trattamento pertinente è giustificato. Specularmente, a ogni singola PII rilevata la verifica assegna il primo trattamento associato che ne dichiara il tipo come «trattamento giustificante» (\texttt{processing\_activity\_id}), oppure nessuno se la PII è orfana: è il momento in cui il riferimento opzionale (0..1) lasciato vuoto dal registro (§\ref{sub:dati-registro-pii}) viene finalmente popolato.
 
 Due principi ereditati dal resto del sistema governano la lettura del verdetto. Il primo è \textbf{recall-first} (§\ref{sub:b4-merge}): il sistema preferisce segnalare un'orfana di troppo che mancarne una, perché un falso positivo costa al DPO una verifica, mentre una PII non dichiarata e non vista è un rischio invisibile. Il secondo è che il verdetto è un \textbf{segnale, non una sentenza}: un'orfana afferma «non risulta dichiarata», non «è certamente una violazione». Può infatti nascere da una violazione reale oppure da un buco di mappatura a monte --- una categoria del ROPA non ancora risolta sul tipo corrispondente. È il DPO, \emph{human-in-the-loop}, a chiudere il giudizio; il sistema gli mette davanti l'evidenza strutturata.
 
@@ -337,7 +341,7 @@ Alla verifica delle categorie si affianca un controllo di \textbf{conservazione}
 
 L'età del documento è però una \textbf{stima, e come tale dichiarata}: il sistema le associa una \textbf{provenienza} e la espone nel verdetto, così che una segnalazione fondata su un indizio forte non venga confusa con una fondata su uno debole. \emph{Come} quella data venga ricavata, e con quali garanzie di plausibilità, è dettaglio realizzativo (§\ref{sub:impl-b7-retention}).
 
-Il verdetto distingue infine due esiti da non confondere: la \textbf{violazione}, quando il documento eccede un termine dichiarato, e la \textbf{conservazione non verificabile}, quando il registro esprime un \emph{criterio} anziché una durata --- caso in cui il \textbf{silenzio non è conformità}, ma un controllo che nessuno ha potuto svolgere. Come il resto della restituzione, questo esito è leggibile sull'intero \textbf{corpus}, non soltanto documento per documento (§\ref{sec:report-b8}).
+Il verdetto distingue infine due esiti da non confondere: la \textbf{violazione}, quando il documento eccede un termine dichiarato, e la \textbf{conservazione non verificabile}, quando il registro esprime un \emph{criterio} anziché una durata --- caso in cui il \textbf{silenzio non è conformità}, ma un controllo che nessuno ha potuto svolgere. Come il resto della restituzione, questo esito è leggibile sull'intero \textbf{corpus}, non soltanto documento per documento (§\ref{sec:b8-dashboard}).
 
 \section{B8 - Dashboard per DPO}
 \label{sec:b8-dashboard}

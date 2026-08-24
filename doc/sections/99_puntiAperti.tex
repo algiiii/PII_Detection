@@ -30,7 +30,7 @@
 \subsection{Modello dati del ROPA}
 \label{sub:pa-ropa}
 
-Voci già isolate come «punti aperti di progettazione» in §\ref{sub:ropa-punti-aperti}, qui riunite.
+Voci già isolate come «punti aperti di progettazione» in §\ref{sec:b1-ropa}, qui riunite.
 
 \paragraph{PA-3 — Granularità della corrispondenza categorie\,--\,PII.} Va fissato se una categoria di dati del ROPA mappi su un singolo \texttt{pii\_type} o su un insieme. Una voce sbrigativa («dati anagrafici») corrisponde di norma a più categorie canoniche, il che suggerisce una relazione 1\,--\,N da formalizzare.
 
@@ -41,7 +41,7 @@ Voci già isolate come «punti aperti di progettazione» in §\ref{sub:ropa-punt
 \subsection{Persistenza del registro PII}
 \label{sub:pa-persistenza}
 
-\emph{Risolto per rinvio.} Il tracciamento temporale delle PII (changelog per singola PII) è stato progettato ma \textbf{non realizzato} in questa iterazione: il registro conserva lo stato corrente (§\ref{sec:persistenza-registro}) e l'analisi degli approcci è confluita fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}). Le decisioni aperte qui sotto (snapshot/event-logger, PA-6/7/8) sono perciò chiuse: si vedano gli approcci A/B/C e il modello dati in §\ref{sec:sf-tracciamento-temporale}.
+\emph{Risolto per rinvio.} Il tracciamento temporale delle PII (changelog per singola PII) è stato progettato ma \textbf{non realizzato} in questa iterazione: il registro conserva lo stato corrente (§\ref{sec:b5-DB-PII}) e l'analisi degli approcci è confluita fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}). Le decisioni aperte qui sotto (snapshot/event-logger, PA-6/7/8) sono perciò chiuse: si vedano gli approcci A/B/C e il modello dati in §\ref{sec:sf-tracciamento-temporale}.
 
 % ---- RISOLTO PER RINVIO (2026-08-20): feature temporale spostata in §10, decisioni chiuse.
 % Testo conservato come traccia storica; da eliminare a pulizia del capitolo.

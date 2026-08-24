@@ -92,7 +92,7 @@ italiano (generato con la libreria \texttt{python-codicefiscale}). La validità 
 della misura: i riconoscitori di Presidio \emph{verificano} quelle cifre di controllo, e un
 valore formalmente plausibile ma incoerente verrebbe scartato in silenzio --- facendo del
 generatore stesso la causa di un mancato rilevamento e gonfiando artificiosamente i falsi
-negativi (§\ref{sec:estrazione-b3} rimanda a questa proprietà già in fase di architettura).
+negativi (§\ref{sec:b3-estrazione-testo} rimanda a questa proprietà già in fase di architettura).
 Per non dipendere da Presidio nel garantirla, ogni valore è \textbf{ri-verificato} con
 algoritmi puri e indipendenti prima di entrare nel corpus. La generazione è governata da un
 \textbf{seme}: a parità di seme il corpus è identico, quindi ogni misura è riproducibile.
@@ -505,7 +505,7 @@ ben formati il livello generativo non aggiunge copertura.
 Il corpus di unità è minuscolo (19 occorrenze): utile a isolare i rilevatori, insufficiente
 a stimare le prestazioni con precisione. Il corpus esteso (350 valori resi in PDF) offre una
 misura più robusta e, soprattutto, consente di isolare il \textbf{costo introdotto
-dall'estrazione} (§\ref{sec:estrazione-b3}): la stessa pipeline è valutata sul
+dall'estrazione} (§\ref{sec:b3-estrazione-testo}): la stessa pipeline è valutata sul
 \emph{testo pulito} (Tier 1) e sul \emph{testo estratto} dal PDF dal blocco B3 (Tier 2), e
 lo scarto fra le due F1 è la «tassa di estrazione». La Tabella~\ref{tab:test-estrazione}
 riporta l'esito complessivo: la pipeline tradizionale (pattern + GLiNER) raggiunge

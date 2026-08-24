@@ -30,7 +30,7 @@ nel documento, che restano aperti come naturale prosecuzione del lavoro svolto.
 \section{Analisi contestuale della struttura del file system}
 \label{sec:sf-analisi-struttura}
 L'idea, formulata fra i requisiti funzionali (cfr.~\ref{sub:analisi-filesystem}) e prevista
-in architettura come blocco autonomo (cfr.~\ref{sec:b2-non-realizzato}), era di trattare
+in architettura come blocco autonomo (cfr.~§\ref{sec:b2-analisi-struttura}), era di trattare
 l'\textbf{organizzazione delle cartelle} come un segnale: i nomi dei rami, la profondità e
 il raggruppamento dei documenti dicono qualcosa sulla finalità per cui quei documenti sono
 tenuti insieme. Nella forma più economica immaginata, l'ingresso sarebbe stato la resa
@@ -226,7 +226,7 @@ direttamente con il tempo destinato a ciò che invece lo produce.
 A differenza delle tre funzionalità precedenti, questa non è stata scartata: è stata
 \textbf{progettata}, se ne sono confrontati gli approcci realizzativi e se ne è scelto uno, ma
 la realizzazione è stata rinviata per ragioni di tempo. Il registro delle PII effettivamente
-costruito si limita perciò allo \textbf{stato corrente} (§\ref{sec:persistenza-registro}):
+costruito si limita perciò allo \textbf{stato corrente} (§\ref{sec:b5-DB-PII}):
 ogni scansione sostituisce le PII registrate di un documento con quelle che vi trova al
 momento. Si riporta qui il disegno svolto, così che una ripresa non debba ripartire da zero.
 
@@ -340,7 +340,7 @@ L'opzione C è quella che si sarebbe adottata, come risultato di un confronto es
 \subsection{Modello dati concettuale del changelog}
 \label{sub:persistenza-changelog-modello}
 
-Al modello dello stato corrente (§\ref{sub:persistenza-modello-dati}) il tracciamento temporale aggiungerebbe una seconda entità. \texttt{PIIChange} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra»: comprende un identificatore, il riferimento all'\texttt{PIIInstance}, il \texttt{change\_type} (vocabolario chiuso: \texttt{NEW} / \texttt{CONFIRMED} / \texttt{MOVED} / \texttt{REMOVED}), il riferimento alla \texttt{Scan} che ha prodotto la variazione, il riferimento alla \texttt{previous\_scan} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}. Lo stato corrente (\texttt{PIIInstance}) acquisterebbe inoltre un indicatore \texttt{removed}, per segnare le istanze non più presenti senza cancellarne la riga.
+Al modello dello stato corrente (§\ref{sub:dati-registro-pii}) il tracciamento temporale aggiungerebbe una seconda entità. \texttt{PIIChange} è il log append-only, secondario, e rappresenta «che cosa è successo a un'istanza tra una scansione e l'altra»: comprende un identificatore, il riferimento all'\texttt{PIIInstance}, il \texttt{change\_type} (vocabolario chiuso: \texttt{NEW} / \texttt{CONFIRMED} / \texttt{MOVED} / \texttt{REMOVED}), il riferimento alla \texttt{Scan} che ha prodotto la variazione, il riferimento alla \texttt{previous\_scan} per lo stesso documento --- ciò che lega le rilevazioni nel tempo --- e un \texttt{timestamp}. Lo stato corrente (\texttt{PIIInstance}) acquisterebbe inoltre un indicatore \texttt{removed}, per segnare le istanze non più presenti senza cancellarne la riga.
 
 Rispetto all'ER dello stato corrente, il modello esteso introdurrebbe due relazioni: \texttt{PIIInstance}~(1)--(N)~\texttt{PIIChange} (\textit{ha storia}) e \texttt{Scan}~(1)--(N)~\texttt{PIIChange} (\textit{genera}). La Figura~\ref{fig:er-changelog-futuro} ne dà una sintesi grafica.
 
@@ -382,7 +382,7 @@ Rispetto all'ER dello stato corrente, il modello esteso introdurrebbe due relazi
 		node[rel, pos=0.5]{appartiene a (B6)}
 		node[card, pos=0.92, left]{N} (act);
 	\end{tikzpicture}
-	\caption[Diagramma ER del changelog delle PII (design rinviato)]{Modello dati esteso per il tracciamento temporale (design rinviato): allo stato corrente (\texttt{PIIInstance}) si affianca il log append-only delle variazioni (\texttt{PIIChange}), legato alle scansioni (\texttt{Scan}) e all'istanza di cui registra la storia. I legami con \texttt{ProcessingActivity} del registro ROPA (tratteggiati, blocco B1) e con \texttt{Document} sono quelli già descritti per lo stato corrente (§\ref{sub:persistenza-modello-dati}).}
+	\caption[Diagramma ER del changelog delle PII (design rinviato)]{Modello dati esteso per il tracciamento temporale (design rinviato): allo stato corrente (\texttt{PIIInstance}) si affianca il log append-only delle variazioni (\texttt{PIIChange}), legato alle scansioni (\texttt{Scan}) e all'istanza di cui registra la storia. I legami con \texttt{ProcessingActivity} del registro ROPA (tratteggiati, blocco B1) e con \texttt{Document} sono quelli già descritti per lo stato corrente (§\ref{sub:dati-registro-pii}).}
 	\label{fig:er-changelog-futuro}
 \end{figure}
 
