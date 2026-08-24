@@ -168,8 +168,7 @@ il riconoscimento ottico dei caratteri, i layout complessi a più colonne e le t
 ai formati meno diffusi. Allo stato attuale se ne fa a meno: i lettori impiegati sono
 sufficienti ai formati coperti, e nessun motore di analisi documentale più elaborato è stato
 introdotto. Qualora l'insieme dei formati da trattare venisse ampliato, sarebbe questo il
-punto in cui valutare l'adozione di uno strumento dedicato --- Docling o analoghi --- in
-luogo dei lettori specifici per singolo formato. \medskip
+punto in cui valutare l'adozione di uno strumento dedicato --- Docling~\cite{livathinosDoclingEfficientOpenSource2025} o analoghi. L'ipotesi preferibile non è la sostituzione integrale dei lettori specifici per singolo formato, bensì un'\textbf{attivazione selettiva}: i lettori leggeri resterebbero la via ordinaria e lo strumento dedicato verrebbe invocato solo sui documenti che presentano indizi di struttura non lineare, quali un impaginato a più colonne --- consueto negli articoli scientifici ---, una densità elevata di tabelle o una pagina priva di testo estraibile in quanto costituita da un'immagine. Il criterio di attivazione sarebbe analogo a quello già adottato per la passata generativa (§\ref{sec:b4-pipeline-detection}), che riserva una risorsa onerosa ai soli casi che la richiedono: il costo dell'estrattore più complesso graverebbe sulla frazione di documenti che ne trae beneficio, e non sull'intero insieme di documenti. \medskip
 
 Il valore è reale ma \textbf{lineare}: ogni formato aggiunto rende leggibile un'altra fetta
 del patrimonio documentale, e nulla più. Non cambia ciò che il sistema sa fare, ma solo su
