@@ -359,47 +359,47 @@ La sezione precedente ha mostrato che, sul piano della sola qualità, il secondo
 
 \begin{table}[H]
 	\centering
-	\caption{Studio multi-modello: qualità (P/R/F1) contro costo (s/doc, Wh/doc, EUR/1000 doc). Baseline = sistema senza AI.}
+	\caption{Studio multi-modello: qualità (P/R/F1) contro costo (s/doc, Wh/doc, CHF/1000 doc). Baseline = sistema senza AI.}
 	\label{tab:test-ai-benchmark}
 	\small
 	\begin{tabular}{|l|c|c|c|r|r|r|}
 		\hline
-		\textbf{Configurazione} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{s/doc} & \textbf{Wh/doc} & \textbf{EUR/1k doc} \\
+		\textbf{Configurazione} & \textbf{P} & \textbf{R} & \textbf{F1} & \textbf{s/doc} & \textbf{Wh/doc} & \textbf{CHF/1k doc} \\
 		\hline
 		\textbf{Presidio (pattern + NER)} --- \textit{baseline} & 0.86 & 0.95 & \textbf{0.90} & 1.9 & 0.008 & 0.002 \\
 		\hline
 		\multicolumn{7}{|l|}{\textit{Fascia ${\sim}4$B}} \\
 		\hline
-		\texttt{ai:phi4-mini}     & 1.00 & 0.47 & 0.64 & 82.6  & 0.678 & 0.169 \\
+		\texttt{ai:phi4-mini}     & 1.00 & 0.47 & 0.64 & 82.6  & 0.678 & 0.188 \\
 		\hline
-		\texttt{union:phi4-mini}  & 0.86 & 0.95 & 0.90 & 53.3  & 0.576 & 0.144 \\
+		\texttt{union:phi4-mini}  & 0.86 & 0.95 & 0.90 & 53.3  & 0.576 & 0.160 \\
 		\hline
-		\texttt{ai:qwen3:4b}      & 0.00 & 0.00 & 0.00 & 165.0 & 1.711 & 0.428 \\
+		\texttt{ai:qwen3:4b}      & 0.00 & 0.00 & 0.00 & 165.0 & 1.711 & 0.474 \\
 		\hline
-		\texttt{union:qwen3:4b}   & 0.86 & 0.95 & 0.90 & 124.1 & 1.384 & 0.346 \\
+		\texttt{union:qwen3:4b}   & 0.86 & 0.95 & 0.90 & 124.1 & 1.384 & 0.383 \\
 		\hline
-		\texttt{ai:gemma3:4b}     & 0.94 & 0.79 & 0.86 & 59.9  & 0.419 & 0.105 \\
+		\texttt{ai:gemma3:4b}     & 0.94 & 0.79 & 0.86 & 59.9  & 0.419 & 0.116 \\
 		\hline
-		\texttt{union:gemma3:4b}  & 0.83 & 1.00 & 0.90 & 39.2  & 0.409 & 0.102 \\
+		\texttt{union:gemma3:4b}  & 0.83 & 1.00 & 0.90 & 39.2  & 0.409 & 0.113 \\
 		\hline
 		\multicolumn{7}{|l|}{\textit{Fascia ${\sim}7$--$8$B}} \\
 		\hline
-		\texttt{ai:qwen2.5:7b}    & 0.87 & 0.68 & 0.76 & 77.9  & 0.701 & 0.175 \\
+		\texttt{ai:qwen2.5:7b}    & 0.87 & 0.68 & 0.76 & 77.9  & 0.701 & 0.194 \\
 		\hline
-		\texttt{union:qwen2.5:7b} & 0.79 & 1.00 & 0.88 & 90.2  & 1.003 & 0.251 \\
+		\texttt{union:qwen2.5:7b} & 0.79 & 1.00 & 0.88 & 90.2  & 1.003 & 0.278 \\
 		\hline
 		\multicolumn{7}{|l|}{\textit{Fascia ${\sim}12$--$14$B}} \\
 		\hline
-		\texttt{ai:gemma3:12b}    & 1.00 & 0.21 & 0.35 & 113.8 & 0.927 & 0.232 \\
+		\texttt{ai:gemma3:12b}    & 1.00 & 0.21 & 0.35 & 113.8 & 0.927 & 0.257 \\
 		\hline
-		\texttt{union:gemma3:12b} & 0.86 & 0.95 & 0.90 & 114.3 & 0.884 & 0.221 \\
+		\texttt{union:gemma3:12b} & 0.86 & 0.95 & 0.90 & 114.3 & 0.884 & 0.245 \\
 		\hline
 	\end{tabular}
 \end{table}
 
 \paragraph*{L'ordine di grandezza del costo.} Il primo dato è schiacciante e prescinde dal modello: la baseline tradizionale rileva a \textbf{1.9 s/doc} e \textbf{0.008 Wh/doc}, mentre ogni passata generativa costa fra \textbf{39 e 165 s/doc} e fra \textbf{0.4 e 1.7 Wh/doc}. Il parere dell'AI è cioè da uno a due \textbf{ordini di grandezza} più lento e più energivoro --- da ${\sim}20$ a ${\sim}85\times$ in tempo, da ${\sim}50$ a ${\sim}220\times$ in energia.
 
-\paragraph*{Dal consumo al costo.} Per riprendere in sede di conclusioni il confronto economico impostato in letteratura (§\ref{sec:impatto-ambientale}), i wattora sono tradotti in una stima monetaria. La conversione è immediata: l'energia per 1000 documenti in kWh coincide numericamente con i Wh per documento, e basta moltiplicarla per il prezzo dell'energia. Assumendo un prezzo al dettaglio rappresentativo del mercato italiano di ${\sim}0.25$~EUR/kWh, si ottiene l'ultima colonna della Tabella~\ref{tab:test-ai-benchmark}: il rilevamento tradizionale costa ${\sim}0.002$~EUR ogni 1000 documenti, la passata generativa fra ${\sim}0.10$ e ${\sim}0.43$~EUR --- lo stesso rapporto di due ordini di grandezza visto sull'energia. Due precisazioni sono d'obbligo. Primo, si tratta del costo \emph{marginale di sola energia} su hardware \emph{posseduto}, grandezza diversa e complementare rispetto al prezzo per interrogazione di un'API \textit{cloud} (§\ref{sec:impatto-ambientale}), che incorpora anche l'ammortamento dell'hardware e il margine del fornitore: le due cifre non vanno confuse. Secondo, in valore assoluto il costo energetico è \emph{piccolo} --- pochi centesimi di euro per migliaia di documenti --- perché lo è l'energia per documento; il vincolo stringente a questa scala non è la bolletta ma il \textbf{tempo} (a $53$--$165$ s/doc una scansione di decine di migliaia di file richiede giorni, contro i minuti della via tradizionale). È però il \emph{rapporto} di costo, non il suo valore assoluto, ciò che l'argomento di §\ref{sec:impatto-ambientale} moltiplica per l'intero patrimonio documentale e per la frequenza di riesecuzione: su un archivio esteso riscansionato periodicamente, un fattore $50$--$220\times$ è esattamente ciò che separa un sistema eseguibile con continuità da uno che non lo è. Il capitolo dei risultati (§\ref{cap:risultati}) riprende questo punto in sede di discussione.
+\paragraph*{Dal consumo al costo.} Per riprendere in sede di conclusioni il confronto economico impostato in letteratura (§\ref{sec:impatto-ambientale}), i wattora sono tradotti in una stima monetaria. La conversione è immediata: l'energia per 1000 documenti in kWh coincide numericamente con i Wh per documento, e basta moltiplicarla per il prezzo dell'energia. Assumendo la tariffa mediana svizzera del 2026, pari a $27.7$~ct./kWh per un'economia domestica tipo secondo la Commissione federale dell'energia elettrica~\cite{elcomPrezziElettricitaCalo2025}\footnote{Si tratta della tariffa mediana del servizio universale per un'economia domestica con consumo annuo di 4500\,kWh (profilo H4). Per i clienti commerciali ElCom indica per il 2026 una flessione dello stesso ordine (profili C3 e C4, $-3$\% e $-4$\%), senza però un valore mediano di riferimento altrettanto consolidato: si adotta perciò la tariffa domestica, che è il prezzo al dettaglio meglio documentato.}, si ottiene l'ultima colonna della Tabella~\ref{tab:test-ai-benchmark}: il rilevamento tradizionale costa ${\sim}0.002$~CHF ogni 1000 documenti, la passata generativa fra ${\sim}0.11$ e ${\sim}0.47$~CHF --- lo stesso rapporto di due ordini di grandezza visto sull'energia. Due precisazioni sono d'obbligo. Primo, si tratta del costo \emph{marginale di sola energia} su hardware \emph{posseduto}, grandezza diversa e complementare rispetto al prezzo per interrogazione di un'API \textit{cloud} (§\ref{sec:impatto-ambientale}), che incorpora anche l'ammortamento dell'hardware e il margine del fornitore: le due cifre non vanno confuse. Secondo, in valore assoluto il costo energetico è \emph{piccolo} --- pochi centesimi di franco per migliaia di documenti --- perché lo è l'energia per documento; il vincolo stringente a questa scala non è la bolletta ma il \textbf{tempo} (a $53$--$165$ s/doc una scansione di decine di migliaia di file richiede giorni, contro i minuti della via tradizionale). È però il \emph{rapporto} di costo, non il suo valore assoluto, ciò che l'argomento di §\ref{sec:impatto-ambientale} moltiplica per l'intero patrimonio documentale e per la frequenza di riesecuzione: su un archivio esteso riscansionato periodicamente, un fattore $50$--$220\times$ è ciò che separa un sistema eseguibile con continuità da uno che non lo è. Il capitolo dei risultati (§\ref{cap:risultati}) riprende questo punto in sede di discussione.
 
 \paragraph*{La qualità non segue il costo.} A fronte di questo prezzo, il guadagno è nullo. \textbf{Nessun modello, da solo, batte la pipeline tradizionale} (F1 0.90): il migliore è \texttt{gemma3:4b} con 0.86, gli altri restano sotto. E \textbf{nessuna fusione supera lo 0.90}: le righe \texttt{union:} oscillano fra 0.88 e 0.90, cioè al più eguagliano la baseline. Là dove l'AI recupera qualche occorrenza (la recall di alcune \texttt{union:} sale a 1.00), lo fa al prezzo di nuovi falsi positivi (la precision cala), e la F1 resta ferma.
 
