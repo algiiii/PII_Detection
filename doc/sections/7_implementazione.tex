@@ -113,7 +113,7 @@ Non realizzato, motivazioni nella sezione al capitolo precedente (\ref{sec:b2-an
 \section{B3 - Estrazione del testo}
 \label{sec:impl-b3-estrazione}
 
-L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I reader sono volutamente leggeri --- uno per categoria di formato, con lazy import, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}~\cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021}:
+L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I reader sono volutamente leggeri --- uno per categoria di formato, con lazy import, così che l'assenza di una dipendenza non pesi su chi non la usa --- e coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}:
 \begin{itemize}
 	\item \texttt{.pdf} tramite PyMuPDF (testo \emph{born-digital});
 	\item \texttt{.docx} tramite python-docx;

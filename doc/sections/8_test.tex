@@ -74,7 +74,7 @@ Il principio che governa l'intero apparato è uno solo: il \textit{gold} non è 
 parte, ma \textbf{derivato dalla stessa sorgente} che produce il testo, così che annotazione
 e documento non possano divergere.
 
-\paragraph{Annotazione in linea e \textit{gold} gratuito.} Ogni PII è marcata nel testo con
+\paragraph*{Annotazione in linea e \textit{gold} gratuito.} Ogni PII è marcata nel testo con
 la sintassi \texttt{\{\{pii\_type:value\}\}} --- per esempio
 \texttt{\{\{iban:IT60X05\dots\}\}}. Un unico \textit{loader} rimuove i marcatori,
 restituendo al tempo stesso il testo pulito su cui girano i rilevatori e gli \textit{span} di
@@ -82,7 +82,7 @@ restituendo al tempo stesso il testo pulito su cui girano i rilevatori e gli \te
 mano, e non c'è modo che il \textit{gold} si disallinei dal documento, perché è calcolato da
 esso in un solo passaggio. Su questa convenzione poggiano tutti i corpus descritti sotto.
 
-\paragraph{Valori realistici e validi al \textit{checksum}.} Il generatore
+\paragraph*{Valori realistici e validi al \textit{checksum}.} Il generatore
 (\texttt{corpus\_generator}) produce documenti annotati con valori \textbf{realistici} ---
 nomi, indirizzi, condizioni sanitarie, prodotti da \texttt{Faker} --- e, dove la categoria
 prevede una cifra di controllo, \textbf{aritmeticamente validi}: IBAN (regola \textit{mod-97}
@@ -97,7 +97,7 @@ Per non dipendere da Presidio nel garantirla, ogni valore è \textbf{ri-verifica
 algoritmi puri e indipendenti prima di entrare nel corpus. La generazione è governata da un
 \textbf{seme}: a parità di seme il corpus è identico, quindi ogni misura è riproducibile.
 
-\paragraph{Resa in documenti reali (Tier 2).} Per valutare la pipeline
+\paragraph*{Resa in documenti reali (Tier 2).} Per valutare la pipeline
 \emph{end-to-end} --- estrazione compresa --- il testo generato è reso in file veri
 (\texttt{render}): i marcatori sono rimossi, il testo pulito è scritto in \textbf{PDF/DOCX} e,
 accanto ai file, è emesso un \textit{gold} per \textbf{valore} (\texttt{gold.jsonl}, coppie
@@ -110,7 +110,7 @@ estrazione~$\rightarrow$~rilevamento su documenti nativi digitali, non a riprodu
 tipografico reale (multi-colonna, tabelle, scansioni), che richiederebbe OCR e analisi di
 \textit{layout} ed è dichiarato fuori perimetro (§\ref{sec:sf-formati}).
 
-\paragraph{Il corpus aziendale (scala e falsi positivi).} Accanto ai due corpus «piatti»,
+\paragraph*{Il corpus aziendale (scala e falsi positivi).} Accanto ai due corpus «piatti»,
 un terzo generatore costruisce da un seme un intero \textbf{albero di cartelle} aziendale
 (dell'ordine delle centinaia di documenti, da poche righe a decine di pagine), pensato per la
 valutazione a scala e per lo stress della scansione ricorsiva. Tre sue proprietà sono
@@ -132,7 +132,7 @@ non si rompa.
 \label{sec:test-metodo}
 % =====================================================================
 
-\paragraph{Due corpora, due granularità.} La qualità del rilevamento è misurata sui corpus
+\paragraph*{Due corpus, due granularità.} La qualità del rilevamento è misurata sui corpus
 \textbf{sintetici} descritti sopra (§\ref{sec:generazione-corpus}), riproducibili da seme e
 con \textit{gold} certo senza mai trattare PII reali. Nel capitolo se ne usano due,
 complementari:
@@ -148,7 +148,7 @@ complementari:
 	      \emph{tassa di estrazione} (§\ref{sub:test-estrazione}).
 \end{itemize}
 
-\paragraph{Metrica e regola di \textit{matching}.} Sul corpus di unità un rilevamento conta
+\paragraph*{Metrica e regola di \textit{matching}.} Sul corpus di unità un rilevamento conta
 come vero positivo quando condivide il \texttt{pii\_type} con uno span di \textit{ground
 truth} e vi si sovrappone con \textit{Intersection over Union} $\geq 0.5$; ogni rilevamento
 e ogni span sono appaiati al più una volta (\textit{matching} greedy, le coppie a
@@ -161,7 +161,7 @@ complessivamente sia \textbf{disaggregati per categoria} --- perché una categor
 Ogni configurazione è incapsulata dietro il contratto \texttt{PIIDetector} e misurata sullo
 stesso corpus, così da confrontarle sullo stesso metro.
 
-\paragraph{Assi di costo (solo per l'AI).} Per lo studio sui modelli generativi
+\paragraph*{Assi di costo (solo per l'AI).} Per lo studio sui modelli generativi
 (§\ref{sec:test-ai-multimodello}) alla qualità si affiancano tre grandezze di costo: i
 \textbf{secondi per documento} (tempo di parete attorno allo scoring), i \textbf{wattora
 per documento} (stimati con \texttt{codecarbon}) e, da questi, una \textbf{stima
@@ -218,7 +218,7 @@ l'\emph{ordine di grandezza} dei risultati.
 	\end{tabular}
 \end{table}
 
-\paragraph{Inferenza esclusivamente su CPU.} Docker Desktop su macOS \textbf{non espone la
+\paragraph*{Inferenza esclusivamente su CPU.} Docker Desktop su macOS \textbf{non espone la
 GPU integrata} dell'Apple M2 Pro alla \textit{VM} Linux in cui girano i \textit{container}:
 né l'\textit{encoder} NER né i modelli generativi vengono accelerati, e ogni inferenza è
 svolta dai soli 10 core CPU. È una condizione \emph{voluta}, non un limite subìto: coincide
@@ -228,7 +228,7 @@ con il vincolo di progetto di un modello «piccolo, eseguibile su CPU, su hardwa
 \emph{decine di secondi} a documento: su GPU sarebbero uno o due ordini di grandezza minori,
 ma non è quello l'ambiente bersaglio.
 
-\paragraph{Memoria e un solo modello per volta.} Alla \textit{VM} sono assegnati
+\paragraph*{Memoria e un solo modello per volta.} Alla \textit{VM} sono assegnati
 ${\sim}11.7$\,GiB (dei 16 dell'host): sufficienti per la fascia ${\sim}4$--$7$B e al limite
 per quella da 12B. Per il benchmark multi-modello, Ollama è configurato per tenere
 \textbf{un solo modello residente} (\texttt{OLLAMA\_MAX\_LOADED\_MODELS=1}): caricandone
@@ -237,7 +237,7 @@ grande memoria unificata dell'M2 (16\,GB, condivisa CPU/GPU) è ciò che rende e
 questa macchina anche il modello da 12B, che su una GPU discreta \textit{entry-level} non
 troverebbe posto.
 
-\paragraph{Tetto di generazione, non timeout.} Al modello non è imposto un limite di tempo
+\paragraph*{Tetto di generazione, non timeout.} Al modello non è imposto un limite di tempo
 ma un \textbf{tetto di 1024 token generati} per richiesta (\texttt{num\_predict}). La
 motivazione è duplice. Anzitutto \emph{semantica}: l'output atteso è una breve lista JSON di
 valori --- poche centinaia di token bastano --- sicché un tetto generoso non tronca mai una
@@ -535,7 +535,7 @@ $0.83 \rightarrow 0.80$: alcune spezzature di riga dividono il numero).
 	\end{tabular}
 \end{table}
 
-\paragraph{Limiti.} I corpora sono sintetici e riproducibili da seme: più ordinati del
+\paragraph*{Limiti.} I corpora sono sintetici e riproducibili da seme: più ordinati del
 reale, forniscono un \textbf{limite superiore} delle prestazioni attese sul campo, e i
 valori vanno letti come direzionali (§\ref{sub:rischio-dataset}). Il corpus di
 unità, in particolare, è troppo piccolo per stime puntuali: se ne usano le cifre per
@@ -600,13 +600,13 @@ riferimento.
 	\end{tabular}
 \end{table}
 
-\paragraph{L'ordine di grandezza del costo.} Il primo dato è schiacciante e prescinde dal
+\paragraph*{L'ordine di grandezza del costo.} Il primo dato è schiacciante e prescinde dal
 modello: la baseline tradizionale rileva a \textbf{1.9 s/doc} e \textbf{0.008 Wh/doc}, mentre
 ogni passata generativa costa fra \textbf{39 e 165 s/doc} e fra \textbf{0.4 e 1.7 Wh/doc}. Il
 parere dell'AI è cioè da uno a due \textbf{ordini di grandezza} più lento e più energivoro
 --- da ${\sim}20$ a ${\sim}85\times$ in tempo, da ${\sim}50$ a ${\sim}220\times$ in energia.
 
-\paragraph{Dal consumo al costo.} Per riprendere in sede di conclusioni il confronto
+\paragraph*{Dal consumo al costo.} Per riprendere in sede di conclusioni il confronto
 economico impostato in letteratura (§\ref{sec:impatto-ambientale}), i wattora sono tradotti
 in una stima monetaria. La conversione è immediata: l'energia per 1000 documenti in kWh
 coincide numericamente con i Wh per documento, e basta moltiplicarla per il prezzo
@@ -629,19 +629,19 @@ riscansionato periodicamente, un fattore $50$--$220\times$ è esattamente ciò c
 sistema eseguibile con continuità da uno che non lo è. Il capitolo dei risultati
 (§\ref{cap:risultati}) riprende questo punto in sede di discussione.
 
-\paragraph{La qualità non segue il costo.} A fronte di questo prezzo, il guadagno è nullo.
+\paragraph*{La qualità non segue il costo.} A fronte di questo prezzo, il guadagno è nullo.
 \textbf{Nessun modello, da solo, batte la pipeline tradizionale} (F1 0.90): il migliore è
 \texttt{gemma3:4b} con 0.86, gli altri restano sotto. E \textbf{nessuna fusione supera lo
 0.90}: le righe \texttt{union:} oscillano fra 0.88 e 0.90, cioè al più eguagliano la
 baseline. Là dove l'AI recupera qualche occorrenza (la recall di alcune \texttt{union:} sale
 a 1.00), lo fa al prezzo di nuovi falsi positivi (la precision cala), e la F1 resta ferma.
 
-\paragraph{Più grande non è meglio.} La taglia non aiuta, anzi. Il modello da 12B da solo
+\paragraph*{Più grande non è meglio.} La taglia non aiuta, anzi. Il modello da 12B da solo
 (\texttt{ai:gemma3:12b}, F1 0.35) fa \emph{peggio} del 4B (\texttt{ai:gemma3:4b}, 0.86):
 molto conservativo (precision 1.00, recall 0.21), riconosce pochissimo. Il costo, invece,
 cresce con la taglia. Su questo compito la fascia grande è il peggior compromesso.
 
-\paragraph{Il caso del modello \emph{reasoning}.} \texttt{qwen3:4b} è istruttivo: da solo
+\paragraph*{Il caso del modello \emph{reasoning}.} \texttt{qwen3:4b} è istruttivo: da solo
 totalizza \textbf{F1 0.00} pur essendo il \textbf{più costoso} in assoluto (165 s/doc,
 1.71 Wh/doc). È un modello a catena-di-pensiero: con il tetto di 1024 token la generazione
 si tronca \emph{prima} che il modello arrivi alla risposta, che quindi non c'è. Sommato alla
@@ -673,7 +673,7 @@ grandezza più lenta del rilevamento tradizionale (${\sim}9.4$ contro ${\sim}0.1
 l'accelerazione GPU non è comunque disponibile nel \textit{target} di \textit{deployment}
 containerizzato, dove la GPU non è esposta alla \textit{VM} (§\ref{sub:test-ambiente}).
 
-\paragraph{Conclusione.} Sul corpus in esame la risposta alla domanda della tesi è netta:
+\paragraph*{Conclusione.} Sul corpus in esame la risposta alla domanda della tesi è netta:
 il rilevamento generativo, come secondo parere, \textbf{non ripaga il proprio costo}. La
 pipeline tradizionale è già vicina al soffitto (F1 0.90--0.95) su documenti \emph{born-digital}
 e ben formati, e in quel regime l'AI non ha nulla da aggiungere che giustifichi uno o due

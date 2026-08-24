@@ -15,7 +15,7 @@ A questa difficoltà si somma quella che la letteratura descrive come problema d
 
 \subsection{La verifica automatizzata della conformità}
 \label{sub:compliance-checking}
-Il confronto fra quanto un'organizzazione dichiara e quanto effettivamente tratta è, di per sé, un problema di ricerca autonomo. Amaral et al. \cite{amaralNLPbasedAutomatedCompliance2023} affrontano il caso duale a quello qui considerato --- la verifica automatizzata, mediante tecniche di NLP, della completezza di un'informativa privacy rispetto agli obblighi del GDPR --- mostrando come un requisito normativo espresso in prosa possa essere reso in criteri verificabili meccanicamente. \medskip
+Il confronto fra quanto un'organizzazione dichiara e quanto effettivamente tratta è, di per sé, un problema di ricerca autonomo. Amaral et al. \cite{amaralNLPbasedAutomatedCompliance2023} affrontano il caso duale a quello qui considerato --- la verifica automatizzata, mediante tecniche di NLP, della conformità di un accordo sul trattamento dei dati (DPA) rispetto agli obblighi del GDPR --- mostrando come un requisito normativo espresso in prosa possa essere reso in criteri verificabili meccanicamente. \medskip
 
 Il presente lavoro sposta il termine di confronto: non l'informativa rispetto alla norma, ma il \textbf{contenuto documentale effettivo} rispetto al registro dei trattamenti dell'organizzazione. Il registro fornisce l'atteso --- quali categorie di dati personali, per quali finalità, per quanto tempo --- e il rilevamento fornisce l'osservato; la verifica consiste nel differenziale fra i due insiemi. Questa impostazione richiede che il registro, tipicamente redatto in prosa libera, sia reso confrontabile a livello di macchina: un'esigenza che ricade sull'ingestione del registro e sulla riconduzione delle categorie dichiarate a un vocabolario condiviso con il rilevatore.
 
@@ -33,7 +33,7 @@ Come spiegato in uno dei testi cardine del machine learning, redatto da Goodfell
 	\item per \textbf{Unsupervised learning} si intende quel paradigma in cui l'algoritmo opera su un insieme di dati privo di etichette, con l'obiettivo di individuare autonomamente strutture, regolarità o proprietà latenti presenti nei dati stessi. Nel contesto del deep learning, questo si traduce spesso nel tentativo di apprendere — in modo esplicito (ad esempio tramite stima di densità) o implicito (ad esempio per compiti di generazione o denoising) — la distribuzione di probabilità sottostante ai dati. Altri algoritmi non supervisionati svolgono invece compiti diversi, come il clustering, che consiste nel raggruppare gli esempi del dataset in base alla loro similarità.
 \end{itemize}
 
-Storicamente i modelli impiegati per l'estrazione di informazioni si sono divisi lungo questa linea, e il confronto fra i due paradigmi è documentato in termini di scalabilità: i modelli supervisionati garantiscono prestazioni superiori sui pattern noti, ma richiedono onerose fasi di etichettatura manuale per adattarsi a nuovi scenari \cite{jordanMachineLearningTrends2015, PDFComparativeStudy}. \medskip
+Storicamente i modelli impiegati per l'estrazione di informazioni si sono divisi lungo questa linea, e il confronto fra i due paradigmi è documentato in termini di scalabilità: i modelli supervisionati garantiscono prestazioni superiori sui pattern noti, ma richiedono onerose fasi di etichettatura manuale per adattarsi a nuovi scenari \cite{jordanMachineLearningTrends2015}. \medskip
 
 Nel contesto specifico della NER, l'approccio supervisionato conserva un vantaggio di accuratezza sulle alternative prive di annotazione, ma a un costo che non è di calcolo bensì di \textbf{etichettatura}: la letteratura di rassegna individua nella disponibilità di un corpus annotato di dimensioni adeguate, e non nella potenza di inferenza, l'ostacolo principale all'adozione~\cite{keraghelRecentAdvancesNamed2024, africanoPIIDetectionLowResource2024}. Il guadagno è inoltre distribuito in modo diseguale fra le categorie: è massimo proprio su quelle che gli approcci privi di addestramento coprono peggio --- le entità sprovviste di un formato riconoscibile --- e trascurabile su quelle già ben servite da regole deterministiche. I valori misurati che sostengono questa lettura sono riportati nel confronto empirico (cfr.~\ref{sub:confronto-empirico}).
 
@@ -47,7 +47,7 @@ Il paradigma pre-training/fine-tuning è stato reso centrale nell'NLP moderno da
 	\item per \textbf{fine-tuning} si intende la fase successiva, in cui i parametri del modello pre-addestrato vengono ulteriormente ottimizzati su un dataset etichettato e di dimensioni ridotte, specifico per il compito che si intende risolvere. A differenza del pre-training, che richiede risorse computazionali ingenti, il fine-tuning può avvenire con un costo computazionale contenuto, poiché parte da una rappresentazione linguistica già appresa e la adatta al task target, spesso aggiungendo un solo livello di output specifico per il compito.
 \end{itemize}
 
-Applicato al rilevamento di PII, questo paradigma presenta due criticità che ne condizionano l'adozione. La prima è il \textbf{costo di annotazione}: l'adattamento richiede dataset etichettati di dimensioni rilevanti, il che nel caso delle PII comporta l'intervento manuale di esperti e solleva problemi di riservatezza intrinseci alla manipolazione di dati reali. La seconda è la \textbf{perdita di generalizzazione} (\textit{catastrophic forgetting}): una specializzazione spinta su un singolo formato documentale può compromettere la capacità del modello di operare su testi imprevisti. \medskip
+Applicato al rilevamento di PII, questo paradigma presenta due criticità che ne condizionano l'adozione. La prima è il \textbf{costo di annotazione}: l'adattamento richiede dataset etichettati di dimensioni rilevanti, il che nel caso delle PII comporta l'intervento manuale di esperti e solleva problemi di riservatezza intrinseci alla manipolazione di dati reali \cite{africanoPIIDetectionLowResource2024}. La seconda è la \textbf{perdita di generalizzazione} (\textit{catastrophic forgetting}): una specializzazione spinta su un singolo formato documentale può compromettere la capacità del modello di operare su testi imprevisti \cite{kirkpatrickOvercomingCatastrophicForgetting2017}. \medskip
 
 Entrambi i vincoli si acuiscono negli ambienti operativi ristretti. Lo studio di Zhang et al. \cite{zhangPersonallyIdentifiableInformation2025} sul rilevamento di PII in architetture di \textit{smart edge computing} evidenzia come l'esigenza di eseguire inferenza locale e decentralizzata richieda modelli sufficientemente robusti da non imporre continui cicli di riaddestramento a ogni nuova categoria di dati da coprire.
 
@@ -68,19 +68,19 @@ Per rilevare le PII, esistono più metodi e strategie, tutte ampiamente discusse
 Le soluzioni in questione sono:
 \subsection{Recognition rule-based}
 \label{sub:rule-based}
-Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...). Non appena i testi diventano liberi e non strutturati, allora l'accuratezza crolla. \cite[Sezione 5.2]{jhaPIIBenchUnifiedMultiSource2026} Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: categorie nettamente più difficili da trovare (i nomi propri, per esempio, si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi, come la sola lettera maiuscola).\\
-\textbf{Vantaggio}: più veloce in assoluto tra tutte le soluzioni.
+Approccio più semplice e rule-based. La detection delle PII è solamente affidata a regole di pattern-matching e meccanismi simili. Come si può già intuire, questo approccio, per alcune categorie di dati sensibili, è particolarmente efficace: la massima performance si ottiene quando si trattano dati strettamente formattati in determinati modi (IBAN, AVS, codice fiscale etc...) \cite{keraghelRecentAdvancesNamed2024}. Non appena i testi diventano liberi e non strutturati, allora l'accuratezza crolla. \cite[Sezione 5.2]{jhaPIIBenchUnifiedMultiSource2026} Questo approccio tuttavia, ha dei problemi seri che non possono essere trascurati: categorie nettamente più difficili da trovare (i nomi propri, per esempio, si baserebbero su regole facilmente mal-interpretabili e con un alto numero di falsi positivi, come la sola lettera maiuscola) \cite{elazarWhatsMyBigData2024}.\\
+\textbf{Vantaggio}: più veloce in assoluto tra tutte le soluzioni \cite{koliDecodingComplexityIntelligent2025}.
 
 \subsection{Recognition con NLP - NER}
 \label{sub:recognition-ner}
-I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognition (NER), classificano le entità testuali analizzando la struttura logica della frase. Architetture basate su Transformers (es. BERT) superano i limiti delle regole, comprendono il contesto e raggiungono accuratezze fino al 99.55\% \cite{PDFDetectingPersonally2026}. \medskip
+I modelli di Natural Language Processing (NLP), tramite la Named Entity Recognition (NER), classificano le entità testuali analizzando la struttura logica della frase. Architetture basate su Transformers (es. BERT) superano i limiti delle regole, comprendono il contesto \cite{devlinBERTPretrainingDeep2019} e raggiungono accuratezze fino al 99.55\% \cite{PDFDetectingPersonally2026}. \medskip
 
-\textbf{Vantaggio}: eccellente bilanciamento tra comprensione del testo ed efficienza computazionale.\\
-\textbf{Svantaggio}: Rischio di calo prestazionale su dati aziendali particolarmente specifici senza fare fine-tuning su dataset simili.
+\textbf{Vantaggio}: eccellente bilanciamento tra comprensione del testo ed efficienza computazionale \cite{luccioni2024energy}.\\
+\textbf{Svantaggio}: Rischio di calo prestazionale su dati aziendali particolarmente specifici senza fare fine-tuning su dataset simili \cite{jhaPIIBenchUnifiedMultiSource2026}.
 
 \subsection{Recognition con AI generativa}
 \label{sub:recognition-generative-ai}
-Ultima soluzione "pura" è l'utilizzo di LLM con AI generativa per l'individuazione di PII. Questo approccio, fortemente documentato e discusso, è senza dubbio il migliore per quanto riguarda solamente le performance. Infatti, seppur riesce ad avere un F1-score e una recall senza precedenti, ha un costo computazionale e di risorse senza precedenti, spesso ingestibile per la maggior parte delle macchine. Gli unici modi per rendere accettabili tempi di esecuzione è di effettuare down-scaling dei modelli utilizzati, riducendo contesto e "intelligenza" dello stesso. Seppur di aiuto, più si scende con la dimensione e il peso dei modelli, più il vantaggio di usare gli LLM si assottiglia, fino ad azzerarsi rispetto all'uso dell'NLP. \\
+Ultima soluzione "pura" è l'utilizzo di LLM con AI generativa per l'individuazione di PII, approccio ampiamente documentato in letteratura \cite{yangExploringApplicationLarge2023, jhaPIIBenchUnifiedMultiSource2026}. Il suo punto di forza è il \textit{recall}: i modelli generativi raggiungono valori di recupero superiori a quelli degli altri approcci, in particolare sulle PII che dipendono dal contesto \cite{zambranoDeidentifyingStudentPersonally2025, jhaPIIBenchUnifiedMultiSource2026}. Questo vantaggio ha però un costo computazionale e di risorse superiore di ordini di grandezza rispetto ai modelli discriminativi, e va sostenuto a ogni interrogazione \cite{luccioni2024energy, yuOpenClosedSmall2023, husomPricePromptingProfiling2026}, spesso incompatibile con l'hardware ordinario. L'unico modo per contenere i tempi di esecuzione è ridurre la taglia dei modelli --- ricorrendo a modelli più piccoli e alla quantizzazione \cite{lu2024slmsurvey, malakhov2026cpullm} --- ma tale riduzione comporta un decadimento di accuratezza \cite{mobilequant2025}: più si scende con la dimensione, più il vantaggio degli LLM si assottiglia rispetto agli approcci NLP-NER, che nella fascia di taglia sostenibile su CPU raggiungono prestazioni comparabili \cite{jhaPIIBenchUnifiedMultiSource2026}. \\
 Tuttavia, gli LLM hanno un vantaggio unico per quanto riguarda un aspetto fondamentale nel nostro problema: la presenza nativa del 'contesto'. Infatti gli LLM possiedono una comprensione semantica avanzata del linguaggio naturale. Tramite il paradigma Zero-Shot, identificano PII deducibili puramente dal contesto verbale (es. dedurre "minorenne" dalla frase "mio figlio, nato 3 anni fa") senza alcun addestramento. Inoltre, offrono intepretazioni del loro operato, agevolando gli audit di conformità \cite{yangExploringApplicationLarge2023}.
 
 \subsection{Limitazioni nella soluzione}
@@ -98,53 +98,53 @@ Per soddisfare il vincolo estremamente stringente dello "Zero-Training", bilanci
 
 Le sezioni precedenti presentano ciascun approccio in termini qualitativi. Per motivare la scelta architetturale in modo rigoroso, è necessario un confronto quantitativo basato su evidenze empiriche dalla letteratura recente. Le metriche considerate in questa sede sono quelle della \emph{capacità di rilevamento}: precisione~(P), recall~(R), F1-score e necessità di dati annotati. Il \emph{costo} di ciascun approccio --- energetico ed economico --- pesa in modo altrettanto determinante sulla scelta, ma costituisce un tema a sé ed è raccolto per intero nello studio dedicato del Capitolo~\ref{cap:studi}: le due tabelle vanno lette in corrispondenza, riga per riga.
 
-\subsubsection{Prestazioni dei sistemi rule-based}
+\subsubsection*{Prestazioni dei sistemi rule-based}
 
-Le espressioni regolari raggiungono alta precisione su pattern strutturati come email, numeri di telefono e indirizzi IP, specialmente se accompagnate da post-processing per eliminare falsi positivi sistematici (ad esempio ISBN confusi con numeri di telefono)
+Le espressioni regolari raggiungono alta precisione su pattern strutturati come gli indirizzi email, ma la precisione dei metodi basati su regole varia sensibilmente a seconda del tipo di dato e del corpus
 \cite{elazarWhatsMyBigData2024}. % Zotero: arXiv:2310.20707 — Elazar et al. "What's in My Big Data?" 4.4
 Tuttavia, il limite strutturale è la \textit{brittleness}: i detectors rule-based non considerano il contesto del testo circostante e falliscono sistematicamente su PII contestuali
 \cite{jiangGenerativeDataRefinement2025}. % Zotero: arXiv:2509.08653 — Generative Data Refinement 4
 La letteratura di survey su NER conferma il pattern: per i metodi rule-based la precisione è tipicamente alta, mentre il recall tende a essere basso a causa di regole domain-specific; il processo di introduzione di nuove regole è costoso
-\cite{keraghelRecentAdvancesNamed2024}. % Zotero: arXiv:2401.10825 — Szabo et al. "Recent Advances in NER: A Comprehensive Survey" 5.1 
+\cite{keraghelRecentAdvancesNamed2024}. % Zotero: arXiv:2401.10825 — Keraghel et al. "Recent Advances in NER: A Comprehensive Survey" 5.1
 
-\subsubsection{Prestazioni dei modelli NER supervisionati}
+\subsubsection*{Prestazioni dei modelli NER supervisionati}
 
-Con corpus annotati adeguati, i modelli encoder fine-tuned raggiungono le prestazioni più elevate in assoluto tra tutti gli approcci considerati. In un benchmark comparativo su documenti clinici, BERT, ModernBERT e ClinicalBERT raggiungono tutti P\,=\,0.99 e R\,=\,0.99 (CIRE\,$\approx$\,0.99), con throughput di 1528--2446 token/secondo
-\cite{zambareFairEfficientDeidentification2026}. % Zotero: arXiv:2602.15869 — Mayer et al. "Towards Fair and Efficient De-identification" 5 (Metrics)
+Con corpus annotati adeguati, i modelli encoder fine-tuned raggiungono le prestazioni più elevate in assoluto tra tutti gli approcci considerati. In un benchmark comparativo su documenti clinici, BERT, ModernBERT e ClinicalBERT raggiungono tutti P\,=\,0.99 e R\,=\,0.99 (CIRE\,$\approx$\,0.99), con throughput di 1528--2446 parole al secondo
+\cite{zambareFairEfficientDeidentification2026}. % Zotero: arXiv:2602.15869 — Zambare et al. "Towards Fair and Efficient De-identification" 5 (Metrics)
 Un modello DeBERTa fine-tuned sul dataset \textit{ai4privacy} raggiunge F1\,=\,0.9757 su un benchmark PII multi-dominio
 \cite{DeBERTaai4privacy}. % https://grepture.com/blog/best-open-source-models-pii-redaction | Standout models
 
 Su documenti finanziari non strutturati (audit report, fatture), una pipeline ibrida NLP rule-based + ML + NER custom raggiunge P\,=\,94.7\%, R\,=\,89.4\%, F1\,=\,91.1\% su dataset sintetici, con il 93\% di accuratezza su documenti reali
-\cite{mishraHybridRulebasedNLP2025}. % Zotero: DOI:10.1038/s41598-025-04971-9 — Mazzarino et al. Scientific Reports | First section
+\cite{mishraHybridRulebasedNLP2025}. % Zotero: DOI:10.1038/s41598-025-04971-9 — Mishra et al. Scientific Reports | First section
 
 Il principale ostacolo non è il costo di inferenza (basso dopo il training) ma il costo di annotazione del corpus: le soluzioni supervisionate richiedono tipicamente un corpus annotato di grandi dimensioni
 \cite{africanoPIIDetectionLowResource2024}. % Zotero: DOI:10.1145/3675888.3676036 — Africano et al. ACM IC3 2024 | Introduction
 Si tratta però di un costo da sostenersi \emph{una tantum}, e non per ogni documento analizzato: la distinzione fra oneri una tantum e oneri ricorrenti è dirimente per la scelta architetturale ed è ripresa nel Capitolo~\ref{cap:studi} (cfr.~\ref{sec:considerazioni-training}).
 
-\subsubsection{Prestazioni dei modelli NER zero-shot}
+\subsubsection*{Prestazioni dei modelli NER zero-shot}
 
 GLiNER (cfr.~\ref{sub:zero-shot}) usa un encoder bidirezionale (DeBERTa) con un meccanismo di span-extraction (individuare inizio e fine di una label, invece di processare parola per parola) prompt-style (inserire le etichette da estrarre come testo, senza averne di predefinite nell'architettura del modello): le label vengono fornite come input testuale e il modello identifica span corrispondenti nel documento senza retraining
-\cite{zaratianaGLiNER2PIIMultilingualModel2026}. % Zotero: arXiv:2311.08526 — Zaratiana et al. "GLiNER" NAACL 2024 | White paper di Gliner
+\cite{zaratianaGLiNERGeneralistModel2023}. % Zotero: arXiv:2311.08526 — Zaratiana et al. "GLiNER" NAACL 2024 | White paper di Gliner
 Test su dataset PII multi-domain mostrano GLiNER-base a circa l'81\% di F1, superiore ad approcci spaCy o regex standard, con recall particolarmente elevato su ID numerici e date
 \cite{ComparingBestNERProtecto2025}. % Zotero: Protecto AI 2026 | Articolo web, NON PEER REVIEWD | Gliner for PII
 Il modello \texttt{gliner-pii-base-v1.0} raggiunge F1\,=\,80.99\% ed è ottimizzato per applicazioni privacy-focused in cui i servizi NER cloud pongono rischi di conformità
-\cite{KnowledgatorGlinerpiibasev10HuggingFace2026}. % Zotero: HuggingFace model card — knowledgator/gliner-pii-large-v1.0 | Introduzione
+\cite{KnowledgatorGlinerpiibasev10HuggingFace2026}. % Zotero: HuggingFace model card — knowledgator/gliner-pii-base-v1.0 | Introduzione
 Va però precisato che nessuna delle due misure proviene da una pubblicazione sottoposta a revisione paritaria --- si tratta rispettivamente di un articolo divulgativo e della scheda di un modello --- e che entrambe sono qui assunte come ordine di grandezza, non come risultato consolidato.
 
 Tuttavia, la specificità di dominio rimane determinante anche per approcci zero-shot: su testo clinico, GLiNER scende a circa F1\,=\,0.41, perdendo oltre il 50\% delle entità PHI rispetto ai modelli domain-specific
 \cite{OpenSourcePHI}. % Zotero: IntuitionLabs 2026 | Emerging Large Language Model (LLM) Methods
 Questo impone una valutazione empirica obbligatoria sul corpus aziendale target prima di escludere il fine-tuning.
 
-\subsubsection{Prestazioni dell'AI generativa}
+\subsubsection*{Prestazioni dell'AI generativa}
 
 GPT-4o, LLaMA~3.3 70B e LLaMA~3.1 8B raggiungono tutti recall medio superiore a 0.90, ma la precisione rimane un problema irrisolto: anche il top performer GPT-4o raggiunge soltanto P\,=\,0.579 su dataset educativi
-\cite{zambranoDeidentifyingStudentPersonally2025}. % Zotero: arXiv:2501.09765 — Shen et al. "Enhancing De-identification of PII in Educational Data" | Performance
+\cite{zambranoDeidentifyingStudentPersonally2025}. % Zotero: DOI:10.1108/ILS-11-2024-0156 — Zambrano et al. "De-Identifying Student PII in Discussion Forum Posts" | Performance
 Su benchmark strutturati multi-task (PII-Bench), GPT-4o con metodi avanzati (Self-CoT, Self-Consistency) raggiunge F1\,$\approx$\,0.76--0.77, con Llama~3.1 e Qwen~2.5 in linea
-\cite{jhaPIIBenchUnifiedMultiSource2026}. % Zotero: arXiv:2502.18545 — PII-Bench
+\cite{shenPIIBenchEvaluatingQueryAware2025}. % Zotero: arXiv:2502.18545 — Shen et al. PII-Bench
 
 Il limite decisivo per il contesto di questa tesi non è però l'accuratezza, bensì il \textbf{costo ricorrente} dell'inferenza generativa: un onere che, a differenza dell'addestramento di un encoder, va sostenuto per ogni documento e a ogni nuova analisi del corpus. Poiché è questo il fattore che determina il ruolo assegnabile all'AI generativa nel sistema, il confronto quantitativo --- energetico ed economico --- è raccolto nello studio dedicato del Capitolo~\ref{cap:studi}.
 
-\subsubsection{Convergenza verso la pipeline ibrida}
+\subsubsection*{Convergenza verso la pipeline ibrida}
 
 La convergenza della letteratura recente indica la pipeline ibrida come soluzione ottimale per il rilevamento PII in contesti di compliance. Il sistema RECAP (NeurIPS 2025) combina regex deterministiche con LLM context-aware in un framework modulare a tre fasi: (1)~rilevamento regex, (2)~classificazione NER, (3)~risoluzione ambiguità via LLM. Sul proprio banco di prova, costituito da 13 lingue a bassa disponibilità di risorse, RECAP riporta un \textit{weighted} F1-score superiore dell'82\% ai modelli NER fine-tuned e del 17\% agli LLM impiegati in zero-shot. Entrambi i valori sono miglioramenti \textbf{relativi} misurati in quel regime, nel quale le \textit{baseline} sono assai più deboli di quelle dei benchmark ad alta disponibilità di risorse riportati sopra: non sono quindi confrontabili con i valori assoluti della Tabella~\ref{tab:confronto-approcci}
 \cite{rajgarhiaEvaluationStudyHybrid2025}. % TODO Zotero: arXiv:2510.07551 — Rajgarhia et al. "RECAP" NeurIPS 2025
@@ -155,7 +155,7 @@ Un sistema ibrido indipendente (CHPDA) documenta lo stesso principio: le regex e
 La letteratura non esclude l'AI generativa in assoluto, ma ne circoscrive il ruolo: l'impiego su casi ambigui come supervisor di una pipeline ibrida è documentato come cost-effective
 \cite{rajgarhiaEvaluationStudyHybrid2025}. L'esclusione riguarda l'inferenza sistematica su tutto il corpus, non l'impiego selettivo su un sottoinsieme di casi irrisolti.
 
-\subsubsection{Matrice di confronto sintetica}
+\subsubsection*{Matrice di confronto sintetica}
 
 La Tabella~\ref{tab:confronto-approcci} riassume le evidenze empiriche discusse nelle sezioni precedenti. Il confronto sui costi energetici ed economici dei medesimi approcci è riportato separatamente nella Tabella~\ref{tab:confronto-energia}.
 
@@ -226,7 +226,7 @@ Alla luce di questa panoramica, il \textbf{gap nel mercato} risulta evidente. Le
 	\item \textbf{Soluzioni Commerciali}: Dimostrano quali siano le reali necessità delle aziende, introducendo l'Identity-aware discovery, l'automazione dei ROPA, lo scanning incrementale e le dashboard per DPO. Tuttavia, lo fanno imponendo ecosistemi Black-box, costi esorbitanti e massicce dipendenze da Cloud/API di terze parti, con conseguenti problematiche di \textit{Data Sovereignty}.
 \end{enumerate}
 
-\paragraph{Posizionamento del progetto}
+\paragraph*{Posizionamento del progetto}
 Il software proposto si inserisce al centro di questo divario. L'obiettivo è fornire uno strumento open-source ed eseguibile \textbf{esclusivamente in locale} (on-premise), rispondendo all'esigenza di confidenzialità totale. Abbandonando il paradigma dell'anonimizzazione, il sistema non si propone di rimuovere il dato personale, ma di stabilire se esso possa legittimamente trovarsi dove si trova: il rilevamento cessa di essere il fine e diventa il presupposto della verifica. A questo scopo il riconoscimento poggia su motori NLP Zero-Shot (cfr.~\ref{sub:zero-shot}), che eliminano i costi di addestramento discussi in precedenza. Il sistema fungerà così da ponte tra il dato reale e le policy aziendali (ROPA), fornendo un quadro clinico dell'aderenza normativa aziendale.
 
 

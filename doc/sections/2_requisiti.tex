@@ -1,7 +1,7 @@
 \chapter{Analisi dei requisiti}
 \label{cap:requisiti}
 
-La struttura di questo capitolo si ispira allo standard ISO/IEC/IEEE 29148:2018 - Systems and Software Engineering - Life cycle processes - Requirements engineering \cite{IEEE29148SRSLaTeXTemplateIEEE291482018SRSTemplatetexMain}. Ogni requisito è enunciato in forma verificabile e, dove necessario, ne è motivata l'origine normativa o progettuale. Gli elenchi puntati sono impiegati esclusivamente per enumerare obblighi distinti; le soglie quantitative e i criteri di accettazione sperimentali sono rimandati al Capitolo~\ref{cap:test}.
+La struttura di questo capitolo si ispira a un modello di specifica dei requisiti conforme allo standard ISO/IEC/IEEE 29148:2018 - Systems and Software Engineering - Life cycle processes - Requirements engineering \cite{IEEE29148SRSLaTeXTemplateIEEE291482018SRSTemplatetexMain}. Ogni requisito è enunciato in forma verificabile e, dove necessario, ne è motivata l'origine normativa o progettuale. Gli elenchi puntati sono impiegati esclusivamente per enumerare obblighi distinti; le soglie quantitative e i criteri di accettazione sperimentali sono rimandati al Capitolo~\ref{cap:test}.
 
 % -----------------------------------
 
@@ -16,7 +16,7 @@ L'utente deve poter specificare percorsi multipli e pattern di esclusione, in mo
 
 \subsection{Estrazione del testo}
 \label{sub:estrazione-testo}
-Il sistema deve estrarre il contenuto testuale dai documenti non strutturati \cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021} indipendentemente dal formato di partenza, supportando almeno i documenti impaginati in formato PDF, i documenti di videoscrittura, i fogli di calcolo e il testo semplice. \medskip
+Il sistema deve estrarre il contenuto testuale dai documenti non strutturati indipendentemente dal formato di partenza, supportando almeno i documenti impaginati in formato PDF, i documenti di videoscrittura, i fogli di calcolo e il testo semplice. \medskip
 
 L'estrazione deve preservare, dove il formato di partenza lo consente, i metadati strutturali necessari a contestualizzare le PII rilevate e a tracciarne la posizione nel report finale (cfr.~\ref{sub:tracciabilita}): almeno la suddivisione in pagine, l'organizzazione tabellare e le intestazioni di sezione.
 
@@ -28,7 +28,7 @@ Il rilevamento deve coprire almeno i dati identificativi, i dati di contatto, gl
 
 \subsection{Ingestione del/i ROPA}
 \label{sub:ingestione-ropa}
-Il sistema deve accettare in input uno o più registri delle attività di trattamento (ROPA) in formato strutturato, da utilizzare come riferimento normativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR e dell'art.~12 nLPD, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
+Il sistema deve accettare in input uno o più registri delle attività di trattamento (ROPA) in formato strutturato, da utilizzare come riferimento normativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR \cite{RegolamentoUE20162016} e dell'art.~12 nLPD \cite{RS2351Legge}, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
 
 Il sistema deve supportare almeno i formati di foglio di calcolo ODS e XLSX, nei quali i registri sono comunemente redatti e distribuiti dalle autorità di controllo \cite{cnilRecordProcessingActivities}. Per ogni attività di trattamento, il formato di ingestione deve includere almeno i seguenti campi:
 \begin{itemize}
@@ -96,7 +96,7 @@ Il sistema deve segnalare nel report come anomalia posizionale il documento le c
 Il sistema può impiegare modelli di AI generativa per attività mirate che beneficiano della comprensione semantica profonda, senza richiederne l'applicazione sistematica a ogni documento del corpus. Tali impieghi sono circoscritti a:
 \begin{itemize}
 	\item \textbf{arricchimento dei ROPA}: qualora il registro fornito in input contenga descrizioni sintetiche o generiche delle categorie di dati, il sistema può utilizzare un modello linguistico per espanderle e normalizzarle \cite{yangExploringApplicationLarge2023}, migliorando la granularità del confronto con le PII rilevate;
-	\item \textbf{analisi campionata}: il sistema può sottoporre a un modello linguistico un sottoinsieme rappresentativo di documenti per ottenerne un'analisi contestuale approfondita, identificando PII deducibili dal contesto che sfuggirebbero ai metodi deterministici e statistici;
+	\item \textbf{analisi campionata}: il sistema può sottoporre a un modello linguistico un sottoinsieme rappresentativo di documenti per ottenerne un'analisi contestuale approfondita, identificando PII deducibili dal contesto che sfuggirebbero ai metodi deterministici e statistici \cite{yangExploringApplicationLarge2023};
 	\item \textbf{analisi della struttura del filesystem}: il sistema può utilizzare un modello linguistico per interpretare la semantica dei percorsi e dei nomi di cartella, al fine di rilevare incoerenze tra la posizione del documento e il suo contenuto (cfr.~\ref{sub:analisi-filesystem}).
 \end{itemize} \medskip
 
@@ -164,7 +164,7 @@ Il requisito si considera soddisfatto quando il sistema può essere eseguito per
 \label{sub:esclusione-basi-giuridiche}
 Il sistema non deve determinare autonomamente la base giuridica applicabile a un trattamento (art.~6 GDPR \cite{RegolamentoUE20162016}; art.~30-31 nLPD \cite{RS2351Legge}): tale valutazione resta di competenza esclusiva del DPO o del consulente giuridico dell'organizzazione. \medskip
 
-La determinazione della base giuridica richiede una valutazione contestuale di natura giuridica che non è riducibile a un'analisi automatica del contenuto documentale. Come evidenziato nella sezione~\ref{sub:conformita-limitazione}, il GDPR e la nLPD adottano inoltre approcci strutturalmente diversi alla liceità del trattamento, rendendo impossibile un'automazione generalizzata senza introdurre rischi di errore significativi. \medskip
+La determinazione della base giuridica richiede una valutazione contestuale di natura giuridica che non è riducibile a un'analisi automatica del contenuto documentale. Come evidenziato nella sezione~\ref{sub:conformita-limitazione}, il GDPR e la nLPD adottano inoltre approcci strutturalmente diversi alla liceità del trattamento \cite{RegolamentoUE20162016, RS2351Legge}, rendendo impossibile un'automazione generalizzata senza introdurre rischi di errore significativi. \medskip
 
 Il sistema si limita pertanto a:
 \begin{itemize}
@@ -246,7 +246,7 @@ In particolare:
 
 \subsection{Efficienza delle rianalisi periodiche}
 \label{sub:rianalisi-incrementale}
-Il sistema è destinato a un impiego \textbf{ricorrente} sullo stesso corpus documentale: la conformità non è una fotografia ma uno stato da mantenere nel tempo, e il registro interno (cfr.~\ref{sub:registro-pii}) esiste proprio per confrontare esecuzioni successive. Un'analisi che rielabori integralmente l'intero corpus a ogni esecuzione rende però l'esecuzione periodica impraticabile su condivisioni aziendali reali, e il costo sostenuto è interamente superfluo per i documenti che nel frattempo non sono stati toccati. \medskip
+Il sistema è destinato a un impiego \textbf{ricorrente} sullo stesso corpus documentale: la conformità non è una fotografia ma uno stato da mantenere nel tempo, e il registro interno (cfr.~\ref{sub:registro-pii}) esiste proprio per confrontare esecuzioni successive. Un'analisi che rielabori integralmente l'intero corpus a ogni esecuzione rende però l'esecuzione periodica impraticabile su condivisioni aziendali reali, e il costo sostenuto è interamente superfluo per i documenti che nel frattempo non sono stati toccati \cite{OverviewVaronisAIPowereda}. \medskip
 
 Il sistema deve pertanto:
 \begin{itemize}
@@ -299,7 +299,7 @@ Il sistema deve rendere ogni anomalia segnalata nel report tracciabile fino alla
 	\item l'attività di trattamento del ROPA a cui l'anomalia è stata associata, o l'indicazione esplicita di assenza di associazione.
 \end{itemize} \medskip
 
-La tracciabilità è condizione necessaria per consentire al DPO di verificare ciascuna segnalazione e, ove necessario, di utilizzare il report come evidenza documentale nell'ambito delle procedure di \textit{accountability} richieste dal GDPR (art.~5(2)) e dalla nLPD.
+La tracciabilità è condizione necessaria per consentire al DPO di verificare ciascuna segnalazione e, ove necessario, di utilizzare il report come evidenza documentale nell'ambito delle procedure di \textit{accountability} richieste dal GDPR (art.~5(2)) \cite{RegolamentoUE20162016} e dalla nLPD \cite{RS2351Legge}.
 
 % -----------------------------------
 

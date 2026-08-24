@@ -269,19 +269,19 @@ Il problema non si riduce a una scelta binaria tra snapshot ed event logger: esi
 	}
 \end{table}
 
-\subsubsection{Opzione A --- Snapshot completi}
+\subsubsection*{Opzione A --- Snapshot completi}
 
 A ogni esecuzione della pipeline si salva un'istantanea completa di tutte le PII rilevate \texttt{(pii\_type, document\_path, position, associated\_processing, scan\_date)} autoconsistente e indipendente dalle altre. Il modello dati è minimale (una sola entità, nessuna logica di correlazione), non esiste rischio di derivare uno stato errato perché ogni snapshot \textit{è} lo stato, e la realizzazione è immediata.
 
 Il limite è però esattamente sul requisito del §\ref{sub:persistenza-requisito}: non esiste \textbf{alcuna relazione esplicita tra scansioni consecutive}. Con due snapshot presi a distanza di ore, ricostruire «che cosa è cambiato» richiede un confronto (diff) calcolato a posteriori, riga per riga, senza alcuna struttura che leghi le due fotografie. A ciò si aggiunge la ridondanza dei dati (le PII invariate vengono riscritte a ogni scansione) e il fatto che il tracciamento temporale non è una proprietà del modello ma un'operazione applicativa da implementare comunque. L'opzione non è scartata perché errata, ma perché sposta interamente sul livello applicativo il lavoro di correlazione che il requisito richiede, senza offrire una struttura dati che lo supporti.
 
-\subsubsection{Opzione B --- Event sourcing puro}
+\subsubsection*{Opzione B --- Event sourcing puro}
 
 Lo stato dell'applicazione non viene mai salvato direttamente: si registra ogni cambiamento come evento immutabile in un log append-only, e lo stato corrente si ottiene \textit{rigiocando} (replay) l'intera sequenza di eventi. Nella formulazione originale di Fowler, il log diventa la fonte di verità principale e lo stato è puramente derivato~\cite{fowlerEventSourcing2005}. Il pattern offre per costruzione una storia completa e immutabile --- si può ricostruire lo stato a qualsiasi istante passato --- con auditabilità nativa, proprietà interessante per un sistema di conformità; qui il tracciamento temporale non è un'aggiunta, ma il modello stesso.
 
 Su questo approccio la letteratura è però netta. Lo studio empirico di Overeem et al., basato su interviste con 25 ingegneri che hanno adottato il pattern in sistemi reali, identifica cinque sfide ricorrenti, tra cui una curva di apprendimento ripida e l'evoluzione dello schema (\textit{schema evolution}): non difficoltà percepite, ma \textit{liabilities} documentate del pattern~\cite{overeemEmpiricalCharacterizationEvent2021}. Inoltre, poiché lo stato corrente non è memorizzato ma va ricostruito, anche l'interrogazione più semplice («quali PII ci sono ora in questo documento?») richiede di rigiocare gli eventi; per rendere efficienti le letture, l'event sourcing viene quasi sempre affiancato al pattern CQRS (\textit{Command Query Responsibility Segregation}), che introduce un \textit{secondo} modello di lettura mantenuto in parallelo, cioè ulteriore complessità architetturale~\cite{youngCQRSDocuments, microsoftAzureEventSourcing, awsEventSourcingPattern}. A questo si sommano la crescita illimitata del log e la gestione di proiezioni, versioning degli eventi e consistenza eventuale. La stessa documentazione di riferimento raccomanda di adottare il pattern \textbf{solo} quando i benefici di auditabilità e ricostruzione storica giustificano la complessità introdotta, notando che per la maggior parte dei sistemi la gestione dati tradizionale è sufficiente~\cite{microsoftAzureEventSourcing}.
 
-\subsubsection{Opzione C --- Changelog ibrido delta-based}
+\subsubsection*{Opzione C --- Changelog ibrido delta-based}
 
 L'approccio che si sarebbe adottato mantiene \textbf{due} strutture complementari:
 \begin{enumerate}
