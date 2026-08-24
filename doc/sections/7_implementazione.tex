@@ -248,7 +248,7 @@ Il caso più insidioso non è la violazione ma il \textbf{silenzio}. Quando la m
 Il parsing del periodo di conservazione riconosce anche le \textbf{unità francesi} (\texttt{an}/\texttt{ans}/\texttt{mois}): il template è quello CNIL e una dicitura come «5 ans» non riconosciuta disattiverebbe di fatto il controllo. E la stessa lettura è disponibile come \textbf{vista di corpus} (\texttt{compliance retention} da CLI, pagina \texttt{/retention} nella dashboard): riusa lo stesso calcolo su tutto il registro, legge il ROPA \textbf{una sola volta}, non scrive nulla e ordina i documenti per mesi di sforamento; i documenti non associati ad alcun trattamento sono esclusi, perché senza un termine dichiarato non c'è nulla da confrontare.
 
 % -- B8 --
-\section{Dashbrd DPO - B8}
+\section{Dashboard DPO - B8}
 \label{sec:impl-b8}
 
 Il blocco B8 chiude la catena e ne è l'unica \textbf{superficie d'accesso ordinaria}: rende consultabile ciò che i blocchi precedenti hanno prodotto (§\ref{sec:b8-dashboard}). È realizzato come un'\textbf{unica applicazione web} (\texttt{pii\_detection/web/}, FastAPI e template Jinja2), servita su una sola porta; le interfacce a riga di comando restano strumenti di servizio, non la via d'accesso del DPO.
