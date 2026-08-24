@@ -145,7 +145,7 @@ Questo impone una valutazione empirica obbligatoria sul corpus aziendale target 
 
 \subsubsection*{Prestazioni dell'AI generativa}
 
-GPT-4o, LLaMA~3.3 70B e LLaMA~3.1 8B raggiungono tutti recall medio superiore a 0.90, ma la precisione rimane un problema irrisolto: anche il top performer GPT-4o raggiunge soltanto P\,=\,0.579 su dataset educativi
+Su post di forum di discussione scritti da studenti di corsi online aperti (MOOC), GPT-4o, LLaMA~3.3 70B e LLaMA~3.1 8B raggiungono tutti recall medio superiore a 0.90, ma la precisione resta il limite irrisolto: il migliore dei tre, GPT-4o, si ferma a P\,=\,0.579, seguito da LLaMA~3.3 a 0.506 e LLaMA~3.1 a 0.262. La causa è la tendenza a segnalare come PII nomi propri e località che non lo sono
 \cite{zambranoDeidentifyingStudentPersonally2025}. % Zotero: DOI:10.1108/ILS-11-2024-0156 — Zambrano et al. "De-Identifying Student PII in Discussion Forum Posts" | Performance
 Su benchmark strutturati multi-task (PII-Bench), GPT-4o con metodi avanzati (Self-CoT, Self-Consistency) raggiunge F1\,$\approx$\,0.76--0.77, con Llama~3.1 e Qwen~2.5 in linea
 \cite{shenPIIBenchEvaluatingQueryAware2026}. % Zotero: arXiv:2502.18545 — Shen et al. PII-Bench
@@ -169,32 +169,35 @@ La Tabella~\ref{tab:confronto-approcci} riassume le evidenze empiriche discusse 
 
 \begin{table}[htbp]
 	\centering
-	\caption{Prestazioni di rilevamento degli approcci di PII detection, secondo le evidenze di letteratura.}
+	\caption{Prestazioni di rilevamento degli approcci di PII detection secondo le evidenze di letteratura. Precisione e recall sono espressi sulla scala ordinale riportata nella legenda; i valori misurati da cui ciascun livello discende sono richiamati nelle note.}
 	\label{tab:confronto-approcci}
 	\small
 	\resizebox{\textwidth}{!}{%
 		\begin{tabular}{|l|c|c|c|c|}
 			\hline
-			\textbf{Approccio}      & \textbf{P} & \textbf{R}   & \textbf{F1 tipico} & \textbf{Corpus annotato}      \\
+			\textbf{Approccio}      & \textbf{P} & \textbf{R} & \textbf{F1 tipico}            & \textbf{Corpus annotato} \\
 			\hline
-			Regex / rule-based      & Alta       & Bassa--media & 0.60--0.75         & No                            \\
+			Regex / rule-based      & Alta       & Bassa      & 0.60--0.75\textsuperscript{a} & No                       \\
 			\hline
-			NER supervised          & 0.95--0.99 & 0.89--0.99   & 0.94--0.99         & Sì, esteso\textsuperscript{a} \\
+			NER supervisionato      & Alta       & Alta       & 0.94--0.99\textsuperscript{b} & Sì, esteso               \\
 			\hline
-			NER zero-shot (GLiNER)  & Media      & Media        & $\sim$0.81         & No                            \\
+			NER zero-shot (GLiNER)  & Media      & Media      & $\sim$0.81\textsuperscript{c} & No                       \\
 			\hline
-			LLM generativo (GPT-4o) & 0.58       & $>$0.90      & 0.70--0.77         & No                            \\
+			LLM generativo (GPT-4o) & Bassa      & Alta       & 0.70--0.77\textsuperscript{d} & No                       \\
 			\hline
-			Pipeline ibrida         & Alta       & Alta         & $\sim$0.91\textsuperscript{c} & Opzionale\textsuperscript{b} \\
+			Pipeline ibrida         & Alta       & Alta       & $\sim$0.91\textsuperscript{e} & Opzionale                \\
 			\hline
 		\end{tabular}%
 	}
 	\vspace{0.3em}
 
 	\raggedright\scriptsize
-	\textsuperscript{a}\,L'annotazione di un corpus di dimensioni adeguate è il principale ostacolo all'adozione di questo approccio~\cite{africanoPIIDetectionLowResource2024}.\quad
-	\textsuperscript{b}\,L'annotazione è necessaria solo se la componente NER viene specializzata: la pipeline resta impiegabile anche interamente zero-shot~\cite{rajgarhiaEvaluationStudyHybrid2025}.\quad
-	\textsuperscript{c}\,Pipeline ibrida regex + ML + NER su documenti finanziari non strutturati: P\,=\,94.7\%, R\,=\,89.4\%, F1\,=\,91.1\% su dataset sintetici~\cite{mishraHybridRulebasedNLP2025}.
+	\textbf{Legenda dei livelli}: Alta $\geq$ 0.85; Media 0.70--0.85; Bassa $<$ 0.70.\par\vspace{0.2em}
+	\textsuperscript{a}\,Le fonti caratterizzano l'approccio in termini qualitativi --- precisione elevata sui pattern strutturati, recall limitato dalla dipendenza da regole specifiche di dominio --- senza riportare valori aggregati~\cite{elazarWhatsMyBigData2024, keraghelRecentAdvancesNamed2024}.\quad
+	\textsuperscript{b}\,P\,=\,0.99 e R\,=\,0.99 su documenti clinici~\cite{zambareFairEfficientDeidentification2026}; F1\,=\,0.9757 su benchmark PII multi-dominio~\cite{DeBERTaai4privacy}. L'annotazione di un corpus di dimensioni adeguate è il principale ostacolo all'adozione~\cite{africanoPIIDetectionLowResource2024}.\quad
+	\textsuperscript{c}\,F1\,$\approx$\,0.81 su benchmark PII multi-dominio~\cite{ComparingBestNERProtecto2025, KnowledgatorGlinerpiibasev10HuggingFace2026}; nessuna delle due misure proviene da una sede sottoposta a revisione tra pari, e i livelli di P e R sono ricavati dal solo F1.\quad
+	\textsuperscript{d}\,R medio $>$\,0.90 a fronte di P\,=\,0.579 su post di forum di corsi online, per la tendenza a segnalare come PII nomi e località che non lo sono~\cite{zambranoDeidentifyingStudentPersonally2025}; F1\,$\approx$\,0.76--0.77 su PII-Bench~\cite{shenPIIBenchEvaluatingQueryAware2026}.\quad
+	\textsuperscript{e}\,P\,=\,94.7\%, R\,=\,89.4\%, F1\,=\,91.1\% su documenti finanziari non strutturati~\cite{mishraHybridRulebasedNLP2025}. L'annotazione è necessaria solo se la componente NER viene specializzata: la pipeline resta impiegabile anche interamente zero-shot~\cite{rajgarhiaEvaluationStudyHybrid2025}.
 \end{table}
 
 \section{Panoramica dei sistemi esistenti} % 5
