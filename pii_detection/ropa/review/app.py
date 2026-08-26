@@ -201,16 +201,3 @@ async def import_ropa(
     finally:
         os.unlink(tmp_path)
     return _redirect_index(request, imported=len(activities))
-
-
-@app.post("/activity/{activity_id}/delete")
-def delete_activity_submit(request: Request, activity_id: str) -> RedirectResponse:
-    """Delete a single processing activity from the register (block B1).
-
-    :param request: the incoming request, for building the redirect URL.
-    :param activity_id: identifier of the activity to delete; an unknown id is a
-        no-op.
-    :returns: a 303 redirect back to the index.
-    """
-    get_repository().delete_activity(activity_id)
-    return RedirectResponse(url=str(request.url_for("index")), status_code=303)

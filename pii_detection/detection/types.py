@@ -43,8 +43,8 @@ class ConfirmationLevel(str, Enum):
 
     :cvar SINGLE_SOURCE: detected by a single source, without overlap; never
         discarded (recall-first, §2.5.2).
-    :cvar DOUBLE_CONFIRMED: same ``pii_type`` confirmed by regex and NER on
-        overlapping spans.
+    :cvar DOUBLE_CONFIRMED: same ``pii_type`` confirmed by two or more sources on
+        overlapping spans (regex+NER, or either of them plus the AI pass).
     :cvar CONFLICTING: overlapping spans but disagreeing ``pii_type``; no
         automatic arbitration, resolution is deferred to B5.
     :cvar AI_DISCOVERED: found by the sampled AI pass, absent from the other

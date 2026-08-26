@@ -36,6 +36,17 @@ class RetentionFlag:
     age_months: int
     pii_types: tuple[str, ...]
 
+    @property
+    def overdue_months(self) -> int:
+        """How far past its limit the data is kept, in months.
+
+        The severity of the breach: one month over is a reminder, ten years over
+        is an incident, and a corpus-wide view has to be able to tell them apart.
+
+        :returns: the excess age over the declared retention.
+        """
+        return self.age_months - self.retention_months
+
 
 @dataclass(frozen=True)
 class ComplianceReport:
@@ -51,6 +62,11 @@ class ComplianceReport:
     :ivar unresolved: declared categories with no ``pii_type`` (declared but not
         detectable by the engine) — raw wordings, to flag to the DPO.
     :ivar retention_flags: approximate retention breaches.
+    :ivar retention_unresolved: wordings of the declared macro-categories whose
+        data is present in the document but whose retention is stated as a
+        criterion rather than a duration, so no comparison is possible. They are
+        **not** breaches: they are the cases nobody checked, surfaced so that
+        silence stops looking like compliance.
     """
 
     document_id: str
@@ -61,6 +77,7 @@ class ComplianceReport:
     missing: tuple[str, ...]
     unresolved: tuple[str, ...]
     retention_flags: tuple[RetentionFlag, ...]
+    retention_unresolved: tuple[str, ...] = ()
 
     @property
     def compliant(self) -> bool:
@@ -104,8 +121,11 @@ def format_report(report: ComplianceReport) -> str:
             lines.append(
                 f"    - '{flag.category}' [{flag.activity_id}]: "
                 f"{_join(flag.pii_types)} present, "
-                f"age ~{flag.age_months}mo > {flag.retention_months}mo"
+                f"age ~{flag.age_months}mo > {flag.retention_months}mo "
+                f"(+{flag.overdue_months}mo)"
             )
+    if report.retention_unresolved:
+        lines.append(f"  retention not verifiable: {_join(report.retention_unresolved)}")
     return "\n".join(lines)
 
 

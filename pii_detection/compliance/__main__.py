@@ -1,15 +1,19 @@
 """CLI for the compliance block: B6 association and B7 check.
 
-Two subcommands::
+Three subcommands::
 
-    python -m pii_detection.compliance assign <document_id> --activities id1,id2
-    python -m pii_detection.compliance check  <document_id> [--include-proposed]
+    python -m pii_detection.compliance assign    <document_id> --activities id1,id2
+    python -m pii_detection.compliance check     <document_id> [--include-proposed]
+    python -m pii_detection.compliance retention [--strict]
 
 ``assign`` records which processing activities a document belongs to (explicit,
 DPO-driven, B6). ``check`` compares the document's detected PII against those
-activities' declared categories and prints the verdict (B7). Database URLs are
-read from the environment (``ROPA_DB_URL``, ``PII_DB_URL``), so the same command
-runs locally and in a container.
+activities' declared categories and prints the verdict (B7). ``retention`` runs
+the retention axis of that verdict over the **whole registry** and lists what is
+kept past its term, worst first — the question a DPO asks of a file share, which
+a per-document command cannot answer at scale. Database URLs are read from the
+environment (``ROPA_DB_URL``, ``PII_DB_URL``), so the same command runs locally
+and in a container.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ import argparse
 
 from pii_detection.compliance.assign import ExplicitAssigner, persist_assignment
 from pii_detection.compliance.checker import check_document
+from pii_detection.compliance.overview import format_overview, retention_overview
 from pii_detection.compliance.types import format_report
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.ropa.repository import ROPARepository
@@ -54,6 +59,16 @@ def main(argv: list[str] | None = None) -> None:
         help="count PROPOSED category mappings too, not only DPO-confirmed ones",
     )
 
+    retention_parser = subparsers.add_parser(
+        "retention",
+        help="list every document kept past its declared retention (whole registry)",
+    )
+    retention_parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="count only DPO-confirmed category mappings (default: proposed ones too)",
+    )
+
     args = parser.parse_args(argv)
     registry = PIIRepository()
 
@@ -62,6 +77,11 @@ def main(argv: list[str] | None = None) -> None:
         assigner = ExplicitAssigner(ids)
         persisted = persist_assignment(registry, args.document_id, assigner)
         print(f"Document '{args.document_id}' assigned to: {', '.join(persisted)}")
+    elif args.command == "retention":
+        rows = retention_overview(
+            ropa=ROPARepository(), registry=registry, include_proposed=not args.strict
+        )
+        print(format_overview(rows))
     else:  # check
         ropa = ROPARepository()
         report = check_document(

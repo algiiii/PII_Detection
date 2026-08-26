@@ -1,10 +1,11 @@
 """Data model of the detected-PII registry — block B5, persistence.
 
 Design and rationale in ``doc/sections/5_architettura.tex``
-(§``sec:persistenza-registro``): a delta-based hybrid changelog, with a mutable
-current state (:class:`PIIInstance`) alongside an append-only log of what changed
-(:class:`PIIChange`), tied to the :class:`Scan` that observed it and the
-:class:`Document` it belongs to.
+(§``sec:persistenza-registro``): the registry holds the **current state** of the
+PII detected per document (:class:`PIIInstance`), tied to the :class:`Scan` that
+recorded it and the :class:`Document` it belongs to. Each scan fully replaces a
+document's instances with what it currently finds — the registry answers *what
+PII is in this document now*, not how any single PII changed over time.
 
 The classes are SQLModel tables (``table=True``): domain object and storage
 schema at once (Active Record), like the ROPA model (:mod:`pii_detection.ropa.types`).
@@ -15,10 +16,6 @@ schema at once (Active Record), like the ROPA model (:mod:`pii_detection.ropa.ty
 :class:`~pii_detection.detection.types.PIIMatch` (``text``) is dropped at this
 persistence boundary: no column here can hold it. A compliance registry must not
 itself become an archive of personal data.
-
-This module implements **Step 1** (population): every scan records its findings
-as :attr:`ChangeType.NEW`. The delta on re-scan (``CONFIRMED``/``MOVED``/
-``REMOVED``, with a non-null ``previous_scan``) is Step 2.
 """
 
 from datetime import datetime, timezone
@@ -33,23 +30,6 @@ def _utcnow() -> datetime:
     """:returns: the current UTC time (default for the timestamp columns)."""
     return datetime.now(timezone.utc)
 
-
-class ChangeType(str, Enum):
-    """What happened to a PII instance between one scan and the next.
-
-    Closed vocabulary (``doc/sections/5_architettura.tex``
-    §``sub:persistenza-punti-aperti``). Step 1 only ever produces :attr:`NEW`.
-
-    :cvar NEW: instance detected for the first time.
-    :cvar CONFIRMED: known instance, found again unchanged (Step 2).
-    :cvar MOVED: known instance, found again at a different position (Step 2).
-    :cvar REMOVED: known instance, no longer present (Step 2).
-    """
-
-    NEW = "new"
-    CONFIRMED = "confirmed"
-    MOVED = "moved"
-    REMOVED = "removed"
 
 class AssociationSource(str, Enum):
     """Where a document's activity association came from
@@ -82,9 +62,26 @@ class Document(SQLModel, table=True):
         (:class:`AssociationSource`), or ``None`` if the document has no
         association yet. Rule application skips documents set to
         :attr:`AssociationSource.MANUAL` (manual wins over folder rules).
-    :ivar source_modified_at: last-modified time of the source file at ingestion
-        (its ``mtime``), used as the document's reference date for the approximate
-        retention check (B7); a *reference*, not a PII value. ``None`` if unknown.
+    :ivar reference_date: the date the document is assumed to date from — read
+        from inside the file when it carries one, from the file system otherwise
+        (see :func:`~pii_detection.extraction.dates.reference_date`). It is the
+        *semantic* age used by the approximate retention check (B7); a
+        *reference*, not a PII value. ``None`` if unknown.
+    :ivar reference_date_source: provenance of :attr:`reference_date`, a
+        :class:`~pii_detection.extraction.dates.DateSource` value, so the verdict
+        can say how much the estimate is worth (``file_mtime`` is a weak signal:
+        any bulk copy resets it). ``None`` if unknown.
+    :ivar source_mtime: the file's modification time as observed at the last scan
+        — the *technical* stamp used to decide whether the file changed and must
+        be analysed again, never the age of its content.
+    :ivar source_size: the file size in bytes at the last scan, the second half of
+        that stamp.
+    :ivar last_scanned_at: when the document was last actually analysed (a scan it
+        was skipped for does not count).
+    :ivar detector_signature: fingerprint of the detection engine that produced the
+        current instances (see
+        :func:`~pii_detection.registry.freshness.detector_signature`), so a change
+        of detectors or of the pattern configuration invalidates the skip.
     :ivar instances: the PII instances contained in this document.
     """
 
@@ -95,7 +92,12 @@ class Document(SQLModel, table=True):
     first_seen: datetime = Field(default_factory=_utcnow)
     activity_ids: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     association_source: AssociationSource | None = None
-    source_modified_at: datetime | None = None
+    reference_date: datetime | None = None
+    reference_date_source: str | None = None
+    source_mtime: datetime | None = None
+    source_size: int | None = None
+    last_scanned_at: datetime | None = None
+    detector_signature: str | None = None
 
     instances: list["PIIInstance"] = Relationship(
         back_populates="document",
@@ -104,11 +106,11 @@ class Document(SQLModel, table=True):
 
 
 class Scan(SQLModel, table=True):
-    """One observation of a document at a point in time.
+    """One analysis run of a document — records when it was last analysed.
 
     :ivar id: autogenerated primary key.
-    :ivar document_id: the document this scan observed (foreign key).
-    :ivar created_at: when the scan ran.
+    :ivar document_id: the document this run analysed (foreign key).
+    :ivar created_at: when the run executed.
     """
 
     __tablename__ = "registry_scan"
@@ -136,11 +138,8 @@ class PIIInstance(SQLModel, table=True):
     :ivar processing_activity_id: the declared activity it corresponds to, or
         ``None`` if orphan; populated later by the association block (B6), hence
         no foreign key here.
-    :ivar last_scan_id: the last scan that observed it (foreign key).
-    :ivar removed: whether the instance is no longer present; set by the Step-2
-        delta logic, ``False`` on first record.
+    :ivar last_scan_id: the scan that recorded this instance (foreign key).
     :ivar document: back-reference to the owning document.
-    :ivar changes: the append-only history of this instance.
     """
 
     __tablename__ = "registry_pii_instance"
@@ -155,40 +154,9 @@ class PIIInstance(SQLModel, table=True):
     sources: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     processing_activity_id: str | None = None
     last_scan_id: int | None = Field(default=None, foreign_key="registry_scan.id")
-    removed: bool = False
 
     document: Optional["Document"] = Relationship(back_populates="instances")
-    changes: list["PIIChange"] = Relationship(
-        back_populates="instance",
-        sa_relationship_kwargs={"lazy": "selectin", "cascade": "all, delete-orphan"},
-    )
 
-
-class PIIChange(SQLModel, table=True):
-    """An entry in the append-only log — what happened to an instance and when.
-
-    :ivar id: autogenerated primary key.
-    :ivar pii_instance_id: the instance this change concerns (foreign key).
-    :ivar change_type: the kind of variation (closed vocabulary).
-    :ivar scan_id: the scan that produced this change (foreign key).
-    :ivar previous_scan_id: the previous scan of the same document — what links
-        detections over time; ``None`` for the first scan (bootstrap).
-    :ivar timestamp: when the change was recorded.
-    :ivar instance: back-reference to the owning instance.
-    """
-
-    __tablename__ = "registry_pii_change"
-
-    id: int | None = Field(default=None, primary_key=True)
-    pii_instance_id: int | None = Field(
-        default=None, foreign_key="registry_pii_instance.id"
-    )
-    change_type: ChangeType
-    scan_id: int | None = Field(default=None, foreign_key="registry_scan.id")
-    previous_scan_id: int | None = Field(default=None, foreign_key="registry_scan.id")
-    timestamp: datetime = Field(default_factory=_utcnow)
-
-    instance: Optional["PIIInstance"] = Relationship(back_populates="changes")
 
 class FolderRule(SQLModel, table = True):
     """A rule mapping a folder prefix to the processing actrivities under it (B6)
@@ -220,10 +188,8 @@ class FolderRule(SQLModel, table = True):
 
 __all__ = [
     "AssociationSource",
-    "ChangeType",
     "Document",
     "FolderRule",
     "Scan",
     "PIIInstance",
-    "PIIChange",
 ]

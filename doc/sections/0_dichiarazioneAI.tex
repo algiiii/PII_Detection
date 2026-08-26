@@ -1,0 +1,40 @@
+% ============================================================================
+% DICHIARAZIONE SULL'USO DELL'INTELLIGENZA ARTIFICIALE
+% ----------------------------------------------------------------------------
+% Sta nel frontmatter (numerazione romana), prima dei capitoli numerati.
+% ============================================================================
+
+\problemchapter{Dichiarazione sull'uso dell'intelligenza artificiale}
+\label{cap:dichiarazione-ai}
+
+In questa sezione viene esplicitato come è stata utilizzata l'AI generativa durante lo sviluppo del progetto. L'utilizzo di strumenti di AI generativa è stato limitato a \textbf{Claude Code}, utilizzato da terminale, con i modelli della famiglia \textbf{Claude Opus}.
+
+\section*{L'AI è stata utilizzata per}
+
+\begin{itemize}
+	\item \textbf{Documentazione}: riscrivere frasi intere per impiegare termini più specifici e migliorare la fluidità generale del testo, senza alterarne la sostanza; usato sia per i file \texttt{.md} della \textit{codebase}, sia per il documento di tesi. È stata utilizzata anche per convertire rapidamente le tabelle in formato \LaTeX{} e per mantenere coerenti i rimandi interni (\texttt{\textbackslash label}/\texttt{\textbackslash ref}) a fronte di spostamenti e rinumerazioni dei capitoli. Nel Capitolo~\ref{cap:analisi-rischi} è stata usata per la stesura delle singole voci a partire dalla traccia definita manualmente.
+	\item \textbf{Ricerca di fonti}: supporto parziale al reperimento di letteratura e riferimenti per il Capitolo~\ref{cap:stato-arte}; ogni fonte così individuata è stata poi verificata alla sorgente e consultata prima di essere citata.
+	\item \textbf{Commenti}: scrivere e riscrivere i commenti e i \textit{docstring} all'interno della \textit{codebase}, per dare una spiegazione chiara di che cosa fanno le funzioni; da essi è generata la \textit{reference} tecnica del codice.
+	\item \textbf{Codice}: scrivere e riscrivere porzioni di codice per correggere \textit{bug}, semplificare le funzioni, alleggerire e migliorare la qualità generale, correggere \textit{typo} nei nomi di variabili e funzioni e in alcuni casi facendo \textit{spec-driven development}; l'uso delle librerie di terze parti e la sintassi sono stati in larga parte delegati. Usato intensivamente nella parte di \textit{frontend} web e nella scrittura dei test, per velocizzare processi meccanici che avrebbero sottratto tempo alla scrittura delle parti più importanti ai fini del progetto.
+	\item \textbf{Apparato sperimentale}: scrivere gli script che eseguono le campagne di misura del Capitolo~\ref{cap:test} e ne raccolgono i risultati. L'AI ha scritto il \textbf{codice che misura}, non i \textbf{numeri misurati}: ogni valore riportato nelle tabelle è l'esito dell'esecuzione di quegli script sul corpus, ed è rigenerabile ri-eseguendo la campagna.
+	\item \textbf{Consultazione}: dividere a livello concettuale il carico di lavoro in passi più specifici e focalizzati; in alcuni casi è stata delegata la stesura dei piani di dettaglio, poi riscritti e riformulati manualmente. È stata consultata anche per quanto riguarda la separazione delle sezioni nei vari capitoli della documentazione, chiedendo consigli su materiale da tenere, rivedere o scartare, e per l'impiego di nuove tecnologie o processi.
+\end{itemize}
+
+\section*{L'AI NON è stata utilizzata per}
+
+\begin{itemize}
+	\item Gestire il progetto a livello organizzativo, comprese le attività relative a Git e GitHub, come gestione del \textit{repository}, \textit{branch}, \textit{issue}, \textit{commit}, \textit{merge} e versionamento del codice;
+	\item Definire autonomamente gli obiettivi, i requisiti e il perimetro del progetto;
+	\item Progettare da zero l'architettura generale, la struttura del progetto e la sua suddivisione in blocchi funzionali;
+	\item Prendere autonomamente decisioni progettuali e implementative, o decidere da zero come realizzare una nuova funzionalità;
+	\item Scegliere autonomamente quali \textit{pattern} di programmazione adottare e come integrarli nell'architettura del progetto;
+	\item Prendere le decisioni finali riguardo a tecnologie, modelli e strategie di rilevamento, fusione dei risultati e verifica di conformità;
+	\item Produrre i valori sperimentali riportati nelle tabelle del Capitolo~\ref{cap:test}, che provengono unicamente dall'esecuzione delle campagne di misura;
+	\item Prendere le decisioni finali nell'interpretazione dei risultati sperimentali;
+	\item Eseguire operazioni di pubblicazione, \textit{merge} o \textit{deployment} senza una verifica personale;
+	\item Sostituire la revisione e la verifica personale del codice generato o modificato con il supporto dell'AI;
+	      % TODO: verificare la voce seguente — i diagrammi della tesi sono realizzati
+	      % in TikZ, che è codice: se sono stati scritti con l'AI, la voce va spostata
+	      % nell'elenco precedente o circoscritta ai soli asset non testuali.
+	\item Generare \textit{asset} grafici o artistici, tra cui logo, sfondi e grafiche utilizzati nel \textit{frontend} o nella documentazione.
+\end{itemize}

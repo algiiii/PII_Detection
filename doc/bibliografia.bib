@@ -30,6 +30,22 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language,Computer Science - Machine Learning}
 }
 
+@article{abrahamDataGovernanceConceptual2019,
+  title = {Data Governance: {{A}} Conceptual Framework, Structured Review, and Research Agenda},
+  shorttitle = {Data Governance},
+  author = {Abraham, Rene and Schneider, Johannes and Vom Brocke, Jan},
+  date = {2019-12},
+  journaltitle = {International Journal of Information Management},
+  shortjournal = {Int. J. Inf. Manag.},
+  volume = {49},
+  pages = {424--438},
+  issn = {02684012},
+  doi = {10.1016/j.ijinfomgt.2019.07.008},
+  url = {https://linkinghub.elsevier.com/retrieve/pii/S0268401219300787},
+  urldate = {2026-08-24},
+  langid = {english}
+}
+
 @inproceedings{africanoPIIDetectionLowResource2024,
   title = {{{PII Detection}} in {{Low-Resource Languages Using Explainable Deep Learning Techniques}}},
   booktitle = {Proceedings of the 2024 {{Sixteenth International Conference}} on {{Contemporary Computing}}},
@@ -63,19 +79,27 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computers and Society,Statistics - Applications}
 }
 
-@online{amaralNLPbasedAutomatedCompliance2023,
-  title = {{{NLP-based Automated Compliance Checking}} of {{Data Processing Agreements}} against {{GDPR}}},
-  author = {Amaral, Orlando and Azeem, Muhammad Ilyas and Abualhaija, Sallam and Briand, Lionel C.},
-  date = {2023-06-18},
-  eprint = {2209.09722},
-  eprinttype = {arXiv},
-  eprintclass = {cs.SE},
-  doi = {10.48550/arXiv.2209.09722},
-  url = {http://arxiv.org/abs/2209.09722},
-  urldate = {2026-06-09},
-  abstract = {Processing personal data is regulated in Europe by the General Data Protection Regulation (GDPR) through data processing agreements (DPAs). Checking the compliance of DPAs contributes to the compliance verification of software systems as DPAs are an important source of requirements for software development involving the processing of personal data. However, manually checking whether a given DPA complies with GDPR is challenging as it requires significant time and effort for understanding and identifying DPA-relevant compliance requirements in GDPR and then verifying these requirements in the DPA. In this paper, we propose an automated solution to check the compliance of a given DPA against GDPR. In close interaction with legal experts, we first built two artifacts: (i) the "shall" requirements extracted from the GDPR provisions relevant to DPA compliance and (ii) a glossary table defining the legal concepts in the requirements. Then, we developed an automated solution that leverages natural language processing (NLP) technologies to check the compliance of a given DPA against these "shall" requirements. Specifically, our approach automatically generates phrasal-level representations for the textual content of the DPA and compares it against predefined representations of the "shall" requirements. Over a dataset of 30 actual DPAs, the approach correctly finds 618 out of 750 genuine violations while raising 76 false violations, and further correctly identifies 524 satisfied requirements. The approach has thus an average precision of 89.1\%, a recall of 82.4\%, and an accuracy of 84.6\%. Compared to a baseline that relies on off-the-shelf NLP tools, our approach provides an average accuracy gain of \textasciitilde 20 percentage points. The accuracy of our approach can be improved to \textasciitilde 94\% with limited manual verification effort.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Software Engineering}
+@software{algisi2026piidiscovery,
+  title = {{{PII Discovery}}: Rilevamento Di Dati Personali in Documenti Non Strutturati Aziendali},
+  author = {Algisi, Gabriele},
+  date = {2026},
+  url = {https://github.com/algiiii/PII_Discovery},
+  version = {v1.0-thesis}
+}
+
+@article{amaralNLPbasedAutomatedCompliance2023,
+  title = {{{NLP-Based Automated Compliance Checking}} of {{Data Processing Agreements Against GDPR}}},
+  author = {Cejas, Orlando Amaral and Azeem, Muhammad Ilyas and Abualhaija, Sallam and Briand, Lionel C.},
+  date = {2023-09},
+  journaltitle = {IEEE Transactions on Software Engineering},
+  shortjournal = {IEEE Trans. Softw. Eng.},
+  volume = {49},
+  number = {9},
+  pages = {4282--4303},
+  issn = {0098-5589, 1939-3520, 2326-3881},
+  doi = {10.1109/TSE.2023.3288901},
+  url = {https://ieeexplore.ieee.org/document/10167495/},
+  urldate = {2026-08-26}
 }
 
 @inproceedings{aminFewShotCrosslingualTransfer2022,
@@ -116,20 +140,16 @@
   keywords = {Varonis}
 }
 
-@online{benallal2025smollm2,
-  title = {{{SmolLM2}}: {{When Smol Goes Big}} -- {{Data-Centric Training}} of a {{Small Language Model}}},
+@inproceedings{benallal2025smollm2,
+  title = {{{SmolLM2}}: {{When Smol Goes Big}} — {{Data-Centric Training}} of a {{Fully Open Small Language Model}}},
   shorttitle = {{{SmolLM2}}},
-  author = {Allal, Loubna Ben and Lozhkov, Anton and Bakouch, Elie and Blázquez, Gabriel Martín and Penedo, Guilherme and Tunstall, Lewis and Marafioti, Andrés and Kydlíček, Hynek and Lajarín, Agustín Piqueres and Srivastav, Vaibhav and Lochner, Joshua and Fahlgren, Caleb and Nguyen, Xuan-Son and Fourrier, Clémentine and Burtenshaw, Ben and Larcher, Hugo and Zhao, Haojun and Zakka, Cyril and Morlon, Mathieu and Raffel, Colin and family=Werra, given=Leandro, prefix=von, useprefix=false and Wolf, Thomas},
-  date = {2025-02-04},
-  eprint = {2502.02737},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CL},
-  doi = {10.48550/arXiv.2502.02737},
-  url = {http://arxiv.org/abs/2502.02737},
-  urldate = {2026-07-18},
-  abstract = {While large language models have facilitated breakthroughs in many applications of artificial intelligence, their inherent largeness makes them computationally expensive and challenging to deploy in resource-constrained settings. In this paper, we document the development of SmolLM2, a state-of-the-art "small" (1.7 billion parameter) language model (LM). To attain strong performance, we overtrain SmolLM2 on \textasciitilde 11 trillion tokens of data using a multi-stage training process that mixes web text with specialized math, code, and instruction-following data. We additionally introduce new specialized datasets (FineMath, Stack-Edu, and SmolTalk) at stages where we found existing datasets to be problematically small or low-quality. To inform our design decisions, we perform both small-scale ablations as well as a manual refinement process that updates the dataset mixing rates at each stage based on the performance at the previous stage. Ultimately, we demonstrate that SmolLM2 outperforms other recent small LMs including Qwen2.5-1.5B and Llama3.2-1B. To facilitate future research on LM development as well as applications of small LMs, we release both SmolLM2 as well as all of the datasets we prepared in the course of this project.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computation and Language}
+  author = {Allal, Loubna Ben and Lozhkov, Anton and Bakouch, Elie and Blazquez, Gabriel Martin and Penedo, Guilherme and Tunstall, Lewis and Marafioti, Andrés and Lajarín, Agustín Piqueres and Kydlíček, Hynek and Srivastav, Vaibhav and Lochner, Joshua and Fahlgren, Caleb and Nguyen, Xuan Son and Burtenshaw, Ben and Fourrier, Clémentine and Zhao, Haojun and Larcher, Hugo and Morlon, Mathieu and Zakka, Cyril and Raffel, Colin and Werra, Leandro Von and Wolf, Thomas},
+  date = {2025-08-26},
+  url = {https://openreview.net/forum?id=3JiCl2A14H#discussion},
+  urldate = {2026-08-26},
+  abstract = {Large language models, while groundbreaking, are computationally expensive and difficult to deploy in resource-constrained settings. To address this challenge, small language models have emerged, but their performance critically depends on the quality and composition of the pretraining datasets—yet many recent models, such as Qwen2.5-1.5B and Llama3.2-1B, remain opaque about their training data, limiting reproducibility and scientific understanding. In this paper, we document and publicly release SmolLM2, a fully transparent state-of-the-art ``small'' (1.7 billion parameter) language model (LM), along with its training datasets and code. To attain strong performance, we overtrain SmolLM2 on 11 trillion tokens of data using a multi-stage training process that mixes web text with specialized math, code, and instruction-following data. We additionally curate and release new specialized datasets (FineMath, Stack-Edu, and SmolTalk) at stages where we found existing datasets to be problematically small or low-quality. To inform our design decisions, we perform both small-scale ablations and a manual refinement process that updates the dataset mixing rates at each stage based on the performance at the previous one. Ultimately, we demonstrate that SmolLM2 outperforms other recent small LMs including Qwen2.5-1.5B, Llama3.2-1B, and Falcon3-1.6B. By releasing our model, datasets, and code, we aim to facilitate future research on LM development as well as applications of small LMs.},
+  eventtitle = {Second {{Conference}} on {{Language Modeling}}},
+  langid = {english}
 }
 
 @online{bigidBigIDRedefinesPrivacy,
@@ -204,19 +224,28 @@
   keywords = {BigID}
 }
 
-@online{brownLanguageModelsAre2020,
+@book{bishopPatternRecognitionMachine2006,
+  title = {Pattern Recognition and Machine Learning},
+  author = {Bishop, Christopher M.},
+  date = {2006},
+  series = {Information Science and Statistics},
+  publisher = {Springer},
+  location = {New York},
+  isbn = {978-0-387-31073-2},
+  langid = {english}
+}
+
+@inproceedings{brownLanguageModelsAre2020,
   title = {Language {{Models}} Are {{Few-Shot Learners}}},
-  author = {Brown, Tom B. and Mann, Benjamin and Ryder, Nick and Subbiah, Melanie and Kaplan, Jared and Dhariwal, Prafulla and Neelakantan, Arvind and Shyam, Pranav and Sastry, Girish and Askell, Amanda and Agarwal, Sandhini and Herbert-Voss, Ariel and Krueger, Gretchen and Henighan, Tom and Child, Rewon and Ramesh, Aditya and Ziegler, Daniel M. and Wu, Jeffrey and Winter, Clemens and Hesse, Christopher and Chen, Mark and Sigler, Eric and Litwin, Mateusz and Gray, Scott and Chess, Benjamin and Clark, Jack and Berner, Christopher and McCandlish, Sam and Radford, Alec and Sutskever, Ilya and Amodei, Dario},
-  date = {2020-07-22},
-  eprint = {2005.14165},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CL},
-  doi = {10.48550/arXiv.2005.14165},
-  url = {http://arxiv.org/abs/2005.14165},
-  urldate = {2026-06-21},
-  abstract = {Recent work has demonstrated substantial gains on many NLP tasks and benchmarks by pre-training on a large corpus of text followed by fine-tuning on a specific task. While typically task-agnostic in architecture, this method still requires task-specific fine-tuning datasets of thousands or tens of thousands of examples. By contrast, humans can generally perform a new language task from only a few examples or from simple instructions - something which current NLP systems still largely struggle to do. Here we show that scaling up language models greatly improves task-agnostic, few-shot performance, sometimes even reaching competitiveness with prior state-of-the-art fine-tuning approaches. Specifically, we train GPT-3, an autoregressive language model with 175 billion parameters, 10x more than any previous non-sparse language model, and test its performance in the few-shot setting. For all tasks, GPT-3 is applied without any gradient updates or fine-tuning, with tasks and few-shot demonstrations specified purely via text interaction with the model. GPT-3 achieves strong performance on many NLP datasets, including translation, question-answering, and cloze tasks, as well as several tasks that require on-the-fly reasoning or domain adaptation, such as unscrambling words, using a novel word in a sentence, or performing 3-digit arithmetic. At the same time, we also identify some datasets where GPT-3's few-shot learning still struggles, as well as some datasets where GPT-3 faces methodological issues related to training on large web corpora. Finally, we find that GPT-3 can generate samples of news articles which human evaluators have difficulty distinguishing from articles written by humans. We discuss broader societal impacts of this finding and of GPT-3 in general.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computation and Language}
+  booktitle = {Advances in {{Neural Information Processing Systems}}},
+  author = {Brown, Tom and Mann, Benjamin and Ryder, Nick and Subbiah, Melanie and Kaplan, Jared D and Dhariwal, Prafulla and Neelakantan, Arvind and Shyam, Pranav and Sastry, Girish and Askell, Amanda and Agarwal, Sandhini and Herbert-Voss, Ariel and Krueger, Gretchen and Henighan, Tom and Child, Rewon and Ramesh, Aditya and Ziegler, Daniel and Wu, Jeffrey and Winter, Clemens and Hesse, Chris and Chen, Mark and Sigler, Eric and Litwin, Mateusz and Gray, Scott and Chess, Benjamin and Clark, Jack and Berner, Christopher and McCandlish, Sam and Radford, Alec and Sutskever, Ilya and Amodei, Dario},
+  date = {2020},
+  volume = {33},
+  pages = {1877--1901},
+  publisher = {Curran Associates, Inc.},
+  url = {https://papers.nips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html},
+  urldate = {2026-08-26},
+  abstract = {We demonstrate that scaling up language models greatly improves task-agnostic, few-shot performance, sometimes even becoming competitive with prior state-of-the-art fine-tuning approaches. Specifically, we train GPT-3, an autoregressive language model with 175 billion parameters, 10x more than any previous non-sparse language model, and test its performance in the few-shot setting.  For all tasks, GPT-3 is applied without any gradient updates or fine-tuning, with tasks and few-shot demonstrations specified purely via text interaction with the model.  GPT-3 achieves strong performance on many NLP datasets, including translation, question-answering, and cloze tasks. We also identify some datasets where GPT-3's few-shot learning still struggles, as well as some datasets where GPT-3 faces methodological issues related to training on large web corpora.}
 }
 
 @online{burgisserLargeLanguageModels2024,
@@ -233,6 +262,19 @@
   pubstate = {prepublished}
 }
 
+@inproceedings{chenEvaluatingLargeLanguage2021,
+  title = {Evaluating {{Large Language Models Trained}} on {{Code}}},
+  author = {Chen, Mark and Tworek, Jerry and Jun, Heewoo and Yuan, Qiming and Pinto, Henrique Ponde de Oliveira and Kaplan, Jared and Edwards, Harri and Burda, Yuri and Joseph, Nicholas and Brockman, Greg and Ray, Alex and Puri, Raul and Krueger, Gretchen and Petrov, Michael and Khlaaf, Heidy and Sastry, Girish and Mishkin, Pamela and Chan, Brooke and Gray, Scott and Ryder, Nick and Pavlov, Mikhail and Power, Alethea and Kaiser, Lukasz and Bavarian, Mohammad and Winter, Clemens and Tillet, Philippe and Such, Felipe Petroski and Cummings, Dave and Plappert, Matthias and Chantzis, Fotios and Barnes, Elizabeth and Herbert-Voss, Ariel and Guss, William Hebgen and Nichol, Alex and Paino, Alex and Tezak, Nikolas and Tang, Jie and Babuschkin, Igor and Balaji, Suchir and Jain, Shantanu and Saunders, William and Hesse, Christopher and Carr, Andrew N. and Leike, Jan and Achiam, Josh and Misra, Vedant and Morikawa, Evan and Radford, Alec and Knight, Matthew and Brundage, Miles and Murati, Mira and Mayer, Katie and Welinder, Peter and McGrew, Bob and Amodei, Dario and McCandlish, Sam and Sutskever, Ilya and Zaremba, Wojciech},
+  date = {2021},
+  publisher = {arXiv},
+  doi = {10.48550/ARXIV.2107.03374},
+  url = {https://arxiv.org/abs/2107.03374},
+  urldate = {2026-08-24},
+  abstract = {We introduce Codex, a GPT language model fine-tuned on publicly available code from GitHub, and study its Python code-writing capabilities. A distinct production version of Codex powers GitHub Copilot. On HumanEval, a new evaluation set we release to measure functional correctness for synthesizing programs from docstrings, our model solves 28.8\% of the problems, while GPT-3 solves 0\% and GPT-J solves 11.4\%. Furthermore, we find that repeated sampling from the model is a surprisingly effective strategy for producing working solutions to difficult prompts. Using this method, we solve 70.2\% of our problems with 100 samples per problem. Careful investigation of our model reveals its limitations, including difficulty with docstrings describing long chains of operations and with binding operations to variables. Finally, we discuss the potential broader impacts of deploying powerful code generation technologies, covering safety, security, and economics.},
+  version = {2},
+  keywords = {FOS: Computer and information sciences,Machine Learning (cs.LG)}
+}
+
 @online{claytonsiemens77EventSourcingPattern,
   title = {Event {{Sourcing Pattern}} - {{Azure Architecture Center}}},
   author = {{claytonsiemens77}},
@@ -241,6 +283,35 @@
   urldate = {2026-07-09},
   abstract = {Learn how to use an append-only store to record the full series of events that describe actions taken on data in a domain.},
   langid = {american}
+}
+
+@online{cnilRegistreModeleBasique,
+  title = {Le registre RGPD de la CNIL},
+  url = {https://www.cnil.fr/fr/le-registre-rgpd-de-la-cnil},
+  urldate = {2026-08-24},
+  abstract = {Article mis à jour le 20/05/2026 À quoi sert le registre des activités de traitement~? Le registre des activités de traitement est prévu par~l’article 30 du RGPD.},
+  langid = {french}
+}
+
+@online{cnilRegistreTraitement,
+  title = {Le registre des activités de traitement},
+  url = {https://www.cnil.fr/fr/RGPD-le-registre-des-activites-de-traitement},
+  urldate = {2026-08-24},
+  abstract = {Le registre est prévu par l’article 30 du RGPD. Il participe à la documentation de la conformité. Document de recensement et d’analyse, il doit refléter la réalité de vos traitements de données personnelles et vous permet d’identifier précisément~:},
+  langid = {french}
+}
+
+@online{cobbeTrainingVerifiersSolve2021,
+  title = {Training {{Verifiers}} to {{Solve Math Word Problems}}},
+  author = {Cobbe, Karl and Kosaraju, Vineet and Bavarian, Mohammad and Chen, Mark and Jun, Heewoo and Kaiser, Lukasz and Plappert, Matthias and Tworek, Jerry and Hilton, Jacob and Nakano, Reiichiro and Hesse, Christopher and Schulman, John},
+  date = {2021},
+  doi = {10.48550/ARXIV.2110.14168},
+  url = {https://arxiv.org/abs/2110.14168},
+  urldate = {2026-08-24},
+  abstract = {State-of-the-art language models can match human performance on many tasks, but they still struggle to robustly perform multi-step mathematical reasoning. To diagnose the failures of current models and support research, we introduce GSM8K, a dataset of 8.5K high quality linguistically diverse grade school math word problems. We find that even the largest transformer models fail to achieve high test performance, despite the conceptual simplicity of this problem distribution. To increase performance, we propose training verifiers to judge the correctness of model completions. At test time, we generate many candidate solutions and select the one ranked highest by the verifier. We demonstrate that verification significantly improves performance on GSM8K, and we provide strong empirical evidence that verification scales more effectively with increased data than a finetuning baseline.},
+  pubstate = {prepublished},
+  version = {2},
+  keywords = {Computation and Language (cs.CL),FOS: Computer and information sciences,Machine Learning (cs.LG)}
 }
 
 @online{ComparingBestNERProtecto2025,
@@ -318,7 +389,7 @@
   organization = {Grepture}
 }
 
-@online{DeeplearningbookorgContentsMlhtml,
+@book{DeeplearningbookorgContentsMlhtml,
   title = {Deep {{Learning}}},
   author = {Goodfellow, Ian and Bengio, Yoshua and Courville, Aaron},
   date = {2016},
@@ -344,19 +415,21 @@
   eventtitle = {{{NAACL-HLT}} 2019}
 }
 
-@online{ecommerce2025slm,
-  title = {Performance {{Trade-offs}} of {{Optimizing Small Language Models}} for {{E-Commerce}}},
-  author = {Licardo, Josip Tomo and Tankovic, Nikola},
-  date = {2025-10-24},
-  eprint = {2510.21970},
-  eprinttype = {arXiv},
-  eprintclass = {cs.AI},
-  doi = {10.48550/arXiv.2510.21970},
-  url = {http://arxiv.org/abs/2510.21970},
-  urldate = {2026-07-18},
-  abstract = {Large Language Models (LLMs) offer state-of-the-art performance in natural language understanding and generation tasks. However, the deployment of leading commercial models for specialized tasks, such as e-commerce, is often hindered by high computational costs, latency, and operational expenses. This paper investigates the viability of smaller, open-weight models as a resource-efficient alternative. We present a methodology for optimizing a one-billion-parameter Llama 3.2 model for multilingual e-commerce intent recognition. The model was fine-tuned using Quantized Low-Rank Adaptation (QLoRA) on a synthetically generated dataset designed to mimic real-world user queries. Subsequently, we applied post-training quantization techniques, creating GPU-optimized (GPTQ) and CPU-optimized (GGUF) versions. Our results demonstrate that the specialized 1B model achieves 99\% accuracy, matching the performance of the significantly larger GPT-4.1 model. A detailed performance analysis revealed critical, hardware-dependent trade-offs: while 4-bit GPTQ reduced VRAM usage by 41\%, it paradoxically slowed inference by 82\% on an older GPU architecture (NVIDIA T4) due to dequantization overhead. Conversely, GGUF formats on a CPU achieved a speedup of up to 18x in inference throughput and a reduction of over 90\% in RAM consumption compared to the FP16 baseline. We conclude that small, properly optimized open-weight models are not just a viable but a more suitable alternative for domain-specific applications, offering state-of-the-art accuracy at a fraction of the computational cost.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language}
+@article{ecommerce2025slm,
+  title = {Performance {{Trade-Offs}} of {{Optimizing Small Language Models}} for {{E-Commerce}}},
+  author = {Licardo, Josip Tomo and Tanković, Nikola and Osman, Ivan and Lorencin, Ivan and Baressi Šegota, Sandi},
+  date = {2026-05-14},
+  journaltitle = {Big Data and Cognitive Computing},
+  shortjournal = {Big Data Cogn. Comput.},
+  volume = {10},
+  number = {5},
+  pages = {155},
+  issn = {2504-2289},
+  doi = {10.3390/bdcc10050155},
+  url = {https://www.mdpi.com/2504-2289/10/5/155},
+  urldate = {2026-08-26},
+  abstract = {Large Language Models (LLMs) offer state-of-the-art performance in natural language understanding and generation tasks. However, the deployment of leading commercial models for specialized tasks, such as e-commerce, is often hindered by high computational costs, latency, and operational expenses. This paper investigates the viability of smaller, open-weight models as a resource-efficient alternative. We present a methodology for optimizing a one-billion-parameter Llama 3.2 model for multilingual e-commerce intent recognition. The model was fine-tuned using Quantized Low-Rank Adaptation (QLoRA) on a synthetically generated dataset designed to mimic real-world user queries. Subsequently, we applied post-training quantization techniques, creating GPU-optimized (GPTQ) and CPU-optimized (GGUF) versions. Our results demonstrate that the specialized 1B model achieves 98.8\% accuracy, approaching the performance of the significantly larger GPT-4.1 model. A detailed performance analysis revealed critical, hardware-dependent trade-offs: while 4-bit GPTQ reduced VRAM usage by 41\%, it paradoxically slowed inference by 82\% on an older GPU architecture (NVIDIA T4) due to dequantization overhead. Conversely, GGUF formats on a CPU achieved a speedup of up to 4.3× in inference throughput and up to a 72\% reduction in RAM consumption compared to the FP16 baseline. We conclude that small, properly optimized open-weight models are not just a viable but a more suitable alternative for domain-specific applications, offering state-of-the-art accuracy at a fraction of the computational cost.},
+  langid = {english}
 }
 
 @online{edgeenergy2025slm,
@@ -374,19 +447,15 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language,Computer Science - Distributed Parallel and Cluster Computing,Computer Science - Machine Learning}
 }
 
-@online{elazarWhatsMyBigData2024,
+@inproceedings{elazarWhatsMyBigData2024,
   title = {What's {{In My Big Data}}?},
-  author = {Elazar, Yanai and Bhagia, Akshita and Magnusson, Ian and Ravichander, Abhilasha and Schwenk, Dustin and Suhr, Alane and Walsh, Pete and Groeneveld, Dirk and Soldaini, Luca and Singh, Sameer and Hajishirzi, Hanna and Smith, Noah A. and Dodge, Jesse},
-  date = {2024-03-05},
-  eprint = {2310.20707},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CL},
-  doi = {10.48550/arXiv.2310.20707},
-  url = {http://arxiv.org/abs/2310.20707},
-  urldate = {2026-06-24},
-  abstract = {Large text corpora are the backbone of language models. However, we have a limited understanding of the content of these corpora, including general statistics, quality, social factors, and inclusion of evaluation data (contamination). In this work, we propose What's In My Big Data? (WIMBD), a platform and a set of sixteen analyses that allow us to reveal and compare the contents of large text corpora. WIMBD builds on two basic capabilities -- count and search -- at scale, which allows us to analyze more than 35 terabytes on a standard compute node. We apply WIMBD to ten different corpora used to train popular language models, including C4, The Pile, and RedPajama. Our analysis uncovers several surprising and previously undocumented findings about these corpora, including the high prevalence of duplicate, synthetic, and low-quality content, personally identifiable information, toxic language, and benchmark contamination. For instance, we find that about 50\% of the documents in RedPajama and LAION-2B-en are duplicates. In addition, several datasets used for benchmarking models trained on such corpora are contaminated with respect to important benchmarks, including the Winograd Schema Challenge and parts of GLUE and SuperGLUE. We open-source WIMBD's code and artifacts to provide a standard set of evaluations for new text-based corpora and to encourage more analyses and transparency around them.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computation and Language,Computer Science - Machine Learning}
+  author = {Elazar, Yanai and Bhagia, Akshita and Magnusson, Ian Helgi and Ravichander, Abhilasha and Schwenk, Dustin and Suhr, Alane and Walsh, Evan Pete and Groeneveld, Dirk and Soldaini, Luca and Singh, Sameer and Hajishirzi, Hannaneh and Smith, Noah A. and Dodge, Jesse},
+  date = {2023-10-13},
+  url = {https://openreview.net/forum?id=RvfPnOkPV4},
+  urldate = {2026-08-26},
+  abstract = {Large text corpora are the backbone of language models. However, we have a limited understanding of the content of these corpora, including general statistics, quality, social factors, and inclusion of evaluation data (contamination). In this work, we propose What's In My Big Data? (WIMBD), a platform and a set of sixteen analyses that allow us to reveal and compare the contents of large text corpora. WIMBD builds on two basic capabilities---count and search---*at scale*, which allows us to analyze more than 35 terabytes on a standard compute node. We apply WIMBD to ten different corpora used to train popular language models, including *C4*, *The Pile*, and *RedPajama*. Our analysis uncovers several surprising and previously undocumented findings about these corpora, including the high prevalence of duplicate, synthetic, and low-quality content, personally identifiable information, toxic language, and benchmark contamination. For instance, we find that about 50\% of the documents in *RedPajama* and *LAION-2B-en* are duplicates. In addition, several datasets used for benchmarking models trained on such corpora are contaminated with respect to important benchmarks, including the Winograd Schema Challenge and parts of GLUE and SuperGLUE. We open-source WIMBD's code and artifacts to provide a standard set of evaluations for new text-based corpora and to encourage more analyses and transparency around them.},
+  eventtitle = {The {{Twelfth International Conference}} on {{Learning Representations}}},
+  langid = {english}
 }
 
 @article{elbouknifyDesigningGreenArtificial2026,
@@ -407,6 +476,22 @@
   langid = {english}
 }
 
+@online{elcomPrezziElettricitaCalo2025,
+  title = {Prezzi dell’elettricità in leggero calo nel 2026},
+  url = {https://www.admin.ch/it/newnsb/8nuE_fvwnfqCu8OHNOwKu},
+  urldate = {2026-08-24},
+  langid = {italian}
+}
+
+@online{FactsFiguresSpaCy,
+  title = {Facts \& {{Figures}} · {{spaCy Usage Documentation}}},
+  url = {https://spacy.io/usage/facts-figures/},
+  urldate = {2026-08-25},
+  abstract = {The hard numbers for spaCy and how it compares to other tools},
+  langid = {english},
+  organization = {Facts \& Figures}
+}
+
 @online{fowlerEventSourcing,
   title = {Event {{Sourcing}}},
   author = {Fowler, Martin},
@@ -415,6 +500,23 @@
   urldate = {2026-07-09},
   abstract = {Capture all changes to an application state as a sequence of events.},
   organization = {martinfowler.com}
+}
+
+@article{gandomiHypeBigData2015,
+  title = {Beyond the Hype: {{Big}} Data Concepts, Methods, and Analytics},
+  shorttitle = {Beyond the Hype},
+  author = {Gandomi, Amir and Haider, Murtaza},
+  date = {2015-04},
+  journaltitle = {International Journal of Information Management},
+  shortjournal = {Int. J. Inf. Manag.},
+  volume = {35},
+  number = {2},
+  pages = {137--144},
+  issn = {02684012},
+  doi = {10.1016/j.ijinfomgt.2014.10.007},
+  url = {https://linkinghub.elsevier.com/retrieve/pii/S0268401214001066},
+  urldate = {2026-08-23},
+  langid = {english}
 }
 
 @online{gemma2025gemma3,
@@ -430,6 +532,12 @@
   abstract = {We introduce Gemma 3, a multimodal addition to the Gemma family of lightweight open models, ranging in scale from 1 to 27 billion parameters. This version introduces vision understanding abilities, a wider coverage of languages and longer context - at least 128K tokens. We also change the architecture of the model to reduce the KV-cache memory that tends to explode with long context. This is achieved by increasing the ratio of local to global attention layers, and keeping the span on local attention short. The Gemma 3 models are trained with distillation and achieve superior performance to Gemma 2 for both pre-trained and instruction finetuned versions. In particular, our novel post-training recipe significantly improves the math, chat, instruction-following and multilingual abilities, making Gemma3-4B-IT competitive with Gemma2-27B-IT and Gemma3-27B-IT comparable to Gemini-1.5-Pro across benchmarks. We release all our models to the community.},
   pubstate = {prepublished},
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language}
+}
+
+@online{GPUAccelerationPresidio,
+  title = {{{GPU Acceleration}} - {{Presidio}}},
+  url = {https://presidio.dataprivacystack.org/analyzer/nlp_engines/gpu_usage/},
+  urldate = {2026-08-25}
 }
 
 @software{granite2024granite30,
@@ -470,6 +578,34 @@
   urldate = {2026-06-19},
   abstract = {Most Machine Learning research evaluates the best solutions in terms of performance. However, in the race for the best performing model, many important aspects are often overlooked when, on the contrary, they should be carefully considered. In fact, sometimes the gaps in performance between different approaches are neglectable, whereas factors such as production costs, energy consumption, and carbon footprint must take into consideration. Large Language Models (LLMs) are extensively adopted to address NLP problems in academia and industry. In this work, we present a detailed quantitative comparison of LLM and traditional approaches (e.g. SVM) on the LexGLUE benchmark, which takes into account both performance (standard indices) and alternative metrics such as timing, power consumption and cost, in a word: the carbon-footprint. In our analysis, we considered the prototyping phase (model selection by training-validation-test iterations) and in-production phases separately, since they follow different implementation procedures and also require different resources. The results indicate that very often, the simplest algorithms achieve performance very close to that of large LLMs but with very low power consumption and lower resource demands. The results obtained could suggest companies to include additional evaluations in the choice of Machine Learning (ML) solutions.},
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language,Computer Science - Machine Learning,Computer Science - Performance}
+}
+
+@book{hastieElementsStatisticalLearning2017,
+  title = {The Elements of Statistical Learning: Data Mining, Inference, and Prediction},
+  shorttitle = {The Elements of Statistical Learning},
+  author = {Hastie, Trevor and Tibshirani, Robert and Friedman, Jerome H.},
+  date = {2017},
+  series = {Springer {{Series}} in {{Statistics}}},
+  edition = {Second edition},
+  publisher = {Springer},
+  location = {New York, NY},
+  abstract = {This major new edition features many topics not covered in the original, including graphical models, random forests, and ensemble methods. As before, it covers the conceptual framework for statistical data in our rapidly expanding computerized world},
+  isbn = {978-0-387-84857-0 978-0-387-84858-7},
+  langid = {english},
+  pagetotal = {1}
+}
+
+@inproceedings{hendrycksMeasuringMassiveMultitask2021,
+  title = {Measuring {{Massive Multitask Language Understanding}}},
+  author = {Hendrycks, Dan and Burns, Collin and Basart, Steven and Zou, Andy and Mazeika, Mantas and Song, Dawn and Steinhardt, Jacob},
+  date = {2020},
+  publisher = {arXiv},
+  doi = {10.48550/ARXIV.2009.03300},
+  url = {https://arxiv.org/abs/2009.03300},
+  urldate = {2026-08-24},
+  abstract = {We propose a new test to measure a text model's multitask accuracy. The test covers 57 tasks including elementary mathematics, US history, computer science, law, and more. To attain high accuracy on this test, models must possess extensive world knowledge and problem solving ability. We find that while most recent models have near random-chance accuracy, the very largest GPT-3 model improves over random chance by almost 20 percentage points on average. However, on every one of the 57 tasks, the best models still need substantial improvements before they can reach expert-level accuracy. Models also have lopsided performance and frequently do not know when they are wrong. Worse, they still have near-random accuracy on some socially important subjects such as morality and law. By comprehensively evaluating the breadth and depth of a model's academic and professional understanding, our test can be used to analyze models across many tasks and to identify important shortcomings.},
+  version = {3},
+  keywords = {Artificial Intelligence (cs.AI),Computation and Language (cs.CL),Computers and Society (cs.CY),FOS: Computer and information sciences,Machine Learning (cs.LG)}
 }
 
 @inproceedings{hengProgGenGeneratingNamed2024,
@@ -546,6 +682,16 @@
   keywords = {Data Masking,Named Entity Recognition,Outlier Detection,Personal Identifying Information (PII)}
 }
 
+@online{iso29148SystemsSoftwareEngineering2018,
+  title = {{{ISO}}/{{IEC}}/{{IEEE}} 29148:2018},
+  shorttitle = {{{ISO}}/{{IEC}}/{{IEEE}} 29148},
+  url = {https://www.iso.org/standard/72089.html},
+  urldate = {2026-08-26},
+  abstract = {Systems and software engineering — Life cycle processes — Requirements engineering},
+  langid = {english},
+  organization = {ISO}
+}
+
 @article{jehangirSurveyNamedEntity2023,
   title = {A Survey on {{Named Entity Recognition}} —~Datasets, Tools, and Methodologies},
   author = {Jehangir, Basra and Radhakrishnan, Saravanan and Agarwal, Rahul},
@@ -606,6 +752,23 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language}
 }
 
+@article{jordanMachineLearningTrends2015,
+  title = {Machine Learning: {{Trends}}, Perspectives, and Prospects},
+  shorttitle = {Machine Learning},
+  author = {Jordan, M. I. and Mitchell, T. M.},
+  date = {2015-07-17},
+  journaltitle = {Science},
+  volume = {349},
+  number = {6245},
+  pages = {255--260},
+  issn = {0036-8075, 1095-9203},
+  doi = {10.1126/science.aaa8415},
+  url = {https://www.science.org/doi/10.1126/science.aaa8415},
+  urldate = {2026-08-23},
+  abstract = {Machine learning addresses the question of how to build computers that improve automatically through experience. It is one of today’s most rapidly growing technical fields, lying at the intersection of computer science and statistics, and at the core of artificial intelligence and data science. Recent progress in machine learning has been driven both by the development of new learning algorithms and theory and by the ongoing explosion in the availability of online data and low-cost computation. The adoption of data-intensive machine-learning methods can be found throughout science, technology and commerce, leading to more evidence-based decision-making across many walks of life, including health care, manufacturing, education, financial modeling, policing, and marketing.},
+  langid = {english}
+}
+
 @online{keraghelRecentAdvancesNamed2024,
   title = {Recent {{Advances}} in {{Named Entity Recognition}}: {{A Comprehensive Survey}} and {{Comparative Study}}},
   shorttitle = {Recent {{Advances}} in {{Named Entity Recognition}}},
@@ -620,6 +783,23 @@
   abstract = {Named Entity Recognition seeks to extract substrings within a text that name real-world objects and to determine their type (for example, whether they refer to persons or organizations). In this survey, we first present an overview of recent popular approaches, including advancements in Transformer-based methods and Large Language Models (LLMs) that have not had much coverage in other surveys. In addition, we discuss reinforcement learning and graph-based approaches, highlighting their role in enhancing NER performance. Second, we focus on methods designed for datasets with scarce annotations. Third, we evaluate the performance of the main NER implementations on a variety of datasets with differing characteristics (as regards their domain, their size, and their number of classes). We thus provide a deep comparison of algorithms that have never been considered together. Our experiments shed some light on how the characteristics of datasets affect the behavior of the methods we compare.},
   pubstate = {prepublished},
   keywords = {Computer Science - Computation and Language,Computer Science - Machine Learning}
+}
+
+@article{kirkpatrickOvercomingCatastrophicForgetting2017,
+  title = {Overcoming Catastrophic Forgetting in Neural Networks},
+  author = {Kirkpatrick, James and Pascanu, Razvan and Rabinowitz, Neil and Veness, Joel and Desjardins, Guillaume and Rusu, Andrei A. and Milan, Kieran and Quan, John and Ramalho, Tiago and Grabska-Barwinska, Agnieszka and Hassabis, Demis and Clopath, Claudia and Kumaran, Dharshan and Hadsell, Raia},
+  date = {2017-03-28},
+  journaltitle = {Proceedings of the National Academy of Sciences},
+  shortjournal = {Proc. Natl. Acad. Sci.},
+  volume = {114},
+  number = {13},
+  pages = {3521--3526},
+  issn = {0027-8424, 1091-6490},
+  doi = {10.1073/pnas.1611835114},
+  url = {https://pnas.org/doi/full/10.1073/pnas.1611835114},
+  urldate = {2026-08-23},
+  abstract = {Significance             Deep neural networks are currently the most successful machine-learning technique for solving a variety of tasks, including language translation, image classification, and image generation. One weakness of such models is that, unlike humans, they are unable to learn multiple tasks sequentially. In this work we propose a practical solution to train such models sequentially by protecting the weights important for previous tasks. This approach, inspired by synaptic consolidation in neuroscience, enables state of the art results on multiple reinforcement learning problems experienced sequentially.           ,              The ability to learn tasks in a sequential fashion is crucial to the development of artificial intelligence. Until now neural networks have not been capable of this and it has been widely thought that catastrophic forgetting is an inevitable feature of connectionist models. We show that it is possible to overcome this limitation and train networks that can maintain expertise on tasks that they have not experienced for a long time. Our approach remembers old tasks by selectively slowing down learning on the weights important for those tasks. We demonstrate our approach is scalable and effective by solving a set of classification tasks based on a hand-written digit dataset and by learning several Atari 2600 games sequentially.},
+  langid = {english}
 }
 
 @online{kleinbergTextwashAutomatedOpensource2022,
@@ -669,6 +849,22 @@
   url = {https://github.com/LeapBeyond/scrubadub},
   urldate = {2026-06-22},
   abstract = {Clean personally identifiable information from dirty dirty text.}
+}
+
+@inproceedings{lisonAnonymisationModelsText2021,
+  title = {Anonymisation {{Models}} for {{Text Data}}: {{State}} of the Art, {{Challenges}} and {{Future Directions}}},
+  shorttitle = {Anonymisation {{Models}} for {{Text Data}}},
+  booktitle = {Proceedings of the 59th {{Annual Meeting}} of the {{Association}} for {{Computational Linguistics}} and the 11th {{International Joint Conference}} on {{Natural Language Processing}} ({{Volume}} 1: {{Long Papers}})},
+  author = {Lison, Pierre and Pilán, Ildikó and Sanchez, David and Batet, Montserrat and Øvrelid, Lilja},
+  date = {2021},
+  pages = {4188--4203},
+  publisher = {Association for Computational Linguistics},
+  location = {Online},
+  doi = {10.18653/v1/2021.acl-long.323},
+  url = {https://aclanthology.org/2021.acl-long.323},
+  urldate = {2026-08-24},
+  eventtitle = {Proceedings of the 59th {{Annual Meeting}} of the {{Association}} for {{Computational Linguistics}} and the 11th {{International Joint Conference}} on {{Natural Language Processing}} ({{Volume}} 1: {{Long Papers}})},
+  langid = {english}
 }
 
 @online{livathinosDoclingEfficientOpenSource2025,
@@ -741,7 +937,26 @@
 @article{malakhov2026cpullm,
   title = {Deploying {{LLMs}} on {{CPU-only Environments}} with Llama.Cpp {{Library Set}}: {{MedLocalGPT Project Case}}},
   author = {Malakhov, Kyrylo S},
+  doi = {10.55056/ceur-ws.org/Vol-4164/paper11.pdf},
+  url = {https://www.researchgate.net/publication/400783182_Deploying_LLMs_on_CPU-only_Environments_with_llamacpp_Library_Set_MedLocalGPT_Project_Case},
   abstract = {This study evaluates the feasibility and performance of deploying open-source large language models (LLMs) on CPU-only systems using the llama.cpp runtime with 4-bit GGUF quantization. The analysis covers seven instruction-tuned models—Phi-4-mini-instruct (3.8B), DeepSeek-R1-Distill-Llama-8B (8B), Llama-3.2-1B-Instruct (1.2B), Qwen2.5-7B-Instruct (7.6B), Gemma-3-12B-it (12B), Mistral-Small-3.1-24B-Instruct-2503 (24B), and Gemma3-1B-it (1B)—across three CPU environments: a self-hosted Intel Xeon E5-2695 v2 VM, a cloud-based Intel Xeon Platinum 8480+ (“New Xeon”), and a modern Intel Core i7-13700H laptop. Benchmarks report throughput (tokens/s), latency, and memory footprint. On the New Xeon, Llama-3.2-1B reaches ∼120 tokens/s, Qwen2.5-7B ∼45 tokens/s, and Mistral-24B ∼15 tokens/s; on the older E5-2695 v2, typical rates are ∼25, ∼8, and ∼2 tokens/s, respectively. Memory usage spans ∼0.5–13.4 GB at 4-bit, enabling multi-agent deployments under modest RAM budgets. A case study, MedLocalGPT, demonstrates CPU-only bilingual (EN↔UK) translation with Phi-4-miniinstruct and domain Q\&A with Gemma-3-1B-it, grounded by a RAG pipeline over an EBSCO rehabilitationmedicine corpus. The findings provide practical guidance on model choice, threading, and deployment trade-offs for cost-sensitive or privacy-preserving scenarios.},
+  langid = {english}
+}
+
+@article{meldauAutomatedRedactionNames2024,
+  title = {Automated Redaction of Names in Adverse Event Reports Using Transformer-Based Neural Networks},
+  author = {Meldau, Eva-Lisa and Bista, Shachi and Melgarejo-González, Carlos and Norén, G. Niklas},
+  date = {2024-12-23},
+  journaltitle = {BMC Medical Informatics and Decision Making},
+  shortjournal = {BMC Med. Inform. Decis. Mak.},
+  volume = {24},
+  number = {1},
+  pages = {401},
+  issn = {1472-6947},
+  doi = {10.1186/s12911-024-02785-9},
+  url = {https://bmcmedinformdecismak.biomedcentral.com/articles/10.1186/s12911-024-02785-9},
+  urldate = {2026-08-24},
+  abstract = {Abstract                            Background               Automated recognition and redaction of personal identifiers in free text can enable organisations to share data while protecting privacy. This is important in the context of pharmacovigilance since relevant detailed information on the clinical course of events, differential diagnosis, and patient-reported reflections may often only be conveyed in narrative form. The aim of this study is to develop and evaluate a method for automated redaction of person names in English narrative text on adverse event reports. The target domain for this study was case narratives from the United Kingdom’s Yellow Card scheme, which collects and monitors information on suspected side effects to medicines and vaccines.                                         Methods               We finetuned BERT – a transformer-based neural network – for recognising names in case narratives. Training data consisted of newly annotated records from the Yellow Card data and of the i2b2 2014 deidentification challenge. Because the Yellow Card data contained few names, we used predictive models to select narratives for training. Performance was evaluated on a separate set of annotated narratives from the Yellow Card scheme. In-depth review determined whether (parts of)~person names missed by the de-identification method could enable re-identification of the individual, and whether de-identification reduced the clinical utility of narratives by collaterally masking relevant information.                                         Results               Recall on held-out Yellow Card data was 87\% (155/179) at a precision of 55\% (155/282) and a false-positive rate of 0.05\% (127/ 263,451). Considering tokens longer than three characters separately, recall was 94\% (102/108) and precision 58\% (102/175). For 13 of the 5,042 narratives in Yellow Card test data (71 with person names), the method failed to flag at least one name token. According to in-depth review, the leaked information could enable direct identification for one narrative and indirect identification for two narratives. Clinically relevant information was removed in less than 1\% of the 5,042 processed narratives; 97\% of the narratives were completely untouched.                                         Conclusions               Automated redaction of names in free-text narratives of adverse event reports can achieve sufficient recall including shorter tokens like patient initials. In-depth review shows that the rare leaks that occur tend not to compromise patient confidentiality. Precision and false positive rates are acceptable with almost all clinically relevant information retained.},
   langid = {english}
 }
 
@@ -751,6 +966,12 @@
   url = {https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct},
   urldate = {2026-07-18},
   abstract = {We’re on a journey to advance and democratize artificial intelligence through open source and open science.}
+}
+
+@online{MethodologyCodeCarbon,
+  title = {Methodology - {{CodeCarbon}}},
+  url = {https://docs.codecarbon.io/latest/explanation/methodology/},
+  urldate = {2026-08-25}
 }
 
 @article{mishraHybridRulebasedNLP2025,
@@ -783,6 +1004,27 @@
   urldate = {2026-07-18},
   abstract = {Large Language Models (LLMs) offer powerful capabilities, but their significant size and computational requirements hinder deployment on resource-constrained mobile devices. This paper investigates Post-Training Quantization (PTQ) for compressing LLMs for mobile execution. We apply 4-bit PTQ using the BitsAndBytes library with the Hugging Face Transformers framework to Meta's Llama 3.2 3B model. The quantized model is converted to GGUF format using llama.cpp tools for optimized mobile inference. The PTQ workflow achieves a 68.66\% reduction in model size through 4-bit quantization, enabling the Llama 3.2 3B model to run efficiently on an Android device. Qualitative validation shows that the 4-bit quantized model can perform inference tasks successfully. We demonstrate the feasibility of running the quantized GGUF model on an Android device using the Termux environment and the Ollama framework. PTQ, especially at 4-bit precision combined with mobile-optimized formats like GGUF, provides a practical pathway for deploying capable LLMs on mobile devices, balancing model size and performance.},
   keywords = {Computer Science - Machine Learning}
+}
+
+@online{MotivationCodeCarbon,
+  title = {Motivation - {{CodeCarbon}}},
+  url = {https://docs.codecarbon.io/latest/explanation/why/},
+  urldate = {2026-08-25}
+}
+
+@report{nist80030RiskAssessments2012,
+  title = {Guide for Conducting Risk Assessments},
+  author = {{Joint Task Force Transformation Initiative}},
+  date = {2012},
+  edition = {0},
+  number = {NIST SP 800-30r1},
+  pages = {NIST SP 800-30r1},
+  institution = {{National Institute of Standards and Technology}},
+  location = {Gaithersburg, MD},
+  doi = {10.6028/NIST.SP.800-30r1},
+  url = {https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-30r1.pdf},
+  urldate = {2026-08-16},
+  langid = {english}
 }
 
 @online{ondevice2025systematic,
@@ -835,6 +1077,22 @@
   url = {https://www.varonis.com/blog/ai-data-classification},
   urldate = {2026-06-22},
   abstract = {Varonis'~LLM-driven data scanning gives customers a deeper business context with unmatched precision and scale.},
+  langid = {english}
+}
+
+@inproceedings{patilBerkeleyFunctionCalling2025,
+  title = {The {{Berkeley Function Calling Leaderboard}} ({{BFCL}}): {{From Tool Use}} to {{Agentic Evaluation}} of {{Large Language Models}}},
+  shorttitle = {The {{Berkeley Function Calling Leaderboard}} ({{BFCL}})},
+  booktitle = {Proceedings of the 42nd {{International Conference}} on {{Machine Learning}}},
+  author = {Patil, Shishir G. and Mao, Huanzhi and Yan, Fanjia and Ji, Charlie Cheng-Jie and Suresh, Vishnu and Stoica, Ion and Gonzalez, Joseph E.},
+  date = {2025-10-06},
+  pages = {48371--48392},
+  publisher = {PMLR},
+  issn = {2640-3498},
+  url = {https://proceedings.mlr.press/v267/patil25a.html},
+  urldate = {2026-08-24},
+  abstract = {Function calling, also called tool use, refers to an LLM’s ability to invoke external functions, APIs, or user-defined tools in response to user queries—an essential capability for agentic LLM applications. Despite its prominence, there did not exist a standard benchmark to evaluate function calling abilities, due to two reasons – the challenging nature of evaluating when a function call is valid, and the challenge of acquiring diverse, real-world functions. We present the Berkeley Function Calling Leaderboard (BFCL), a comprehensive benchmark designed to evaluate function calling capabilities in a wide range of real-world settings. The BFCL benchmark evaluates serial and parallel function calls, across various programming languages using a novel Abstract Syntax Tree (AST) evaluation method that can easily scale to thousands of functions. We construct the benchmark using a combination of expert curated, and user-contributed functions and associated prompts. Finally, BFCL benchmark evaluates the ability of models to abstain and reason in stateful multi-step agentic setting. Evaluating a wide range of models, we observe that while state-of-the-art LLMs excel at singleturn calls, memory, dynamic decision-making, and long-horizon reasoning remain open challenges. Since its preview, BFCL has become the defacto standard for evaluating function-calls, and can be accessed at gorilla.cs.berkeley.edu/leaderboard.html.},
+  eventtitle = {International {{Conference}} on {{Machine Learning}}},
   langid = {english}
 }
 
@@ -920,6 +1178,24 @@
   date = {2024},
   institution = {PII-Tools Ltd.},
   location = {Limassol, Ciprus}
+}
+
+@article{pilanTextAnonymizationBenchmark2022,
+  title = {The {{Text Anonymization Benchmark}} ({{TAB}}): {{A Dedicated Corpus}} and {{Evaluation Framework}} for {{Text Anonymization}}},
+  shorttitle = {The {{Text Anonymization Benchmark}} ({{TAB}})},
+  author = {Pilán, Ildikó and Lison, Pierre and Øvrelid, Lilja and Papadopoulou, Anthi and Sánchez, David and Batet, Montserrat},
+  date = {2022-12-01},
+  journaltitle = {Computational Linguistics},
+  shortjournal = {Comput. Linguist.},
+  volume = {48},
+  number = {4},
+  pages = {1053--1101},
+  issn = {0891-2017, 1530-9312},
+  doi = {10.1162/coli_a_00458},
+  url = {https://direct.mit.edu/coli/article/48/4/1053/112770/The-Text-Anonymization-Benchmark-TAB-A-Dedicated},
+  urldate = {2026-08-24},
+  abstract = {Abstract             We present a novel benchmark and associated evaluation metrics for assessing the performance of text anonymization methods. Text anonymization, defined as the task of editing a text document to prevent the disclosure of personal information, currently suffers from a shortage of privacy-oriented annotated text resources, making it difficult to properly evaluate the level of privacy protection offered by various anonymization methods. This paper presents TAB (Text Anonymization Benchmark), a new, open-source annotated corpus developed to address this shortage. The corpus comprises 1,268 English-language court cases from the European Court of Human Rights (ECHR) enriched with comprehensive annotations about the personal information appearing in each document, including their semantic category, identifier type, confidential attributes, and co-reference relations. Compared with previous work, the TAB corpus is designed to go beyond traditional de-identification (which is limited to the detection of predefined semantic categories), and explicitly marks which text spans ought to be masked in order to conceal the identity of the person to be protected.             Along with presenting the corpus and its annotation layers, we also propose a set of evaluation metrics that are specifically tailored toward measuring the performance of text anonymization, both in terms of privacy protection and utility preservation. We illustrate the use of the benchmark and the proposed metrics by assessing the empirical performance of several baseline text anonymization models. The full corpus along with its privacy-oriented annotation guidelines, evaluation scripts, and baseline models are available on: https://github.com/NorskRegnesentral/text-anonymization-benchmark.},
+  langid = {english}
 }
 
 @online{qwen2024qwen2,
@@ -1017,6 +1293,22 @@
   isbn = {978-3-031-68312-1},
   langid = {english},
   keywords = {Data Privacy,Natural Language Processing,Personal Identifiable Information,Transformers}
+}
+
+@inproceedings{shenPIIBenchEvaluatingQueryAware2026,
+  title = {{{PII-Bench}}: {{Evaluating Query-Aware Privacy Protection Systems}}},
+  shorttitle = {{{PII-Bench}}},
+  booktitle = {Proceedings of the 64th {{Annual Meeting}} of the {{Association}} for {{Computational Linguistics}} ({{Volume}} 1: {{Long Papers}})},
+  author = {Shen, Hao and Gu, Zhouhong and Hong, Haokai and Han, Weili and Chai, Hongfeng},
+  date = {2026},
+  pages = {4991--5026},
+  publisher = {Association for Computational Linguistics},
+  location = {San Diego, California, United States},
+  doi = {10.18653/v1/2026.acl-long.227},
+  url = {https://aclanthology.org/2026.acl-long.227},
+  urldate = {2026-08-26},
+  eventtitle = {Proceedings of the 64th {{Annual Meeting}} of the {{Association}} for {{Computational Linguistics}} ({{Volume}} 1: {{Long Papers}})},
+  langid = {english}
 }
 
 @online{shivaprakashLocalObfuscationGLINER2025,
@@ -1137,6 +1429,20 @@
   langid = {english}
 }
 
+@inproceedings{wangMMLUProMoreRobust2024,
+  title = {{{MMLU-Pro}}: {{A More Robust}} and {{Challenging Multi-Task Language Understanding Benchmark}}},
+  shorttitle = {{{MMLU-Pro}}},
+  author = {Wang, Yubo and Ma, Xueguang and Zhang, Ge and Ni, Yuansheng and Chandra, Abhranil and Guo, Shiguang and Ren, Weiming and Arulraj, Aaran and He, Xuan and Jiang, Ziyan and Li, Tianle and Ku, Max and Wang, Kai and Zhuang, Alex and Fan, Rongqi and Yue, Xiang and Chen, Wenhu},
+  date = {2024},
+  publisher = {arXiv},
+  doi = {10.48550/ARXIV.2406.01574},
+  url = {https://arxiv.org/abs/2406.01574},
+  urldate = {2026-08-24},
+  abstract = {In the age of large-scale language models, benchmarks like the Massive Multitask Language Understanding (MMLU) have been pivotal in pushing the boundaries of what AI can achieve in language comprehension and reasoning across diverse domains. However, as models continue to improve, their performance on these benchmarks has begun to plateau, making it increasingly difficult to discern differences in model capabilities. This paper introduces MMLU-Pro, an enhanced dataset designed to extend the mostly knowledge-driven MMLU benchmark by integrating more challenging, reasoning-focused questions and expanding the choice set from four to ten options. Additionally, MMLU-Pro eliminates the trivial and noisy questions in MMLU. Our experimental results show that MMLU-Pro not only raises the challenge, causing a significant drop in accuracy by 16\% to 33\% compared to MMLU but also demonstrates greater stability under varying prompts. With 24 different prompt styles tested, the sensitivity of model scores to prompt variations decreased from 4-5\% in MMLU to just 2\% in MMLU-Pro. Additionally, we found that models utilizing Chain of Thought (CoT) reasoning achieved better performance on MMLU-Pro compared to direct answering, which is in stark contrast to the findings on the original MMLU, indicating that MMLU-Pro includes more complex reasoning questions. Our assessments confirm that MMLU-Pro is a more discriminative benchmark to better track progress in the field.},
+  version = {6},
+  keywords = {Computation and Language (cs.CL),FOS: Computer and information sciences}
+}
+
 @article{wartoSystematicLiteratureReview2024,
   title = {Systematic {{Literature Review}} on {{Named Entity Recognition}}: {{Approach}}, {{Method}}, and {{Application}}},
   shorttitle = {Systematic {{Literature Review}} on {{Named Entity Recognition}}},
@@ -1190,19 +1496,19 @@
   langid = {english}
 }
 
-@online{xianZeroShotLearningComprehensive2020,
-  title = {Zero-{{Shot Learning}} -- {{A Comprehensive Evaluation}} of the {{Good}}, the {{Bad}} and the {{Ugly}}},
+@article{xianZeroShotLearningComprehensive2020,
+  title = {Zero-{{Shot Learning}}—{{A Comprehensive Evaluation}} of the {{Good}}, the {{Bad}} and the {{Ugly}}},
   author = {Xian, Yongqin and Lampert, Christoph H. and Schiele, Bernt and Akata, Zeynep},
-  date = {2020-09-23},
-  eprint = {1707.00600},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CV},
-  doi = {10.48550/arXiv.1707.00600},
-  url = {http://arxiv.org/abs/1707.00600},
-  urldate = {2026-06-21},
-  abstract = {Due to the importance of zero-shot learning, i.e. classifying images where there is a lack of labeled training data, the number of proposed approaches has recently increased steadily. We argue that it is time to take a step back and to analyze the status quo of the area. The purpose of this paper is three-fold. First, given the fact that there is no agreed upon zero-shot learning benchmark, we first define a new benchmark by unifying both the evaluation protocols and data splits of publicly available datasets used for this task. This is an important contribution as published results are often not comparable and sometimes even flawed due to, e.g. pre-training on zero-shot test classes. Moreover, we propose a new zero-shot learning dataset, the Animals with Attributes 2 (AWA2) dataset which we make publicly available both in terms of image features and the images themselves. Second, we compare and analyze a significant number of the state-of-the-art methods in depth, both in the classic zero-shot setting but also in the more realistic generalized zero-shot setting. Finally, we discuss in detail the limitations of the current status of the area which can be taken as a basis for advancing it.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computer Vision and Pattern Recognition}
+  date = {2019-09-01},
+  journaltitle = {IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  shortjournal = {IEEE Trans. Pattern Anal. Mach. Intell.},
+  volume = {41},
+  number = {9},
+  pages = {2251--2265},
+  issn = {0162-8828, 2160-9292, 1939-3539},
+  doi = {10.1109/TPAMI.2018.2857768},
+  url = {https://ieeexplore.ieee.org/document/8413121/},
+  urldate = {2026-08-26}
 }
 
 @inproceedings{yangExploringApplicationLarge2023,
@@ -1223,25 +1529,30 @@
   langid = {english}
 }
 
-@online{yazdaniGLiNERBioMedSuiteEfficient2025,
-  title = {{{GLiNER-BioMed}}: {{A Suite}} of {{Efficient Models}} for {{Open Biomedical Named Entity Recognition}}},
+@article{yazdaniGLiNERBioMedSuiteEfficient2026,
+  title = {{{GLiNER-BioMed}}: A Suite of Efficient Models for Open Biomedical Named Entity Recognition},
   shorttitle = {{{GLiNER-BioMed}}},
   author = {Yazdani, Anthony and Stepanov, Ihor and Teodoro, Douglas},
-  date = {2025-05-20},
-  eprint = {2504.00676},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CL},
-  doi = {10.48550/arXiv.2504.00676},
-  url = {http://arxiv.org/abs/2504.00676},
-  urldate = {2026-06-24},
-  abstract = {Biomedical named entity recognition (NER) presents unique challenges due to specialized vocabularies, the sheer volume of entities, and the continuous emergence of novel entities. Traditional NER models, constrained by fixed taxonomies and human annotations, struggle to generalize beyond predefined entity types. To address these issues, we introduce GLiNER-BioMed, a domain-adapted suite of Generalist and Lightweight Model for NER (GLiNER) models specifically tailored for biomedicine. In contrast to conventional approaches, GLiNER uses natural language labels to infer arbitrary entity types, enabling zero-shot recognition. Our approach first distills the annotation capabilities of large language models (LLMs) into a smaller, more efficient model, enabling the generation of high-coverage synthetic biomedical NER data. We subsequently train two GLiNER architectures, uni- and bi-encoder, at multiple scales to balance computational efficiency and recognition performance. Experiments on several biomedical datasets demonstrate that GLiNER-BioMed outperforms the state-of-the-art in both zero- and few-shot scenarios, achieving 5.96\% improvement in F1-score over the strongest baseline (p-value {$<$} 0.001). Ablation studies highlight the effectiveness of our synthetic data generation strategy and emphasize the complementary benefits of synthetic biomedical pre-training combined with fine-tuning on general-domain annotations. All datasets, models, and training pipelines are publicly available at https://github.com/ds4dh/GLiNER-biomed.},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computation and Language}
+  editor = {Grüning, Björn},
+  date = {2026-06-01},
+  journaltitle = {Bioinformatics},
+  volume = {42},
+  number = {6},
+  pages = {btag322},
+  issn = {1367-4803, 1367-4811},
+  doi = {10.1093/bioinformatics/btag322},
+  url = {https://academic.oup.com/bioinformatics/article/doi/10.1093/bioinformatics/btag322/8690923},
+  urldate = {2026-08-26},
+  abstract = {Abstract                            Motivation               Biomedical named entity recognition (NER) presents unique challenges due to specialized vocabularies, the sheer volume of entities, and the continuous emergence of novel entities. Traditional NER models, constrained by fixed taxonomies and human annotations, struggle to generalize beyond predefined entity types.                                         Results               To address these issues, we introduce GLiNER-BioMed, a domain-adapted suite of GLiNER models for biomedicine. Our approach first distills the annotation capabilities of large language models (LLMs) into a smaller, more efficient model, enabling the generation of high-coverage biomedical NER data. We subsequently train two GLiNER architectures, uni- and bi-encoder, at multiple scales to balance computational efficiency and performance. Experiments on eight biomedical datasets demonstrate that GLiNER-BioMed achieved state-of-the-art zero-shot performance (micro-F1 59.77\%), exceeding the strongest baseline by 5.96 points (P\,\&lt;\,.001). In few-shot learning, the bi-encoder variant reached 70.39\% (10-shot), consistently outperforming the strongest baseline across all settings (P\,\&lt;\,.05). Our findings show that the uni-encoder GLiNER-BioMed achieves the strongest zero-shot performance, while the bi-encoder offers superior few-shot gains and substantially higher inference throughput (+39\%–568\%), making it well-suited to annotation-limited, latency-sensitive, or large-label-space settings. Ablation studies further indicate that combining synthetic biomedical pre-training with general-domain post-training is essential for capturing domain-specific knowledge while maintaining precision-recall balance.                                         Availability and implementation               The source code, datasets, and models are publicly available at https://github.com/ds4dh/GLiNER-biomed.},
+  langid = {english}
 }
 
-@article{youngCQRSDocuments,
+@report{youngCQRSDocuments,
   title = {{{CQRS Documents}} by {{Greg Young}}},
   author = {Young, Greg},
+  date = {2010-11},
+  institution = {cqrsinfo.com},
+  url = {https://cqrs.wordpress.com/wp-content/uploads/2010/11/cqrs_documents.pdf},
   langid = {english}
 }
 
@@ -1260,20 +1571,20 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language}
 }
 
-@online{zambareFairEfficientDeidentification2026,
+@inproceedings{zambareFairEfficientDeidentification2026,
   title = {Towards {{Fair}} and {{Efficient De-identification}}: {{Quantifying}} the {{Efficiency}} and {{Generalizability}} of {{De-identification Approaches}}},
   shorttitle = {Towards {{Fair}} and {{Efficient De-identification}}},
-  author = {Zambare, Noopur and Aghakasiri, Kiana and Lin, Carissa and Ye, Carrie and Mitchell, J. Ross and Abdalla, Mohamed},
-  date = {2026-01-27},
-  eprint = {2602.15869},
-  eprinttype = {arXiv},
-  eprintclass = {cs.CL},
-  doi = {10.48550/arXiv.2602.15869},
-  url = {http://arxiv.org/abs/2602.15869},
-  urldate = {2026-06-25},
-  abstract = {Large language models (LLMs) have shown strong performance on clinical de-identification, the task of identifying sensitive identifiers to protect privacy. However, previous work has not examined their generalizability between formats, cultures, and genders. In this work, we systematically evaluate fine-tuned transformer models (BERT, ClinicalBERT, ModernBERT), small LLMs (Llama 1-8B, Qwen 1.5-7B), and large LLMs (Llama-70B, Qwen-72B) at de-identification. We show that smaller models achieve comparable performance while substantially reducing inference cost, making them more practical for deployment. Moreover, we demonstrate that smaller models can be fine-tuned with limited data to outperform larger models in de-identifying identifiers drawn from Mandarin, Hindi, Spanish, French, Bengali, and regional variations of English, in addition to gendered names. To improve robustness in multi-cultural contexts, we introduce and publicly release BERT-MultiCulture-DEID, a set of de-identification models based on BERT, ClinicalBERT, and ModernBERT, fine-tuned on MIMIC with identifiers from multiple language variants. Our findings provide the first comprehensive quantification of the efficiency-generalizability trade-off in de-identification and establish practical pathways for fair and efficient clinical de-identification. Details on accessing the models are available at: https://doi.org/10.5281/zenodo.18342291},
-  pubstate = {prepublished},
-  keywords = {Computer Science - Computation and Language}
+  booktitle = {Findings of the {{Association}} for {{Computational Linguistics}}: {{EACL}} 2026},
+  author = {Zambare, Noopur and Aghakasiri, Kiana and Lin, Carissa and Ye, Carrie and Mitchell, J Ross and Abdalla, Mohamed},
+  date = {2026},
+  pages = {4242--4257},
+  publisher = {Association for Computational Linguistics},
+  location = {Rabat, Morocco},
+  doi = {10.18653/v1/2026.findings-eacl.222},
+  url = {https://aclanthology.org/2026.findings-eacl.222},
+  urldate = {2026-08-26},
+  eventtitle = {Findings of the {{Association}} for {{Computational Linguistics}}: {{EACL}} 2026},
+  langid = {english}
 }
 
 @article{zambranoDeidentifyingStudentPersonally2025,
@@ -1320,6 +1631,22 @@
   keywords = {Computer Science - Artificial Intelligence,Computer Science - Computation and Language,Computer Science - Machine Learning}
 }
 
+@inproceedings{zaratianaGLiNERGeneralistModel2024,
+  title = {{{GLiNER}}: {{Generalist Model}} for {{Named Entity Recognition}} Using {{Bidirectional Transformer}}},
+  shorttitle = {{{GLiNER}}},
+  booktitle = {Proceedings of the 2024 {{Conference}} of the {{North American Chapter}} of the {{Association}} for {{Computational Linguistics}}: {{Human Language Technologies}} ({{Volume}} 1: {{Long Papers}})},
+  author = {Zaratiana, Urchade and Tomeh, Nadi and Holat, Pierre and Charnois, Thierry},
+  date = {2024},
+  pages = {5364--5376},
+  publisher = {Association for Computational Linguistics},
+  location = {Mexico City, Mexico},
+  doi = {10.18653/v1/2024.naacl-long.300},
+  url = {https://aclanthology.org/2024.naacl-long.300},
+  urldate = {2026-08-26},
+  eventtitle = {Proceedings of the 2024 {{Conference}} of the {{North American Chapter}} of the {{Association}} for {{Computational Linguistics}}: {{Human Language Technologies}} ({{Volume}} 1: {{Long Papers}})},
+  langid = {english}
+}
+
 @article{zhangPersonallyIdentifiableInformation2025,
   title = {Personally Identifiable Information Detection in Smart Edge Computing: {{A}} Robust Model Evaluation},
   shorttitle = {Personally Identifiable Information Detection in Smart Edge Computing},
@@ -1335,6 +1662,32 @@
   urldate = {2026-06-20},
   abstract = {With the rise of smart edge computing, visual content has become a primary means of online communication, offering engaging and easily shareable interactions. However, images often contain sensitive and personal information, particularly Personally Identifiable Information (PII), posing significant privacy risks. This paper presents a comprehensive framework for PII object detection on edge devices using Deep Learning algorithms, consisting of i) dataset preparation, ii) model training and implementation, and iii) error analysis and robust evaluation. We curate a specialized dataset named PIIod (PII object detection dataset), and train a model achieving benchmark performance for on-device PII detection. Moreover, we introduce two novel model evaluation metrics, i.e., cAP (customized Average Precision) and PEAC (Performance Evaluation by Location Accuracy and Classification Confidence). By incorporating cAP and PEAC into the evaluation framework, a more flexible and robust assessment of model effectiveness in PII detection can be achieved.},
   keywords = {Artificial intelligence,Deep learning,Model evaluation,Personally identifiable information,Smart edge computing}
+}
+
+@inproceedings{zhengJudgingLLMasaJudge2023,
+  title = {Judging {{LLM-as-a-Judge}} with {{MT-Bench}} and {{Chatbot Arena}}},
+  author = {Zheng, Lianmin and Chiang, Wei-Lin and Sheng, Ying and Zhuang, Siyuan and Wu, Zhanghao and Zhuang, Yonghao and Lin, Zi and Li, Zhuohan and Li, Dacheng and Xing, Eric P. and Zhang, Hao and Gonzalez, Joseph E. and Stoica, Ion},
+  date = {2023},
+  publisher = {arXiv},
+  doi = {10.48550/ARXIV.2306.05685},
+  url = {https://arxiv.org/abs/2306.05685},
+  urldate = {2026-08-24},
+  abstract = {Evaluating large language model (LLM) based chat assistants is challenging due to their broad capabilities and the inadequacy of existing benchmarks in measuring human preferences. To address this, we explore using strong LLMs as judges to evaluate these models on more open-ended questions. We examine the usage and limitations of LLM-as-a-judge, including position, verbosity, and self-enhancement biases, as well as limited reasoning ability, and propose solutions to mitigate some of them. We then verify the agreement between LLM judges and human preferences by introducing two benchmarks: MT-bench, a multi-turn question set; and Chatbot Arena, a crowdsourced battle platform. Our results reveal that strong LLM judges like GPT-4 can match both controlled and crowdsourced human preferences well, achieving over 80\% agreement, the same level of agreement between humans. Hence, LLM-as-a-judge is a scalable and explainable way to approximate human preferences, which are otherwise very expensive to obtain. Additionally, we show our benchmark and traditional benchmarks complement each other by evaluating several variants of LLaMA and Vicuna. The MT-bench questions, 3K expert votes, and 30K conversations with human preferences are publicly available at https://github.com/lm-sys/FastChat/tree/main/fastchat/llm\_judge.},
+  version = {4},
+  keywords = {Artificial Intelligence (cs.AI),Computation and Language (cs.CL),FOS: Computer and information sciences}
+}
+
+@inproceedings{zhouInstructionFollowingEvaluation2023,
+  title = {Instruction-{{Following Evaluation}} for {{Large Language Models}}},
+  author = {Zhou, Jeffrey and Lu, Tianjian and Mishra, Swaroop and Brahma, Siddhartha and Basu, Sujoy and Luan, Yi and Zhou, Denny and Hou, Le},
+  date = {2023},
+  publisher = {arXiv},
+  doi = {10.48550/ARXIV.2311.07911},
+  url = {https://arxiv.org/abs/2311.07911},
+  urldate = {2026-08-24},
+  abstract = {One core capability of Large Language Models (LLMs) is to follow natural language instructions. However, the evaluation of such abilities is not standardized: Human evaluations are expensive, slow, and not objectively reproducible, while LLM-based auto-evaluation is potentially biased or limited by the ability of the evaluator LLM. To overcome these issues, we introduce Instruction-Following Eval (IFEval) for large language models. IFEval is a straightforward and easy-to-reproduce evaluation benchmark. It focuses on a set of "verifiable instructions" such as "write in more than 400 words" and "mention the keyword of AI at least 3 times". We identified 25 types of those verifiable instructions and constructed around 500 prompts, with each prompt containing one or more verifiable instructions. We show evaluation results of two widely available LLMs on the market. Our code and data can be found at https://github.com/google-research/google-research/tree/master/instruction\_following\_eval},
+  version = {1},
+  keywords = {68T50 (Primary) 68T99 (Secondary),Artificial Intelligence (cs.AI),Computation and Language (cs.CL),FOS: Computer and information sciences,I.2.7,Machine Learning (cs.LG)}
 }
 
 @online{zhouUtilityPreservingDeIdentificationMath2026,

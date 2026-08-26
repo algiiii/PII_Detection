@@ -46,7 +46,12 @@ from pii_detection.evaluation.corpus import parse_annotated_text
 from pii_detection.evaluation.corpus_generator import PIIValueFactory
 from pii_detection.evaluation.enterprise import noise as noise_module
 from pii_detection.evaluation.enterprise.content import ARCHETYPES, build_body, target_lines
-from pii_detection.evaluation.enterprise.profiles import REALISTIC_FOLDERS, read_ropa, ropa_layout
+from pii_detection.evaluation.enterprise.profiles import (
+    REALISTIC_FOLDERS,
+    RetentionExpectation,
+    read_ropa,
+    ropa_layout,
+)
 from pii_detection.evaluation.enterprise.types import (
     CorpusPlan,
     DocumentSpec,
@@ -140,8 +145,8 @@ def _folder_sequence(folders: tuple[FolderSpec, ...], n: int) -> list[FolderSpec
 def _modified_at(folder_year: int | None, rng: random.Random, today: datetime) -> datetime:
     """Draw a modification time consistent with the folder's nominal year.
 
-    The registry stores this as ``source_modified_at``, which the compliance
-    check reads as the document's age: an archive folder must really be old, or
+    The registry stores this as the document's ``reference_date``, which the
+    compliance check reads as its age: an archive folder must really be old, or
     the retention check has nothing to work on.
 
     :param folder_year: nominal year, or ``None`` for a recent document.
@@ -204,11 +209,13 @@ def plan_corpus(
 
     rules: tuple[tuple[str, tuple[str, ...]], ...] = ()
     orphans: tuple[str, ...] = ()
+    retention_expectations: tuple[RetentionExpectation, ...] = ()
     if profile is Profile.ROPA:
         if ropa_file is None:
             raise ValueError("the 'ropa' profile needs a register file (--ropa-file)")
         layout = ropa_layout(read_ropa(Path(ropa_file)))
         folders, rules, orphans = layout.folders, layout.rules, layout.orphan_types
+        retention_expectations = layout.retention
     else:
         folders = REALISTIC_FOLDERS
 
@@ -253,6 +260,7 @@ def plan_corpus(
         documents=tuple(documents),
         folder_rules=rules,
         expected_orphans=orphans,
+        expected_retention=retention_expectations,
     )
 
 
@@ -351,7 +359,21 @@ def write_corpus(plan: CorpusPlan, out_dir: Path) -> WriteSummary:
             encoding="utf-8",
         )
         (out_dir / "expected_violations.json").write_text(
-            json.dumps({"orphan_pii_types": list(plan.expected_orphans)}, indent=2),
+            json.dumps(
+                {
+                    "orphan_pii_types": list(plan.expected_orphans),
+                    "retention_overdue": [
+                        {
+                            "prefix": expectation.prefix,
+                            "activity_id": expectation.activity_id,
+                            "retention_months": expectation.retention_months,
+                            "age_months": expectation.age_months,
+                        }
+                        for expectation in plan.expected_retention
+                    ],
+                },
+                indent=2,
+            ),
             encoding="utf-8",
         )
     return WriteSummary(

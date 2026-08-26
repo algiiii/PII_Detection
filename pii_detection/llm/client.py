@@ -65,6 +65,7 @@ class LLMClient:
         host: str | None = None,
         *,
         temperature: float = 0.0,
+        num_predict: int | None = None,
         client: ChatBackend | None = None,
     ) -> None:
         """Configure the model and open (or accept) the backend.
@@ -77,11 +78,19 @@ class LLMClient:
         :param temperature: sampling temperature; ``0.0`` (default) makes the
             output deterministic and conservative, which the extraction tasks
             (category mapping, detection) rely on for reproducibility.
+        :param num_predict: hard cap on the number of tokens the model may
+            generate for a single answer; ``None`` (default) leaves it unbounded.
+            A cap bounds worst-case latency and cost when a model rambles (a
+            reasoning model can otherwise emit thousands of chain-of-thought
+            tokens for a task whose answer is a short list), at the price of
+            truncating an over-long answer.
         :param client: an explicit backend to drive (Dependency Injection); when
             ``None`` a real Ollama client is created lazily.
         """
         self.model = model or os.environ.get("ROPA_LLM_MODEL") or DEFAULT_MODEL
         self._options: dict[str, float] = {"temperature": temperature}
+        if num_predict is not None:
+            self._options["num_predict"] = num_predict
         resolved_host = host if host is not None else os.environ.get("OLLAMA_HOST")
         self._backend = client if client is not None else _default_backend(resolved_host)
 

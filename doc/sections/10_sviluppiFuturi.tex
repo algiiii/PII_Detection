@@ -1,0 +1,96 @@
+\chapter{Sviluppi futuri}
+\label{cap:sviluppi-futuri}
+
+Alcune funzionalità concepite nel corso del lavoro non sono state realizzate. Non si tratta di omissioni: ciascuna è stata valutata e accantonata per ragioni che questo capitolo espone, così da rendere esplicito il perimetro di ciò che è stato costruito e distinguere le funzionalità deliberatamente escluse da quelle semplicemente non affrontate. Le prime quattro sezioni ne trattano una ciascuna --- che cosa avrebbe portato, che cosa se ne è valutato, perché non è stata realizzata e a quali condizioni potrebbe essere ripresa; l'ultima raccoglie i limiti già riconosciuti altrove nel documento, che restano aperti come naturale prosecuzione del lavoro svolto.
+
+\section{Analisi contestuale della struttura del file system}
+\label{sec:sf-analisi-struttura}
+
+L'idea, formulata fra i requisiti funzionali (cfr.~\ref{sub:analisi-filesystem}) e prevista in architettura come blocco autonomo (§\ref{sec:b2-analisi-struttura}), era di trattare l'organizzazione delle cartelle come un segnale: i nomi dei rami, la profondità e il raggruppamento dei documenti dicono qualcosa sulla finalità per cui quei documenti sono tenuti insieme. Sottoposta a un modello linguistico, la resa testuale dell'albero avrebbe proposto l'associazione fra rami e attività di trattamento e segnalato le anomalie posizionali, ossia i documenti il cui contenuto non è coerente con la cartella che li ospita.
+
+Interpretare una struttura di cartelle è però un'euristica, e valutarne l'affidabilità richiederebbe un corpus di alberi documentali annotati con l'attribuzione corretta di ciascun ramo: non esiste, andrebbe costruito sinteticamente e raddoppierebbe l'apparato di valutazione (cfr.~\ref{sub:rischio-dataset}). Un'attribuzione inferita dalla macchina, inoltre, diventerebbe il presupposto dell'esito di conformità, che verrebbe così a poggiare su una supposizione anziché su una dichiarazione. La parte utile della funzionalità è stata infine ottenuta per altra via: le regole che associano un prefisso di percorso a una o più attività (cfr.~\ref{sub:b6-associazione}) associano un intero ramo in un solo gesto, inclusi i documenti che vi compariranno in seguito, con la differenza che a stabilire il significato della collocazione è il DPO. Resterebbe da realizzare la sola \emph{proposta} di quelle regole, ed è in questa forma --- un proponente che suggerisce al DPO senza mai applicare da sé --- che la funzionalità andrebbe eventualmente ripresa.
+
+\section{Canale di segnalazione dai dipendenti}
+\label{sec:sf-feedback-loop}
+
+Il secondo requisito rimasto sulla carta (cfr.~\ref{sub:feedback-loop}) prevedeva un canale attraverso cui il personale dell'organizzazione potesse segnalare al DPO i dati personali incontrati nel lavoro quotidiano e sfuggiti al rilevamento automatico; il DPO avrebbe valutato le segnalazioni e le avrebbe usate per arricchire il registro dei trattamenti o i parametri di rilevamento, secondo il ciclo illustrato nella Figura~\ref{fig:human-in-the-loop}.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			sysnode/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=blue!8, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1.1cm, align=center, fill=purple!8, font=\small},
+			store/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+					minimum height=1.5cm, minimum width=2.6cm, align=center, fill=gray!10, font=\small},
+			param/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1.1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Nodi ---
+		% I documenti sono l'artefatto condiviso: analizzati dal sistema e, in
+		% parallelo, consultati dai dipendenti nel loro lavoro ordinario. I
+		% dipendenti restano ignari del rilevamento: per loro sono solo documenti.
+		\node (docs)  [io]      at (3,    1.4)  {Documenti aziendali};
+		\node (sys)   [sysnode] at (-0.5, -1.4) {Sistema di rilevamento\\PII};
+		\node (emp)   [human]   at (6.5,  -1.4) {Dipendenti\\dell'azienda};
+		\node (dpo)   [human]   at (6.5,  -4.2) {DPO\\(analisi segnalazioni)};
+		\node (ropa)  [store]   at (-0.5, -3.8) {ROPA\\(trattamenti,\\categorie)};
+		\node (param) [param]   at (-0.5, -6.0) {Parametri del sistema\\(catalogo PII, regole)};
+
+		% --- I documenti: analizzati dal sistema, consultati dai dipendenti ---
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize]{analizza} (sys.north);
+		\draw [arrow] (docs) -| node[pos=0.25, above, font=\footnotesize, align=center]{consultati nel\\lavoro quotidiano} (emp.north);
+
+		% --- Segnalazione: dipendenti -> DPO ---
+		\draw [arrow] (emp) -- node[right, font=\footnotesize, align=left]{segnalano le PII\\in cui si imbattono} (dpo);
+
+		% --- Fork: il DPO valuta e arricchisce ROPA e parametri ---
+		\coordinate (fk) at (3, -4.2);
+		\draw [thick] (dpo.west) -- node[above, font=\footnotesize]{valuta e arricchisce} (fk);
+		\draw [arrow] (fk) |- (ropa.east);
+		\draw [arrow] (fk) |- (param.east);
+
+		% --- Gli aggiornamenti rientrano nel sistema, che analizza meglio i documenti ---
+		\draw [arrow] (ropa) -- (sys);
+		\draw [arrow] (param.west) -- ++(-1.3,0) |- (sys.west);
+
+	\end{tikzpicture}
+	\caption{Meccanismo di \emph{human-in-the-loop}: nel normale lavoro con i documenti aziendali i dipendenti segnalano al DPO le PII in cui si imbattono; il DPO analizza le segnalazioni e arricchisce il ROPA o i parametri del sistema, migliorando il rilevamento. Il processo di analisi resta trasparente ai dipendenti, per i quali i file sono semplici documenti.}
+	\label{fig:human-in-the-loop}
+\end{figure}
+
+Il punto che il canale tocca è il più debole del sistema. I falsi negativi sono per definizione invisibili (cfr.~\ref{sub:rischio-falsi-negativi}): nessuna misura interna può rivelare un dato personale che i detector non vedono, e chi lavora sui documenti nel loro contesto d'uso è l'unico in grado di segnalare queste mancanze.
+
+Realizzarlo significherebbe però passare da un unico profilo di utilizzatore --- il DPO, premessa su cui poggia l'intera restituzione --- a un insieme di identità da censire e mantenere allineato all'organico, con ruoli, permessi differenziati, un'interfaccia distinta per chi non deve vedere la console e la moderazione delle segnalazioni: ciò che è oneroso non è \emph{autenticare} (una schermata di accesso è cosa dovuta e figura fra gli interventi residui, §\ref{sec:sf-direzioni}) ma \emph{autorizzare}. Un secondo argomento sconsiglia la forma prevista: il registro non contiene i valori dei dati personali ma ne costituisce la mappa (cfr.~\ref{sub:rischio-sicurezza-dati}), e affacciarvi tutto il personale ne amplierebbe la superficie di accesso dal solo DPO all'intera organizzazione, in uno strumento che esiste per ridurre l'esposizione. Se ripreso, il canale andrebbe perciò realizzato in sola immissione, separato dalla console del DPO e privo di qualsiasi accesso in lettura al registro.
+
+\section{Estensione oltre i documenti nativi digitali}
+\label{sec:sf-formati}
+
+Il requisito di estrazione (cfr.~\ref{sub:estrazione-testo}) è soddisfatto sui formati \textit{born-digital} dell'ufficio --- documenti impaginati, fogli di calcolo e testo semplice. Restano fuori i documenti che sono immagini, ossia le scansioni, e con essi il riconoscimento ottico dei caratteri, i layout complessi a più colonne e le tabelle, oltre ai formati meno diffusi come \texttt{.xls} e \texttt{.rtf}.
+
+È la limitazione che più circoscrive la portata dei risultati: le prestazioni di rilevamento riportate, e con esse il degrado da estrazione nullo (Capitolo~\ref{cap:test}), valgono per documenti nativi digitali e non si estendono a un archivio di scansioni. Il riconoscimento ottico non sarebbe infatti un lettore in più, ma una sorgente di errore collocata prima del rilevamento: il testo che ne esce contiene errori di trascrizione, e ogni PII non rilevata diverrebbe attribuibile indifferentemente all'estrattore o al rilevatore. Estendere l'insieme dei formati ha valore e costo lineari: ogni formato aggiunto rende leggibile un'altra sezione dell'insieme documentale, senza cambiare ciò che il sistema analizza e produce.
+
+\section{Tracciamento temporale delle PII rilevate}
+\label{sec:sf-tracciamento-temporale}
+
+Le linee guida di progetto prospettavano che il registro sapesse riconoscere, fra due scansioni successive dello stesso documento, che una determinata PII è stata cancellata o modificata: non solo le PII presenti in un certo istante, ma anche le variazioni dei dati sensibili presenti nel tempo. Il registro realizzato si limita allo stato corrente (§\ref{sec:b5-DB-PII}): ogni scansione sostituisce le PII registrate di un documento con quelle che vi trova al momento. Il disegno del tracciamento temporale è stato svolto ma non realizzato.\medskip
+
+Tre approcci sono stati confrontati. Salvare a ogni esecuzione un'istantanea completa delle PII rilevate è il più semplice, ma non lega fra loro le scansioni consecutive: ricostruire che cosa sia cambiato resterebbe un confronto da calcolare. L'\textit{event sourcing} puro registra invece i soli eventi e ricava lo stato ripercorrendo la timeline, con una storia completa e immutabile per costruzione; lo studio empirico di Overeem et al. su venticinque adozioni reali ne documenta però le difficoltà ricorrenti~\cite{overeemEmpiricalCharacterizationEvent2021}, e poiché lo stato corrente non è memorizzato anche l'interrogazione più semplice richiederebbe di ripercorrere gli eventi, o di mantenere in parallelo un secondo modello di lettura~\cite{youngCQRSDocuments}. Il terzo approccio, che si sarebbe adottato, tiene insieme i due: lo stato corrente resta salvato, interrogabile direttamente e senza ricostruzioni, e gli si affianca un log \textit{append-only} secondario che registra ogni variazione legandola alla scansione precedente dello stesso documento. In concreto occorrerebbe aggiungere allo schema una sola entità, che per ciascuna istanza registri il tipo di variazione (\texttt{NEW}, \texttt{CONFIRMED}, \texttt{MOVED}, \texttt{REMOVED}) e la scansione che l'ha prodotta; restando riferimenti e non valori, il log resterebbe coerente con la minimizzazione del dato (§\ref{sub:minimizzazione}).
+
+\section{Limiti dichiarati e direzioni residue}
+\label{sec:sf-direzioni}
+
+Oltre alle funzionalità sopra discusse, restano aperti alcuni limiti già riconosciuti nel corso del documento, che costituiscono la naturale prosecuzione del lavoro:
+
+\begin{itemize}
+	\item \textbf{Autenticazione della console.} L'interfaccia del DPO è oggi raggiungibile da chiunque abbia accesso di rete alla porta su cui è servita. Anche per un applicativo a utilizzatore singolo, e per quanto collocato in una rete interna, l'accesso va protetto da una schermata di autenticazione (cfr.~\ref{sub:rischio-sicurezza-dati}). L'intervento è circoscritto e va tenuto distinto dalla gestione di più profili discussa in \ref{sec:sf-feedback-loop}: qui si tratta di verificare \emph{un'unica} identità, non di amministrarne molte.
+	\item \textbf{Parallelizzazione dell'analisi.} L'elaborazione incrementale riduce il costo delle esecuzioni successive alla prima, ma non quello della passata iniziale, che resta sequenziale (cfr.~\ref{sub:rischio-scalabilita}).
+	\item \textbf{Validazione su corpus reale.} Le misure disponibili provengono da corpus sintetici, più ordinati del reale, e vanno intese come limite superiore; la verifica sul patrimonio documentale effettivo di un'organizzazione resta un passaggio non eludibile prima dell'adozione (cfr.~\ref{sub:rischio-dataset}, \ref{sub:rischio-domain-silo}). Il limite è più stringente di quanto il solo ordine dei documenti suggerisca: un corpus generato a partire dal catalogo delle categorie contiene per costruzione i soli tipi di dato che il catalogo prevede, sicché i dati personali che né i pattern né il riconoscimento di entità sono attrezzati a riconoscere non vi compaiono affatto, e restano non misurati.
+	\item \textbf{Fascia superiore dei modelli generativi.} Il modello da 12B non è risultato eseguibile nel bersaglio di \textit{deployment} dichiarato (§\ref{sec:test-ai-multimodello}); se una taglia maggiore modifichi il bilancio fra costo e qualità resta perciò una domanda aperta, da affrontare fuori da quel vincolo di memoria e dichiarando i costi non confrontabili.
+	\item \textbf{Datazione dal contenuto.} La data di riferimento di un documento è oggi stimata dai metadati e dal file system; ricavarla dal corpo del testo --- dove spesso compare in chiaro --- renderebbe la verifica della conservazione assai più solida, ma richiede un riconoscimento delle date e una disambiguazione fra le molte presenti in un documento.
+\end{itemize}

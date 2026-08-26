@@ -67,6 +67,7 @@ eval = [
     "faker>=25",
     "python-codicefiscale>=0.9",
     "fpdf2>=2.7",
+    "codecarbon>=2.4",
 ]
 
 [build-system]
@@ -99,6 +100,7 @@ module = [
     "fpdf.*",
     "docx.*",
     "fitz.*",
+    "codecarbon.*",
 ]
 ignore_missing_imports = true
 

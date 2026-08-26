@@ -53,8 +53,27 @@
     <a href="/">Conformità</a>
     <a href="/scan">Scansione</a>
     <a href="/rules">Regole</a>
+    <a href="/retention">Conservazione</a>
     <a href="/ropa/">Trattamenti (ROPA)</a>
   </header>
-  <main>{% block content %}{% endblock %}</main>
+  <main>
+    {% set _scans = active_scans() %}
+    {% if _scans %}
+      <div class="card" style="border-color:#93c5fd;background:#eff6ff">
+        <strong>{{ _scans|length }} scansion{{ "e" if _scans|length == 1 else "i" }} in corso</strong>
+        {% for j in _scans %}
+          <div class="muted" style="margin-top:.3rem">
+            <span class="badge warn">in corso</span>
+            <a href="{{ url_for('scan_status', job_id=j.id) }}">{{ j.document_id or j.folder }}</a>
+            —
+            {% if j.document_id %}analisi AI del documento
+            {% elif j.total %}{% if j.ai_rate and j.phase == "ai" %}analisi AI {% elif j.ai_rate %}rilevamento {% endif %}{{ j.done }}/{{ j.total }} documenti
+            {% else %}in preparazione…{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
 </body>
 </html>

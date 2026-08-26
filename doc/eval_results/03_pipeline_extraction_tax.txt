@@ -1,0 +1,35 @@
+=== Tier 1 — clean text (detection only) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.27    0.46   0.34  117  321  136
+credit_card        0.97    1.00   0.99   38    1    0
+date_of_birth      0.63    1.00   0.78  247  143    0
+email              0.98    1.00   0.99  532   13    0
+health_data        1.00    1.00   1.00   18    0    0
+iban               0.97    1.00   0.99  355   10    0
+ip_address         0.96    0.98   0.97  123    5    2
+italian_id         0.78    1.00   0.88  402  114    0
+person_name        0.29    1.00   0.45  533 1294    0
+phone              0.74    0.79   0.76  316  111   86
+swiss_avs          1.00    1.00   1.00   13    0    0
+-----------------------------------------------------
+OVERALL            0.57    0.92   0.71 2694 2012  224
+
+=== Tier 2 — extracted from the enterprise tree (B3 + detection) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.27    0.46   0.34  117  316  136
+credit_card        1.00    1.00   1.00   38    0    0
+date_of_birth      0.63    1.00   0.78  247  143    0
+email              0.98    1.00   0.99  532   12    0
+health_data        0.95    1.00   0.97   18    1    0
+iban               0.96    1.00   0.98  355   14    0
+ip_address         0.95    0.98   0.97  123    6    2
+italian_id         0.78    1.00   0.87  402  115    0
+person_name        0.29    1.00   0.45  533 1285    0
+phone              0.75    0.79   0.77  317  107   85
+swiss_avs          1.00    1.00   1.00   13    0    0
+-----------------------------------------------------
+OVERALL            0.57    0.92   0.71 2695 1999  223
+
+Extraction tax (F1 clean - F1 extracted): -0.001

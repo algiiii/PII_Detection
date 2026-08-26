@@ -8,7 +8,8 @@ a DPO — and lives only in memory (§2.3.11), never persisted here.
 
     python -m pii_detection.scan path/to/document.pdf
 
-``--gliner`` swaps spaCy for GLiNER (heavy, container only).
+``--gliner`` swaps spaCy for GLiNER (heavy, container only); ``--ai`` adds the
+local LLM as a second-opinion detector (needs a running Ollama).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ def scan_document(
     path: str | Path,
     pattern: PIIDetector,
     ner: PIIDetector,
+    ai: PIIDetector | None = None,
     *,
     merge: MergeEngine | None = None,
 ) -> list[PIIMatch]:
@@ -34,6 +36,9 @@ def scan_document(
     :param path: path to a ``.pdf``/``.docx``/``.txt`` document.
     :param pattern: the pattern/regex detector.
     :param ner: the NER detector.
+    :param ai: optional generative-AI detector run as a second opinion; when given,
+        its candidates enter the merge as confirmers/discoverers. When ``None`` no
+        AI pass runs (the merge receives no AI candidates).
     :param merge: merge engine to use; a default one is built when omitted.
     :returns: the merged matches, ordered by position in the document.
     """
@@ -42,6 +47,7 @@ def scan_document(
     matches = merge.merge(
         pattern.detect(document.text),
         ner.detect(document.text),
+        ai.detect(document.text) if ai is not None else (),
         document_id=document.document_id,
     )
     return sorted(matches, key=lambda match: match.span.start)
@@ -83,13 +89,23 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="use GLiNER for the NER instead of spaCy (heavy; container only)",
     )
+    parser.add_argument(
+        "--ai",
+        action="store_true",
+        help="add the local LLM as a second-opinion detector (needs Ollama)",
+    )
     args = parser.parse_args(argv)
     # Lazy import: pulls Presidio only when actually scanning, so importing this
     # module (for scan_document/format_matches) needs no heavy deps.
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
-    matches = scan_document(args.path, pattern, ner)
+    ai = None
+    if args.ai:
+        from pii_detection.detection.ai_detector import build_ai_detector
+
+        ai = build_ai_detector()
+    matches = scan_document(args.path, pattern, ner, ai)
     print(format_matches(matches, document_id=args.path.stem))
 
 

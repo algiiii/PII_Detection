@@ -9,6 +9,10 @@
 
 % Simboli (checkmark/cross nelle tabelle di confronto)
 \usepackage{pifont}
+\newcommand{\featyes}{\ding{51}}          % proprietà presente
+\newcommand{\featpartial}{(\ding{51})}    % presente in forma parziale o indiretta
+\newcommand{\featno}{\ding{55}}           % proprietà assente
+\newcommand{\featunknown}{n.d.}           % non documentata pubblicamente
 
 % Diagrammi
 \usepackage{tikz}
@@ -17,12 +21,43 @@
 % Barriera ai float: \FloatBarrier impedisce alle figure di scivolare oltre un punto
 \usepackage{placeins}
 
+% Posizionamento dei float. Lo specificatore [H] del pacchetto float ancora una
+% tabella/figura ESATTAMENTE nel punto in cui è scritta: le toglie la natura di
+% float, così non può più scivolare a un'altra pagina scavalcando il testo che la
+% introduce o la commenta. Se non entra nello spazio residuo, la pagina si chiude
+% dove si trova e la tabella apre la successiva -- si accetta il bianco in coda
+% pagina in cambio dell'ordine di lettura.
+%
+% \floatplacement lo rende il DEFAULT per l'intero tipo di float: le tabelle si
+% scrivono \begin{table} senza specificatore e la regola vive qui, in un punto
+% solo. Un \begin{table}[htbp] esplicito avrebbe la precedenza e tornerebbe a
+% galleggiare: se serve un'eccezione, va dichiarata lì e motivata.
+\usepackage{float}
+\floatplacement{table}{H}
+
 % Bibliografia: biblatex + biber. Stile numerico in ordine di citazione
 % (equivalente a \bibliographystyle{unsrt}); backend biber per supportare nomi
 % con particella (de/von) e tipi @online/@dataset esportati da Zotero.
 \usepackage{csquotes}
 \usepackage[backend=biber, style=numeric, sorting=none]{biblatex}
 \addbibresource{bibliografia.bib}
+
+% Voci bibliografiche più asciutte: si sopprimono i campi ridondanti o effimeri
+% esportati da Zotero. DOI ed eprint (arXiv:...) duplicano l'URL; la data di
+% consultazione («visitato il giorno ...») e lo stato di pre-pubblicazione non
+% servono alla reperibilità della fonte. L'URL resta solo dove è l'unico modo di
+% raggiungere la fonte, cioè nelle voci @online, @report e @software (pagine web,
+% comunicati, documenti autopubblicati, repository di codice: privi di DOI, volume
+% e rivista); per toglierlo anche lì, spostare \clearfield{url} fuori dal
+% condizionale.
+\AtEveryBibitem{%
+  \clearfield{doi}%
+  % \clearfield{pubstate}%  % TEMPORANEO: disattivato per rendere visibile lo stato di pre-pubblicazione durante la revisione delle fonti; riattivare prima della consegna
+  \clearfield{urlyear}\clearfield{urlmonth}\clearfield{urlday}%
+  \ifboolexpr{test {\ifentrytype{online}} or test {\ifentrytype{report}}
+              or test {\ifentrytype{software}}}
+    {}{\clearfield{url}}%
+}
 
 \newcommand{\problemchapter}[1]{%
   \chapter*{#1}%
@@ -60,6 +95,9 @@
 \pagenumbering{roman}
 \tableofcontents
 
+% Dichiarazione sull'uso dell'AI generativa (frontmatter, numerazione romana).
+\input{sections/0_dichiarazioneAI}
+
 % Sezione con capitoli
 \mainmatter
 \pagenumbering{arabic}
@@ -69,15 +107,12 @@
 \input{sections/2_requisiti}
 \input{sections/3_statoDellArte}
 \input{sections/4_analisiRischi}
-\input{sections/5_architettura}
-\input{sections/6_implementazione}
-\input{sections/7_test}
-\input{sections/8_risultati}
-\input{sections/9_sviluppiFuturi}
-\input{sections/10_studi}
-
-% TEMPORANEO: registro dei punti aperti (da rimuovere a lavoro concluso).
-\input{sections/99_puntiAperti}
+\input{sections/5_studi}
+\input{sections/6_architettura}
+\input{sections/7_implementazione}
+\input{sections/8_test}
+\input{sections/9_risultati}
+\input{sections/10_sviluppiFuturi}
 
 % Sezione con tabelle e immagini
 \clearpage

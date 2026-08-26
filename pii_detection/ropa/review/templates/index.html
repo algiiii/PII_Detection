@@ -41,7 +41,6 @@
         <th>Finalità</th>
         <th>Categorie</th>
         <th>Da confermare</th>
-        <th></th>
       </tr>
     </thead>
     <tbody>
@@ -56,12 +55,6 @@
           <td>
             {% if pending %}<span class="badge warn">{{ pending }}</span>
             {% else %}<span class="badge ok">✓</span>{% endif %}
-          </td>
-          <td>
-            <form method="post" action="{{ url_for('delete_activity_submit', activity_id=a.id) }}"
-                  onsubmit="return confirm('Eliminare questo trattamento dal registro?')">
-              <button type="submit" class="btn danger">Elimina</button>
-            </form>
           </td>
         </tr>
       {% endfor %}

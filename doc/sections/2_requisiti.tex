@@ -1,7 +1,7 @@
 \chapter{Analisi dei requisiti}
 \label{cap:requisiti}
 
-La struttura di questo capitolo si ispira allo standard ISO/IEC/IEEE 29148:2018 - Systems and Software Engineering - Life cycle processes - Requirements engineering \cite{IEEE29148SRSLaTeXTemplateIEEE291482018SRSTemplatetexMain}. Ogni requisito è enunciato in forma verificabile e, dove necessario, ne è motivata l'origine normativa o progettuale. Gli elenchi puntati sono impiegati esclusivamente per enumerare obblighi distinti; le soglie quantitative e i criteri di accettazione sperimentali sono rimandati al Capitolo~\ref{cap:test}.
+La struttura di questo capitolo si ispira a un modello di specifica dei requisiti conforme allo standard ISO/IEC/IEEE 29148:2018 --- \textit{Systems and software engineering --- Life cycle processes --- Requirements engineering} \cite{iso29148SystemsSoftwareEngineering2018}, nella resa fornita da un modello pubblico \cite{IEEE29148SRSLaTeXTemplateIEEE291482018SRSTemplatetexMain}. Ogni requisito è enunciato in forma verificabile e, dove non risulti immediata, ne è esplicitata la sorgente: un obbligo di legge, un vincolo del contesto d'impiego o un obiettivo assegnato al progetto. Le soglie quantitative e i criteri di accettazione sperimentali sono rimandati al Capitolo~\ref{cap:test}.
 
 % -----------------------------------
 
@@ -12,11 +12,13 @@ La struttura di questo capitolo si ispira allo standard ISO/IEC/IEEE 29148:2018 
 \label{sub:acquisizione-input}
 Il sistema deve poter analizzare come input un insieme di file selezionati, una cartella oppure un intero filesystem. L'acquisizione deve avvenire senza presupporre una struttura predefinita dell'albero di directory e deve supportare l'elaborazione ricorsiva delle sottocartelle. \medskip
 
-L'utente deve poter specificare percorsi multipli e pattern di esclusione, in modo da limitare la scansione ai soli percorsi rilevanti.
+L'utente deve poter specificare percorsi multipli e pattern di esclusione, in modo da limitare la scansione ai soli percorsi rilevanti. \medskip
+
+L'input è costituito esclusivamente da file residenti su un file system. Le ulteriori sorgenti in cui un'organizzazione conserva dati personali --- server di posta elettronica, sistemi di gestione di basi di dati, applicativi gestionali e servizi che non espongano i propri contenuti come file --- restano fuori dal perimetro del progetto: la loro acquisizione richiederebbe un connettore dedicato per ciascuna tecnologia, senza modificare la natura del problema affrontato, che riguarda il testo non strutturato.
 
 \subsection{Estrazione del testo}
 \label{sub:estrazione-testo}
-Il sistema deve estrarre il contenuto testuale dai documenti non strutturati \cite{sonacollegeoftechnologyindiaFRAMEWORKANALYSINGUNSTRUCTURED2021} indipendentemente dal formato di partenza, supportando almeno i documenti impaginati in formato PDF, i documenti di videoscrittura, i fogli di calcolo e il testo semplice. \medskip
+Il sistema deve estrarre il contenuto testuale dai documenti non strutturati indipendentemente dal formato di partenza, supportando almeno i documenti impaginati in formato PDF, i fogli di calcolo e il testo semplice. \medskip
 
 L'estrazione deve preservare, dove il formato di partenza lo consente, i metadati strutturali necessari a contestualizzare le PII rilevate e a tracciarne la posizione nel report finale (cfr.~\ref{sub:tracciabilita}): almeno la suddivisione in pagine, l'organizzazione tabellare e le intestazioni di sezione.
 
@@ -26,11 +28,11 @@ Il sistema deve identificare le occorrenze di dati personali nel testo estratto 
 
 Il rilevamento deve coprire almeno i dati identificativi, i dati di contatto, gli identificatori numerici nazionali e i dati degni di particolare protezione ai sensi dell'art.~5 lett.~c nLPD \cite{RS2351Legge}, corrispondenti alle categorie particolari di dati personali dell'art.~9 GDPR \cite{RegolamentoUE20162016}.
 
-\subsection{Ingestione del/i ROPA}
+\subsection{Ingestione del ROPA}
 \label{sub:ingestione-ropa}
-Il sistema deve accettare in input uno o più registri delle attività di trattamento (ROPA) in formato strutturato, da utilizzare come riferimento normativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR e dell'art.~12 nLPD, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
+Il sistema deve accettare in input il registro delle attività di trattamento (ROPA) dell'organizzazione in formato strutturato --- eventualmente articolato in più sezioni o fogli --- da utilizzare come riferimento dichiarativo autoritativo per il confronto con le PII rilevate nei documenti. Il ROPA costituisce, ai sensi dell'art.~30 GDPR \cite{RegolamentoUE20162016} e dell'art.~12 nLPD \cite{RS2351Legge}, il documento in cui l'organizzazione dichiara le proprie attività di trattamento: senza la sua ingestione il sistema non potrebbe effettuare alcuna verifica di conformità. \medskip
 
-Il sistema deve supportare almeno i formati di foglio di calcolo ODS e XLSX, nei quali i registri sono comunemente redatti e distribuiti dalle autorità di controllo. Per ogni attività di trattamento, il formato di ingestione deve includere almeno i seguenti campi:
+Il sistema deve supportare almeno i formati di foglio di calcolo ODS e XLSX, nei quali i registri sono comunemente redatti e distribuiti dalle autorità di controllo \cite{cnilRegistreModeleBasique}. Per ogni attività di trattamento, il formato di ingestione deve includere almeno i seguenti campi:
 \begin{itemize}
 	\item categorie di dati personali previste;
 	\item finalità del trattamento;
@@ -43,7 +45,7 @@ Il sistema deve segnalare all'utente, in fase di ingestione, i campi obbligatori
 
 \subsection{Confronto dei risultati di analisi con il ROPA}
 \label{sub:confronto-ropa}
-Il sistema deve confrontare le entità e le categorie di dati personali effettivamente rilevate nei documenti con quanto dichiarato nel/i ROPA, verificando la coerenza tra dati trovati e dati dichiarati. \medskip
+Il sistema deve confrontare le entità e le categorie di dati personali effettivamente rilevate nei documenti con quanto dichiarato nel ROPA, verificando la coerenza tra dati trovati e dati dichiarati. \medskip
 
 Il confronto deve produrre, per ciascun documento analizzato, un'associazione --- anche parziale o nulla --- con una o più attività di trattamento del ROPA, secondo criteri ed euristiche definiti in fase di progettazione architetturale.
 
@@ -95,8 +97,8 @@ Il sistema deve segnalare nel report come anomalia posizionale il documento le c
 \label{sub:ai-selettiva}
 Il sistema può impiegare modelli di AI generativa per attività mirate che beneficiano della comprensione semantica profonda, senza richiederne l'applicazione sistematica a ogni documento del corpus. Tali impieghi sono circoscritti a:
 \begin{itemize}
-	\item \textbf{arricchimento dei ROPA}: qualora il registro fornito in input contenga descrizioni sintetiche o generiche delle categorie di dati, il sistema può utilizzare un modello linguistico per espanderle e normalizzarle \cite{yangExploringApplicationLarge2023}, migliorando la granularità del confronto con le PII rilevate;
-	\item \textbf{analisi campionata}: il sistema può sottoporre a un modello linguistico un sottoinsieme rappresentativo di documenti per ottenerne un'analisi contestuale approfondita, identificando PII deducibili dal contesto che sfuggirebbero ai metodi deterministici e statistici;
+	\item \textbf{arricchimento del ROPA}: qualora il registro fornito in input contenga descrizioni sintetiche o generiche delle categorie di dati, il sistema può utilizzare un modello linguistico per espanderle e normalizzarle \cite{yangExploringApplicationLarge2023}, migliorando la granularità del confronto con le PII rilevate;
+	\item \textbf{analisi campionata}: il sistema può sottoporre a un modello linguistico un sottoinsieme rappresentativo di documenti per ottenerne un'analisi contestuale approfondita, identificando PII deducibili dal contesto che sfuggirebbero ai metodi deterministici e statistici \cite{yangExploringApplicationLarge2023};
 	\item \textbf{analisi della struttura del filesystem}: il sistema può utilizzare un modello linguistico per interpretare la semantica dei percorsi e dei nomi di cartella, al fine di rilevare incoerenze tra la posizione del documento e il suo contenuto (cfr.~\ref{sub:analisi-filesystem}).
 \end{itemize} \medskip
 
@@ -123,11 +125,13 @@ La verifica deve operare su due assi:
 	\item \textbf{asse della conservazione}: per ciascun documento contenente PII, il sistema deve confrontare la data del documento, o quella del suo ultimo aggiornamento, con il periodo di retention dichiarato nel ROPA per l'attività di trattamento associata.
 \end{enumerate} \medskip
 
-Il requisito si considera soddisfatto quando, dato un corpus documentale di test con anomalie note, il sistema le identifica correttamente su entrambi gli assi.
+Sull'asse della conservazione va precisato che cosa il sistema può realmente garantire. La data di un documento non strutturato non è un dato accertabile ma una \textbf{stima}, ricavata dalle sole informazioni che il file rende disponibili: i segnali utilizzabili --- i metadati interni al formato e la data di ultima modifica registrata dal file system --- hanno affidabilità diversa fra loro e sono entrambi alterabili da eventi estranei al contenuto, come una copia massiva o un ripristino da backup. Il sistema deve pertanto \textbf{registrare e mostrare la provenienza} della data impiegata, affinché il DPO possa distinguere una segnalazione fondata da un indizio da verificare. Deve inoltre \textbf{segnalare esplicitamente} i casi in cui il confronto non è possibile --- tipicamente quando il registro esprime la conservazione come criterio anziché come durata --- anziché considerarli conformi: l'assenza di verifica non deve essere indistinguibile da un esito favorevole. \medskip
 
-\subsection{Riferimento al registro delle attività di trattamento come fonte normativa}
+Il requisito si considera soddisfatto quando, dato un corpus documentale di test con anomalie note, il sistema le identifica correttamente su entrambi gli assi, senza segnalare come non conformi i documenti che non lo sono.
+
+\subsection{Riferimento al registro delle attività di trattamento come fonte dichiarativa}
 \label{sub:ropa-fonte-normativa}
-Il sistema deve trattare il/i ROPA forniti in input come riferimento normativo autoritativo per ogni valutazione di conformità, e non deve generare, inferire o modificare autonomamente le attività di trattamento: il ROPA rappresenta la \textit{ground truth} dichiarativa dell'organizzazione \cite{amaralNLPbasedAutomatedCompliance2023}. \medskip
+Il sistema deve trattare il ROPA fornito in input come riferimento dichiarativo autoritativo per ogni valutazione di conformità, e non deve generare, inferire o modificare autonomamente le attività di trattamento: il ROPA rappresenta la \textit{ground truth} dichiarativa dell'organizzazione \cite{amaralNLPbasedAutomatedCompliance2023}. \medskip
 
 L'art.~30 GDPR \cite{RegolamentoUE20162016} e l'art.~12 nLPD \cite{RS2351Legge} impongono al titolare del trattamento la tenuta di un registro che documenti, tra l'altro, le categorie di interessati, le categorie di dati personali trattati, le finalità, la durata di conservazione e le categorie di destinatari. Il sistema si fonda su questo documento come base di confronto, senza sindacarne la correttezza né sostituirsi alla responsabilità del titolare nella sua compilazione. \medskip
 
@@ -143,7 +147,7 @@ Il requisito si considera soddisfatto quando il sistema, ricevendo un ROPA con c
 \label{sub:dati-particolari}
 Il sistema deve riconoscere le categorie di dati personali degni di particolare protezione secondo l'art.~5 lett.~c nLPD \cite{RS2351Legge} e le categorie particolari di dati personali secondo l'art.~9(1) GDPR \cite{RegolamentoUE20162016}, segnalandone la presenza con priorità elevata nel report delle anomalie, in considerazione del regime di consenso espresso richiesto (art.~6 cpv.~7 lett.~a nLPD \cite{RS2351Legge}; art.~9(2) GDPR \cite{RegolamentoUE20162016}).
 
-\subsection{Posizionamento rispetto all'art.~32(1)(d) GDPR}
+\subsection{Posizionamento rispetto all'obbligo di verifica periodica delle misure}
 \label{sec:posizionamento-art32}
 Il sistema, nella sua esecuzione periodica, deve costituire un'implementazione tecnica della procedura di \textit{test, verifica e valutazione regolare dell'efficacia delle misure tecniche e organizzative} prevista dall'art.~32(1)(d) GDPR \cite{RegolamentoUE20162016} e, analogamente, dall'art.~8 nLPD \cite{RS2351Legge}. \medskip
 
@@ -162,7 +166,7 @@ Il requisito si considera soddisfatto quando il sistema può essere eseguito per
 \label{sub:esclusione-basi-giuridiche}
 Il sistema non deve determinare autonomamente la base giuridica applicabile a un trattamento (art.~6 GDPR \cite{RegolamentoUE20162016}; art.~30-31 nLPD \cite{RS2351Legge}): tale valutazione resta di competenza esclusiva del DPO o del consulente giuridico dell'organizzazione. \medskip
 
-La determinazione della base giuridica richiede una valutazione contestuale di natura giuridica che non è riducibile a un'analisi automatica del contenuto documentale. Come evidenziato nella sezione~\ref{sub:conformita-limitazione}, il GDPR e la nLPD adottano inoltre approcci strutturalmente diversi alla liceità del trattamento, rendendo impossibile un'automazione generalizzata senza introdurre rischi di errore significativi. \medskip
+La determinazione della base giuridica richiede una valutazione contestuale di natura giuridica che non è riducibile a un'analisi automatica del contenuto documentale. Come evidenziato nella sezione~\ref{sub:conformita-limitazione}, il GDPR e la nLPD adottano inoltre approcci strutturalmente diversi alla liceità del trattamento \cite{RegolamentoUE20162016, RS2351Legge}, rendendo impossibile un'automazione generalizzata senza introdurre rischi di errore significativi. \medskip
 
 Il sistema si limita pertanto a:
 \begin{itemize}
@@ -242,6 +246,20 @@ In particolare:
 	\item i dati intermedi devono essere eliminati al termine dell'esecuzione.
 \end{itemize}
 
+\subsection{Efficienza delle rianalisi periodiche}
+\label{sub:rianalisi-incrementale}
+Il sistema è destinato a un impiego \textbf{ricorrente} sullo stesso corpus documentale: la conformità non è una fotografia ma uno stato da mantenere nel tempo, e il registro interno (cfr.~\ref{sub:registro-pii}) esiste proprio per confrontare esecuzioni successive. Un'analisi che rielabori integralmente l'intero corpus a ogni esecuzione rende però l'esecuzione periodica impraticabile su condivisioni aziendali reali, e il costo sostenuto è interamente superfluo per i documenti che nel frattempo non sono stati toccati \cite{OverviewVaronisAIPowereda}. \medskip
+
+Il sistema deve pertanto:
+\begin{itemize}
+	\item rianalizzare i soli documenti \textbf{modificati} dall'ultima esecuzione, riconoscendoli da informazioni ottenibili senza leggerne il contenuto;
+	\item \textbf{dichiarare} all'operatore quali documenti sono stati analizzati e quali omessi in quanto invariati, sia prima dell'esecuzione sia nel resoconto finale;
+	\item consentire di \textbf{forzare} una rianalisi completa, e provvedervi autonomamente quando muta la configurazione del rilevamento, poiché in tal caso i risultati conservati non descrivono più ciò che il sistema troverebbe;
+	\item garantire che l'omissione di un documento invariato non alteri in alcun modo il registro, e in particolare non lo faccia apparire rimosso.
+\end{itemize} \medskip
+
+Il requisito si considera soddisfatto quando una seconda esecuzione su un corpus immutato non rianalizza alcun documento, lascia il registro identico a quello prodotto dalla prima e lo dichiara nel proprio resoconto.
+
 \subsection{Operatività senza addestramento iniziale (zero-training)}
 \label{sub:zero-training}
 Il sistema deve essere operativo immediatamente dopo l'installazione, senza richiedere una fase di addestramento su dati specifici dell'organizzazione. Il rilevamento delle PII deve basarsi su conoscenze preconfigurate --- modelli pre-addestrati, regole predefinite, dizionari standard --- sufficienti a garantire un livello di detection accettabile per le categorie canoniche della nLPD e del GDPR. \medskip
@@ -283,7 +301,7 @@ Il sistema deve rendere ogni anomalia segnalata nel report tracciabile fino alla
 	\item l'attività di trattamento del ROPA a cui l'anomalia è stata associata, o l'indicazione esplicita di assenza di associazione.
 \end{itemize} \medskip
 
-La tracciabilità è condizione necessaria per consentire al DPO di verificare ciascuna segnalazione e, ove necessario, di utilizzare il report come evidenza documentale nell'ambito delle procedure di \textit{accountability} richieste dal GDPR (art.~5(2)) e dalla nLPD.
+La tracciabilità è condizione necessaria per consentire al DPO di verificare ciascuna segnalazione e, ove necessario, di utilizzare il report come evidenza documentale nell'ambito delle procedure di \textit{accountability} richieste dal GDPR (art.~5(2)) \cite{RegolamentoUE20162016} e dalla nLPD \cite{RS2351Legge}.
 
 % -----------------------------------
 
@@ -292,17 +310,17 @@ La tracciabilità è condizione necessaria per consentire al DPO di verificare c
 
 \subsection{Interfaccia web come modalità primaria}
 \label{sub:interfaccia-web}
-Il sistema deve esporre un'interfaccia web come modalità primaria di interazione, servita dal sistema stesso su una porta di rete e raggiungibile da browser senza installazione lato client. Il destinatario del sistema è il DPO, figura non necessariamente tecnica, e il sistema è distribuito come container (cfr.~\ref{sub:facilita-installazione}): un'interfaccia servita dal container stesso è operabile senza accesso alla shell dell'host e senza conoscenza dei comandi, a differenza di una CLI. \medskip
+Il sistema deve esporre un'interfaccia web come modalità primaria di interazione, servita dal sistema stesso su una porta di rete e raggiungibile da browser senza installazione lato client. Il destinatario è il DPO, figura non necessariamente tecnica, e il sistema è installato come unità autocontenuta e avviabile con un numero minimo di passaggi (cfr.~\ref{sub:facilita-installazione}): un'interfaccia servita dall'unità stessa è operabile senza accesso alla shell della macchina che la ospita e senza conoscenza dei comandi, a differenza di una CLI. \medskip
 
 L'interfaccia deve consentire almeno le seguenti operazioni:
 \begin{itemize}
 	\item avviare l'analisi di una cartella, indicandone il percorso o selezionandola dal browser, con anteprima dei file che verranno analizzati e visualizzazione dello stato di avanzamento;
-	\item fornire il/i ROPA in input e revisionare le categorie di dati riconosciute (cfr.~\ref{sub:ingestione-ropa});
+	\item fornire il ROPA in input e revisionare le categorie di dati riconosciute (cfr.~\ref{sub:ingestione-ropa});
 	\item consultare il registro delle PII rilevate e il verdetto di conformità per ciascun documento (cfr.~\ref{sub:registro-pii});
 	\item gestire l'associazione tra documenti e attività di trattamento (cfr.~\ref{sub:confronto-ropa}).
 \end{itemize} \medskip
 
-Il requisito si considera soddisfatto quando, a partire dal solo avvio del container, un utente è in grado di importare un ROPA, avviare una scansione e consultare il verdetto di conformità senza ricorrere alla riga di comando.
+Il requisito si considera soddisfatto quando, a partire dal solo avvio del sistema, un utente è in grado di importare un ROPA, avviare una scansione e consultare il verdetto di conformità senza ricorrere alla riga di comando.
 
 \subsection{Interfaccia a riga di comando (CLI)}
 \label{sub:cli}

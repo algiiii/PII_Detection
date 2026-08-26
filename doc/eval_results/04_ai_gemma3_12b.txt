@@ -1,0 +1,19 @@
+corpus: 20 documents, 315 annotated PII occurrences
+[codecarbon INFO @ 12:49:39] offline tracker init
+[codecarbon WARNING @ 12:49:39] Multiple instances of codecarbon are allowed to run at the same time.
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 234, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)

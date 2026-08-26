@@ -73,8 +73,10 @@ class MergeEngine:
         same ``pii_type`` yields a ``DOUBLE_CONFIRMED`` match, a disagreeing type
         keeps both as ``CONFLICTING`` (arbitration deferred to B5), no partner
         yields a ``SINGLE_SOURCE`` match. NER candidates left unpaired are kept as
-        ``SINGLE_SOURCE``. The AI candidates are absorbed last, only where they
-        cover a span no other source already touches (``AI_DISCOVERED``).
+        ``SINGLE_SOURCE``. The AI candidates are absorbed last, against the matches
+        built so far — as a **confirmer** when they agree on ``pii_type`` and a
+        **discoverer** when they do not overlap any of them (see
+        :meth:`_absorb_ai`).
 
         :param regex_candidates: candidates of the regex/pattern sources.
         :param ner_candidates: candidates of the NER source.
@@ -112,14 +114,95 @@ class MergeEngine:
             if j not in used_ner:
                 matches.append(self._single(ner, document_id))
 
-        for ai in ai_candidates:
-            if any(ai.span.overlaps(match.span) for match in matches):
-                continue
-            matches.append(
-                self._single(ai, document_id, level=ConfirmationLevel.AI_DISCOVERED)
-            )
-
+        self._absorb_ai(matches, ai_candidates, document_id)
         return matches
+
+    def _absorb_ai(
+        self,
+        matches: list[PIIMatch],
+        ai_candidates: Sequence[PIICandidate],
+        document_id: str,
+    ) -> None:
+        """Fold the AI candidates into the matches, as confirmer or discoverer.
+
+        Each AI candidate is paired with its best-overlapping match (same IoU
+        threshold as the regex×NER pairing), among the matches that existed
+        **before** AI absorption — a newly added ``AI_DISCOVERED`` match is never a
+        pairing target, so the AI never confirms itself. The outcome, per the
+        design table:
+
+        =========================================  =====================================
+        AI candidate vs its best match             Outcome
+        =========================================  =====================================
+        no match with IoU ≥ threshold              new ``AI_DISCOVERED`` match
+        best match, **same** ``pii_type``          confirm in place (see :meth:`_confirm_with_ai`)
+        best match, **different** ``pii_type``     AI kept as its own ``CONFLICTING``
+                                                   match; the existing one is demoted to
+                                                   ``CONFLICTING`` only if it was
+                                                   ``SINGLE_SOURCE`` (a regex+NER
+                                                   agreement is not undone by a single
+                                                   AI opinion)
+        =========================================  =====================================
+
+        Mutates ``matches`` in place (recall-first: nothing is discarded).
+
+        :param matches: the matches built from regex/NER, extended in place.
+        :param ai_candidates: candidates of the sampled AI pass.
+        :param document_id: document the resulting matches belong to.
+        """
+        pre_ai = list(matches)
+        for ai in ai_candidates:
+            best = self._best_overlap(ai, pre_ai)
+            if best is None:
+                matches.append(
+                    self._single(ai, document_id, level=ConfirmationLevel.AI_DISCOVERED)
+                )
+            elif best.pii_type == ai.provenance.pii_type:
+                self._confirm_with_ai(best, ai)
+            else:
+                if best.confirmation_level is ConfirmationLevel.SINGLE_SOURCE:
+                    best.confirmation_level = ConfirmationLevel.CONFLICTING
+                matches.append(
+                    self._single(ai, document_id, level=ConfirmationLevel.CONFLICTING)
+                )
+
+    def _best_overlap(
+        self, candidate: PIICandidate, matches: Sequence[PIIMatch]
+    ) -> PIIMatch | None:
+        """Return the match with the highest IoU over the threshold, or ``None``.
+
+        :param candidate: the candidate looking for a partner match.
+        :param matches: the matches to search.
+        :returns: the best-overlapping match with IoU ≥ ``min_overlap_ratio``, or
+            ``None`` if none reaches the threshold.
+        """
+        best, best_iou = None, -1.0
+        for match in matches:
+            iou = candidate.span.overlap_ratio(match.span)
+            if iou >= self.min_overlap_ratio and iou > best_iou:
+                best, best_iou = match, iou
+        return best
+
+    def _confirm_with_ai(self, match: PIIMatch, ai: PIICandidate) -> None:
+        """Append the AI provenance to a match agreeing on ``pii_type``.
+
+        The AI provenance is added to ``sources`` and the confidence gains
+        :attr:`double_confirmation_bonus` (clamped to ``1.0``). The level escalates
+        ``SINGLE_SOURCE → DOUBLE_CONFIRMED``; a ``DOUBLE_CONFIRMED`` match stays so
+        (now carrying three provenances) and a ``CONFLICTING`` one stays
+        ``CONFLICTING`` (its type disagreement is arbitrated by B5, not resolved by
+        an AI agreement). An AI detector already present in ``sources`` is a no-op,
+        so a value re-seen across chunk overlaps cannot inflate the confidence.
+
+        :param match: the match to confirm, mutated in place.
+        :param ai: the agreeing AI candidate.
+        """
+        if any(s.detector_id == ai.provenance.detector_id for s in match.sources):
+            return
+        match.sources.append(ai.provenance)
+        match.confidence = min(1.0, match.confidence + self.double_confirmation_bonus)
+        if match.confirmation_level is ConfirmationLevel.SINGLE_SOURCE:
+            match.confirmation_level = ConfirmationLevel.DOUBLE_CONFIRMED
 
     def _single(
         self,

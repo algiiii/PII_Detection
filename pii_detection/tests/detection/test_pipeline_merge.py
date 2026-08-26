@@ -167,8 +167,10 @@ class TestBestPartner:
 
 
 class TestAIAbsorb:
+    """The AI pass as confirmer/discoverer — the six rows of the design table."""
+
     def test_ai_covering_a_new_span_is_discovered(self) -> None:
-        """An AI candidate touching no other match is added as AI_DISCOVERED."""
+        """No overlap: an AI candidate touching no match is added AI_DISCOVERED."""
         engine = MergeEngine()
         matches = engine.merge(
             [_regex(0, 10, "iban")], [], [_ai(50, 60, "health_data")], document_id=DOC
@@ -177,14 +179,80 @@ class TestAIAbsorb:
         assert len(discovered) == 1
         assert discovered[0].pii_type == "health_data"
 
-    def test_ai_overlapping_an_existing_match_is_dropped(self) -> None:
-        """An AI candidate touching an existing match adds no redundant entry."""
+    def test_ai_confirms_a_single_source_into_double(self) -> None:
+        """Same type over a SINGLE_SOURCE match: escalates to DOUBLE_CONFIRMED,
+        the AI provenance is appended and the confidence gains the bonus."""
+        engine = MergeEngine(double_confirmation_bonus=0.15)
+        (match,) = engine.merge(
+            [_regex(0, 10, "iban", confidence=0.6)], [], [_ai(0, 10, "iban")], document_id=DOC
+        )
+        assert match.confirmation_level is ConfirmationLevel.DOUBLE_CONFIRMED
+        assert [p.detector_kind for p in match.sources] == [DetectorKind.REGEX, DetectorKind.AI]
+        assert match.confidence == pytest.approx(0.75)
+
+    def test_ai_confirms_a_double_confirmed_as_third_source(self) -> None:
+        """Same type over a DOUBLE_CONFIRMED match: stays DOUBLE_CONFIRMED, now
+        carrying three provenances, confidence bumped (clamped)."""
+        engine = MergeEngine(double_confirmation_bonus=0.15)
+        (match,) = engine.merge(
+            [_regex(0, 10, "iban", confidence=0.6)],
+            [_ner(0, 10, "iban", confidence=0.6)],
+            [_ai(0, 10, "iban")],
+            document_id=DOC,
+        )
+        assert match.confirmation_level is ConfirmationLevel.DOUBLE_CONFIRMED
+        assert len(match.sources) == 3
+        assert {p.detector_kind for p in match.sources} == {
+            DetectorKind.REGEX, DetectorKind.NER, DetectorKind.AI
+        }
+
+    def test_ai_agreeing_with_a_conflicting_match_stays_conflicting(self) -> None:
+        """Same type over a CONFLICTING match: the AI provenance is appended but
+        the type disagreement is not resolved here — it stays CONFLICTING (B5)."""
         engine = MergeEngine()
         matches = engine.merge(
-            [_regex(0, 10, "iban")], [_ner(0, 10, "iban")], [_ai(5, 8, "iban")], document_id=DOC
+            [_regex(0, 10, "person_name")],
+            [_ner(0, 10, "address")],
+            [_ai(0, 10, "person_name")],
+            document_id=DOC,
         )
-        assert len(matches) == 1
-        assert matches[0].confirmation_level is ConfirmationLevel.DOUBLE_CONFIRMED
+        assert all(m.confirmation_level is ConfirmationLevel.CONFLICTING for m in matches)
+        confirmed = next(m for m in matches if m.pii_type == "person_name")
+        assert DetectorKind.AI in {p.detector_kind for p in confirmed.sources}
+
+    def test_ai_disagreeing_with_a_single_source_demotes_both(self) -> None:
+        """Different type over a SINGLE_SOURCE match: the existing one is demoted
+        to CONFLICTING and the AI is kept as its own CONFLICTING match."""
+        engine = MergeEngine()
+        matches = engine.merge(
+            [_regex(0, 10, "person_name")], [], [_ai(0, 10, "address")], document_id=DOC
+        )
+        assert len(matches) == 2
+        assert all(m.confirmation_level is ConfirmationLevel.CONFLICTING for m in matches)
+        assert {m.pii_type for m in matches} == {"person_name", "address"}
+
+    def test_ai_disagreeing_with_a_double_confirmed_does_not_demote_it(self) -> None:
+        """Different type over a DOUBLE_CONFIRMED match: the regex+NER agreement is
+        not undone by a single AI opinion; the AI is kept as CONFLICTING."""
+        engine = MergeEngine()
+        matches = engine.merge(
+            [_regex(0, 10, "iban")], [_ner(0, 10, "iban")], [_ai(0, 10, "person_name")], document_id=DOC
+        )
+        kept = next(m for m in matches if m.pii_type == "iban")
+        ai_match = next(m for m in matches if m.pii_type == "person_name")
+        assert kept.confirmation_level is ConfirmationLevel.DOUBLE_CONFIRMED
+        assert ai_match.confirmation_level is ConfirmationLevel.CONFLICTING
+
+    def test_ai_below_threshold_is_discovered_not_confirmed(self) -> None:
+        """An AI candidate overlapping a match but under the IoU threshold is not
+        a confirmation: it survives on its own as AI_DISCOVERED (recall-first)."""
+        engine = MergeEngine(min_overlap_ratio=0.5)
+        # [0,10) vs [8,20): IoU 0.1 < 0.5 — not the same PII.
+        matches = engine.merge(
+            [_regex(0, 10, "iban")], [], [_ai(8, 20, "iban")], document_id=DOC
+        )
+        assert len(matches) == 2
+        assert any(m.confirmation_level is ConfirmationLevel.AI_DISCOVERED for m in matches)
 
 
 class TestEdges:

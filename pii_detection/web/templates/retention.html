@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "macros.html" import date_source_badge %}
+{% block title %}Conservazione{% endblock %}
+{% block content %}
+  <h1>Conservazione</h1>
+  <p class="muted">
+    Documenti trattenuti oltre il termine dichiarato nel ROPA, dai più gravi ai meno gravi,
+    più i casi che il sistema non può verificare. Il confronto usa la data del documento
+    (dai metadati del file quando ci sono, altrimenti dal file system) contro la durata
+    dichiarata per il trattamento associato.
+  </p>
+
+  {% if rows %}
+    <p>
+      <span class="badge bad">{{ breaches }}</span> oltre il termine ·
+      <span class="badge warn">{{ rows|length - breaches }}</span> non verificabili
+    </p>
+    {% for row in rows %}
+      <div class="card">
+        <div class="row-between">
+          <strong><a href="{{ url_for('document_detail', document_id=row.document_id) }}">{{ row.document_id }}</a></strong>
+          {% if row.worst_overdue_months > 0 %}
+            <span class="badge bad">+{{ row.worst_overdue_months }} mesi</span>
+          {% else %}
+            <span class="badge warn">non verificabile</span>
+          {% endif %}
+        </div>
+        <p class="muted" style="margin:.35rem 0 .2rem">
+          Data del documento:
+          {% if row.reference_date %}{{ row.reference_date.strftime("%d/%m/%Y") }}{% else %}sconosciuta{% endif %}
+          {{ date_source_badge(row.reference_date_source) }} ·
+          trattamenti: {% for a in row.activity_ids %}<code>{{ a }}</code> {% endfor %}
+        </p>
+        {% for f in row.flags %}
+          <p style="margin:.1rem 0">
+            «{{ f.category }}»: {% for t in f.pii_types %}<span class="tag">{{ t }}</span>{% endfor %}
+            <span class="muted">— età ~{{ f.age_months }} mesi &gt; limite {{ f.retention_months }} mesi</span>
+          </p>
+        {% endfor %}
+        {% for c in row.unresolved %}
+          <p style="margin:.1rem 0" class="muted">
+            «{{ c }}»: il registro dichiara un criterio anziché una durata, quindi nessun confronto è possibile.
+          </p>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">
+      Nessun documento oltre il termine di conservazione. Ricorda che il controllo riguarda
+      solo i documenti già associati a un trattamento: quelli non associati non hanno una
+      durata dichiarata con cui confrontarsi.
+    </p>
+  {% endif %}
+{% endblock %}

@@ -15,7 +15,7 @@ value back after extraction.
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -27,7 +27,15 @@ from pii_detection.detection.config import (  # noqa: E402
     default_config_dir,
     load_category_catalog,
 )
-from pii_detection.detection.types import DetectorKind, PIICandidate  # noqa: E402
+from pii_detection.detection.types import (  # noqa: E402
+    ConfirmationLevel,
+    DetectionProvenance,
+    DetectorKind,
+    PIICandidate,
+    PIIMatch,
+    TextSpan,
+)
+from pii_detection.extraction.dates import DateSource, ReferenceDate  # noqa: E402
 from pii_detection.evaluation.corpus import parse_annotated_text  # noqa: E402
 from pii_detection.evaluation.corpus_generator import PIIValueFactory  # noqa: E402
 from pii_detection.evaluation.enterprise.builder import (  # noqa: E402
@@ -43,7 +51,10 @@ from pii_detection.evaluation.enterprise.content import (  # noqa: E402
     build_body,
 )
 from pii_detection.evaluation.enterprise.noise import is_noise  # noqa: E402
-from pii_detection.evaluation.enterprise.profiles import ropa_layout  # noqa: E402
+from pii_detection.evaluation.enterprise.profiles import (  # noqa: E402
+    DeclaredRegister,
+    ropa_layout,
+)
 from pii_detection.evaluation.enterprise.types import (  # noqa: E402
     CorpusPlan,
     DocumentSpec,
@@ -140,14 +151,23 @@ def test_noise_is_planned_with_the_outcome_it_must_produce() -> None:
     assert not any(is_noise(d.kind) for d in quiet.documents)
 
 
+def _declared() -> DeclaredRegister:
+    return DeclaredRegister(
+        types={
+            "gestione-del-personale": ("person_name", "address", "iban"),
+            "newsletter-e-marketing": ("email", "date_of_birth"),
+        },
+        retention_months={"gestione-del-personale": 60, "newsletter-e-marketing": None},
+    )
+
+
 def test_ropa_layout_plants_only_undeclared_types_and_matching_rules() -> None:
-    declared = {
-        "gestione-del-personale": ("person_name", "address", "iban"),
-        "newsletter-e-marketing": ("email", "date_of_birth"),
-    }
+    declared = _declared()
     layout = ropa_layout(declared)
     assert set(layout.orphan_types) == {"credit_card", "swiss_avs", "health_data"}
-    assert not set(layout.orphan_types) & {t for types in declared.values() for t in types}
+    assert not set(layout.orphan_types) & {
+        t for types in declared.types.values() for t in types
+    }
 
     rules = [FolderRule(prefix=prefix, activity_ids=list(ids)) for prefix, ids in layout.rules]
     covered = [f.path for f in layout.folders if f.path.startswith("Gestione del personale")]
@@ -155,6 +175,20 @@ def test_ropa_layout_plants_only_undeclared_types_and_matching_rules() -> None:
     for path in covered:
         assert match_activities(f"{path}/documento.pdf", rules) == ["gestione-del-personale"]
     assert match_activities("Varie/Senza regola/documento.pdf", rules) == []
+
+
+def test_retention_expectations_only_where_a_term_is_computable() -> None:
+    # An activity that declares a criterion instead of a duration yields no
+    # expectation: the corpus asserts what it can prove, it does not guess.
+    layout = ropa_layout(_declared())
+
+    assert [e.activity_id for e in layout.retention] == ["gestione-del-personale"]
+    (expectation,) = layout.retention
+    assert expectation.retention_months == 60
+    assert expectation.age_months > 60  # the archive folder really is older
+    assert expectation.prefix.startswith("Gestione del personale/Archivio")
+    # ...and the folder it names is one the layout actually populates.
+    assert any(folder.path == expectation.prefix for folder in layout.folders)
 
 
 def test_hostile_lowercase_twin_is_not_caught_by_the_uppercase_rule() -> None:
@@ -297,3 +331,76 @@ def test_long_pdf_gives_back_every_gold_value(tmp_path: Path) -> None:
     for span in parsed.spans:
         value = re.sub(r"\s+", " ", parsed.text[span.start : span.end])
         assert value in extracted
+
+
+def test_check_retention_catches_silence_and_over_reporting(tmp_path: Path) -> None:
+    # The verifier's own two failure modes, on a hand-built registry: a planted
+    # breach that never comes back, and a breach reported where nothing was
+    # planted. Both must be named.
+    from pii_detection.evaluation.enterprise.verify import check_retention
+    from pii_detection.registry.repository import PIIRepository
+    from pii_detection.ropa.repository import ROPARepository
+    from pii_detection.ropa.types import (
+        DeclaredCategory,
+        DeclaredMacroCategory,
+        MappingState,
+        ProcessingActivity,
+    )
+
+    ropa = ROPARepository(url=f"sqlite:///{tmp_path}/ropa.db")
+    registry = PIIRepository(url=f"sqlite:///{tmp_path}/pii.db")
+    ropa.save(
+        [
+            ProcessingActivity(
+                id="paghe",
+                name="Paghe",
+                purpose="p",
+                macro_categories=[
+                    DeclaredMacroCategory(
+                        raw_text="Anagrafica",
+                        retention_text="1 anno",
+                        retention_months=12,
+                        categories=[
+                            DeclaredCategory(
+                                raw_text="iban",
+                                pii_types=["iban"],
+                                mapping_state=MappingState.CONFIRMED,
+                            )
+                        ],
+                    )
+                ],
+            )
+        ]
+    )
+
+    old = datetime.now(timezone.utc) - timedelta(days=3000)
+    for document_id in ("Paghe/Archivio 2019/a.pdf", "Paghe/Documenti/nuovo.pdf"):
+        registry.record_scan(
+            document_id,
+            [_iban_match()],
+            reference_date=ReferenceDate(
+                value=old, source=DateSource.FILE_MTIME, field="fs:mtime"
+            ),
+        )
+        registry.assign_activities(document_id, ["paghe"])
+
+    result = check_retention(
+        [{"prefix": "Paghe/Archivio 2019"}], registry=registry, ropa=ropa
+    )
+
+    assert result.silent == ()  # the planted folder did come back
+    assert result.unexpected == ("Paghe/Documenti/nuovo.pdf",)  # ...and so did a recent one
+    assert result.clean is False
+
+
+def _iban_match() -> PIIMatch:
+    provenance = DetectionProvenance("det.x", DetectorKind.REGEX, "iban", 0.9)
+    return PIIMatch(
+        span=TextSpan(0, 10),
+        text="?",
+        pii_type="iban",
+        confidence=0.9,
+        confirmation_level=ConfirmationLevel.SINGLE_SOURCE,
+        sources=[provenance],
+        document_id="ignored",
+    )

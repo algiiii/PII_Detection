@@ -25,14 +25,24 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from pii_detection.compliance.checker import check_document
+from pii_detection.compliance.overview import retention_overview
+from pii_detection.detection.ai_detector import AITriggerPolicy
 from pii_detection.extraction import supported_suffixes
 from pii_detection.registry.repository import PIIRepository
-from pii_detection.registry.scan_folder import plan_folder
+from pii_detection.registry.scan_folder import count_unchanged, plan_folder
 from pii_detection.ropa.repository import ROPARepository
 from pii_detection.ropa.review.app import app as ropa_app
-from pii_detection.web.scan_jobs import get_job, start_scan_job
+from pii_detection.web.scan_jobs import (
+    active_jobs,
+    get_job,
+    start_document_ai_job,
+    start_scan_job,
+)
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
+# Shared page header reads this to show an "a scan is in progress" indicator on
+# every page, without each route having to pass the active jobs in its context.
+_TEMPLATES.env.globals["active_scans"] = active_jobs
 
 app = FastAPI(title="PII compliance")
 
@@ -104,6 +114,11 @@ def document_detail(request: Request, document_id: str) -> HTMLResponse:
             "instances": registry.instances_for(document_id),
             "activities": ropa.load(),
             "report": report,
+            # The on-demand AI re-scan re-reads the source file. Browser uploads are
+            # removed after their scan (data minimization), so their path is dangling:
+            # offer the button only when the file is still on disk.
+            "source_available": document.path is not None and Path(document.path).exists(),
+            "scan_ai_error": request.query_params.get("scan_ai_error"),
         },
     )
 
@@ -137,29 +152,97 @@ def assign_document(
     return RedirectResponse(url=str(url), status_code=303)
 
 
+@app.post("/document/{document_id:path}/scan-ai")
+def scan_document_ai(request: Request, document_id: str) -> RedirectResponse:
+    """Re-analyse one document with the AI in the background (per-document trigger).
+
+    The AI pass on a long document can take minutes, so it does not run inside this
+    request: a background :class:`~pii_detection.web.scan_jobs.ScanJob` is started and
+    the browser is redirected to its status page. The user can navigate away while the
+    model runs; when the job finishes, the document page shows the new
+    ``AI_DISCOVERED``/``DOUBLE_CONFIRMED`` instances.
+
+    If the source file is gone — the common case for a browser upload, whose files
+    are removed after the scan for data minimization — the re-scan cannot re-extract
+    anything, so instead of starting a job that would fail on a dangling path the user
+    is redirected back to the document with an explanatory message.
+
+    :param request: the incoming request, for building the redirect URL.
+    :param document_id: identifier of an already-recorded document.
+    :returns: a 303 redirect to the job status page, or back to the document detail
+        (with a ``scan_ai_error`` message) when the source file is no longer available.
+    :raises HTTPException: 404 if the document is unknown.
+    """
+    document = get_registry().get_document(document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail=f"unknown document: {document_id}")
+    if not document.path or not Path(document.path).exists():
+        url = request.url_for("document_detail", document_id=document_id).include_query_params(
+            scan_ai_error=(
+                "File sorgente non più disponibile: i documenti caricati dal browser "
+                "vengono rimossi dopo la scansione (minimizzazione). Ri-caricalo, oppure "
+                "scansiona da un percorso lato server scegliendo l'analisi AI."
+            )
+        )
+        return RedirectResponse(url=str(url), status_code=303)
+    job_id = start_document_ai_job(document_id, document.path)
+    url = request.url_for("scan_status", job_id=job_id)
+    return RedirectResponse(url=str(url), status_code=303)
+
+
+@app.get("/retention", response_class=HTMLResponse)
+def retention_page(request: Request) -> HTMLResponse:
+    """List every document kept past its declared retention, worst first (B7).
+
+    The corpus-wide counterpart of the per-document verdict: the DPO's real
+    question about a file share is "what is overdue?", which cannot be answered by
+    opening documents one at a time. Read-only, like the document page.
+
+    :param request: the incoming request.
+    :returns: the rendered retention overview.
+    """
+    rows = retention_overview(ropa=get_ropa(), registry=get_registry())
+    return _TEMPLATES.TemplateResponse(
+        request,
+        "retention.html",
+        {"rows": rows, "breaches": sum(1 for row in rows if row.flags)},
+    )
+
+
 @app.get("/scan", response_class=HTMLResponse)
 def scan_form(request: Request) -> HTMLResponse:
     """Show the scan form: a server-side path and a browser file/folder upload.
 
     :param request: the incoming request.
     :returns: the rendered form, with the supported file suffixes for the
-        client-side upload filter.
+        client-side upload filter and the default AI rate from the environment.
     """
     return _TEMPLATES.TemplateResponse(
-        request, "scan.html", {"supported": sorted(supported_suffixes())}
+        request,
+        "scan.html",
+        {
+            "supported": sorted(supported_suffixes()),
+            "default_ai_rate": AITriggerPolicy.from_env().sampling_rate,
+        },
     )
 
 
 @app.get("/scan/preview", response_class=HTMLResponse)
-def scan_preview(request: Request, path: str, gliner: bool = False) -> HTMLResponse:
+def scan_preview(
+    request: Request, path: str, gliner: bool = False, full: bool = False, ai_rate: int = 0
+) -> HTMLResponse:
     """Preview the files a recursive scan of ``path`` would cover, before running.
 
     Enumerates only (no detection), so it is fast: lists the scannable files
-    grouped by format and the skipped (unsupported) ones.
+    grouped by format, the skipped (unsupported) ones, and — since the scan is
+    incremental by default — how many are already up to date and would not be read
+    again. The preview has to state that *before* the run, not explain it after.
 
     :param request: the incoming request.
     :param path: server-side directory to preview.
     :param gliner: carried through to the run form.
+    :param full: preview a forced full re-analysis (nothing counts as unchanged).
+    :param ai_rate: carried through to the run form (AI sampling knob).
     :returns: the rendered preview with a confirm button.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
@@ -168,28 +251,44 @@ def scan_preview(request: Request, path: str, gliner: bool = False) -> HTMLRespo
     except NotADirectoryError:
         raise HTTPException(status_code=400, detail=f"not a directory: {path}") from None
     by_format = Counter(Path(doc_id).suffix.lower() for _path, doc_id in plan.scannable)
+    unchanged = 0 if full else count_unchanged(plan, get_registry())
     return _TEMPLATES.TemplateResponse(
         request,
         "scan_preview.html",
-        {"path": path, "gliner": gliner, "plan": plan, "by_format": sorted(by_format.items())},
+        {
+            "path": path,
+            "gliner": gliner,
+            "full": full,
+            "ai_rate": ai_rate,
+            "plan": plan,
+            "by_format": sorted(by_format.items()),
+            "unchanged": unchanged,
+            "to_scan": len(plan.scannable) - unchanged,
+        },
     )
 
 
 @app.post("/scan/run")
 def scan_run(
-    request: Request, path: str = Form(...), gliner: bool = Form(False)
+    request: Request,
+    path: str = Form(...),
+    gliner: bool = Form(False),
+    full: bool = Form(False),
+    ai_rate: int = Form(0),
 ) -> RedirectResponse:
     """Start a background scan of ``path`` and redirect to its status page.
 
     :param request: the incoming request, for building the redirect URL.
     :param path: server-side directory to scan.
     :param gliner: use GLiNER for the NER.
+    :param full: re-analyse every file, including those unchanged since last time.
+    :param ai_rate: AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if ``path`` is not a directory.
     """
     if not Path(path).is_dir():
         raise HTTPException(status_code=400, detail=f"not a directory: {path}")
-    job_id = start_scan_job(path, use_gliner=gliner)
+    job_id = start_scan_job(path, use_gliner=gliner, ai_rate=ai_rate, incremental=not full)
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)
 
@@ -212,7 +311,10 @@ def _safe_relative_path(filename: str | None) -> PurePosixPath | None:
 
 @app.post("/scan/upload")
 async def scan_upload(
-    request: Request, files: list[UploadFile] = File(...), gliner: bool = Form(False)
+    request: Request,
+    files: list[UploadFile] = File(...),
+    gliner: bool = Form(False),
+    ai_rate: int = Form(0),
 ) -> RedirectResponse:
     """Scan files uploaded from the browser — a single file or a whole folder.
 
@@ -226,6 +328,7 @@ async def scan_upload(
     :param request: the incoming request, for building the redirect URL.
     :param files: the uploaded files; each ``filename`` is a relative path.
     :param gliner: use GLiNER for the NER.
+    :param ai_rate: AI sampling knob (``0`` no AI, ``1`` all, ``N`` one-in-``N``).
     :returns: a 303 redirect to the job status page.
     :raises HTTPException: 400 if no valid file is uploaded.
     """
@@ -242,8 +345,16 @@ async def scan_upload(
     if written == 0:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail="nessun file valido caricato")
+    # Always a full analysis: the materialized files carry the upload time as their
+    # modification time, not the original one, so no file stamp here would mean
+    # anything and every document would look modified regardless.
     job_id = start_scan_job(
-        str(temp_dir), use_gliner=gliner, prune=False, cleanup_dir=str(temp_dir)
+        str(temp_dir),
+        use_gliner=gliner,
+        ai_rate=ai_rate,
+        prune=False,
+        incremental=False,
+        cleanup_dir=str(temp_dir),
     )
     url = request.url_for("scan_status", job_id=job_id)
     return RedirectResponse(url=str(url), status_code=303)

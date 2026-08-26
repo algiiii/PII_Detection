@@ -3,10 +3,15 @@
 {% block content %}
   <p><a href="{{ url_for('scan_form') }}">← Cambia cartella</a></p>
   <h1>Anteprima della scansione</h1>
-  <p class="muted"><code>{{ path }}</code>{% if gliner %} · GLiNER{% endif %}</p>
+  <p class="muted"><code>{{ path }}</code>{% if gliner %} · GLiNER{% endif %}{% if ai_rate == 1 %} · AI su tutti{% elif ai_rate %} · AI 1 su {{ ai_rate }}{% endif %}{% if full %} · rianalisi completa{% endif %}</p>
 
   <h2>Verranno scansionati <span class="muted">({{ plan.scannable|length }} file)</span></h2>
   {% if plan.scannable %}
+    <p>
+      <span class="badge info">{{ to_scan }}</span> da analizzare ·
+      <span class="badge ok">{{ unchanged }}</span> invariati dall'ultima scansione
+      {% if not full %}<span class="muted">(non verranno riletti)</span>{% endif %}
+    </p>
     <div>{% for suffix, count in by_format %}<span class="tag">{{ suffix }} × {{ count }}</span>{% endfor %}</div>
     <details style="margin-top:.5rem">
       <summary>Elenco file</summary>
@@ -25,7 +30,16 @@
     <form method="post" action="{{ url_for('scan_run') }}" style="margin-top:1rem">
       <input type="hidden" name="path" value="{{ path }}">
       {% if gliner %}<input type="hidden" name="gliner" value="true">{% endif %}
-      <button type="submit">Conferma e avvia la scansione{% if gliner %} (GLiNER){% endif %}</button>
+      {% if ai_rate %}<input type="hidden" name="ai_rate" value="{{ ai_rate }}">{% endif %}
+      {% if full %}<input type="hidden" name="full" value="true">{% endif %}
+      <button type="submit">Conferma e avvia la scansione{% if gliner %} (GLiNER){% endif %}{% if ai_rate %} + AI{% endif %}</button>
     </form>
+    {% if unchanged and not full %}
+      <p class="muted" style="margin-top:.6rem">
+        <a href="{{ url_for('scan_preview').include_query_params(path=path, gliner=gliner, ai_rate=ai_rate, full=true) }}">
+          Rianalizza tutto</a>, anche i file invariati — serve dopo un cambio di configurazione
+        del rilevamento.
+      </p>
+    {% endif %}
   {% endif %}
 {% endblock %}

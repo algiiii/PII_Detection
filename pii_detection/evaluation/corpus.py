@@ -12,7 +12,10 @@ ingestion layer (B3).
 
 from __future__ import annotations
 
+import json
+import random
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -105,10 +108,92 @@ def load_corpus_dir(directory: Path | None = None) -> list[AnnotatedDocument]:
     ]
 
 
+def load_corpus_jsonl(path: Path) -> list[AnnotatedDocument]:
+    """Load an annotated corpus from a JSON Lines file.
+
+    Each line is an object with a ``document_id`` and an ``annotated`` field
+    holding the inline-marked text — the ``sources.jsonl`` emitted next to the
+    enterprise corpus tree. Parsing it here means the enterprise corpus, built
+    for the folder-scale stress test, can also feed the detector benchmarks
+    without a second annotation format.
+
+    :param path: the ``.jsonl`` file to read.
+    :returns: the parsed documents, in file order.
+    :raises FileNotFoundError: if the file does not exist.
+    :raises ValueError: if a line is not valid JSON or lacks the expected fields.
+    """
+    if not path.is_file():
+        raise FileNotFoundError(f"corpus file not found: {path}")
+    documents: list[AnnotatedDocument] = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+            document_id = str(record["document_id"])
+            annotated = str(record["annotated"])
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise ValueError(f"{path}:{number}: malformed corpus record ({exc})") from exc
+        documents.append(parse_annotated_text(document_id, annotated))
+    return documents
+
+
+def load_annotated_corpus(source: Path | None = None) -> list[AnnotatedDocument]:
+    """Load an annotated corpus from either layout, picked by what ``source`` is.
+
+    The single entry point the evaluation runners call, so a corpus can be
+    swapped on the command line regardless of how it is stored: a **directory**
+    of ``.txt`` files (:func:`load_corpus_dir`) or a **JSON Lines** file
+    (:func:`load_corpus_jsonl`).
+
+    :param source: directory or ``.jsonl`` file; defaults to the packaged corpus.
+    :returns: the parsed documents.
+    :raises FileNotFoundError: if ``source`` is neither an existing directory nor
+        an existing file.
+    """
+    if source is None:
+        return load_corpus_dir(None)
+    if source.is_dir():
+        return load_corpus_dir(source)
+    if source.is_file():
+        return load_corpus_jsonl(source)
+    raise FileNotFoundError(f"corpus not found: {source}")
+
+
+
+def sample_documents(
+    documents: Sequence[AnnotatedDocument], size: int, seed: int = 42
+) -> list[AnnotatedDocument]:
+    """Draw a reproducible random subset of a corpus.
+
+    Preferred over truncating a corpus to its first ``size`` documents whenever a
+    run is too costly to score everything: a corpus laid out as a folder tree is
+    **ordered**, so its head is not a miniature of the whole — whole categories,
+    and the PII-free documents on which false positives are observable, can be
+    absent from it. Drawing at random from a fixed ``seed`` keeps the subset both
+    representative and reproducible.
+
+    :param documents: the full corpus.
+    :param size: how many documents to draw; ``>= len(documents)`` returns them all.
+    :param seed: seed fixing which documents are drawn.
+    :returns: the drawn documents, in the corpus order (not the draw order).
+    :raises ValueError: if ``size`` is not positive.
+    """
+    if size <= 0:
+        raise ValueError(f"sample size must be positive, got {size}")
+    if size >= len(documents):
+        return list(documents)
+    drawn = set(random.Random(seed).sample(range(len(documents)), size))
+    return [document for index, document in enumerate(documents) if index in drawn]
+
+
 __all__ = [
     "GroundTruthSpan",
     "AnnotatedDocument",
     "parse_annotated_text",
     "default_corpus_dir",
     "load_corpus_dir",
+    "load_corpus_jsonl",
+    "load_annotated_corpus",
+    "sample_documents",
 ]

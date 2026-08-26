@@ -239,8 +239,11 @@ doc/latex_build/
 # MacOS
 .DS_Store
 
-# Vari
+# Vari: gli appunti di lavoro (piani, istruzioni, diari) restano fuori dal
+# repository; il README no -- e' l'unica porta d'ingresso per chi arriva
+# dalla citazione in tesi.
 *.md
+!README.md
 
 # Generated detection corpus (reproducible via evaluation.corpus_generator)
 pii_detection/evaluation/documents_generated/

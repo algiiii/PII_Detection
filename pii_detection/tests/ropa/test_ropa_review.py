@@ -142,9 +142,3 @@ def test_import_collision_without_replace_shows_error(client: TestClient, db_url
     assert resp.status_code == 200
     assert "sostituisci" in resp.text  # friendly error banner
     assert len(ROPARepository(db_url).load()) == after_first  # no duplicates/partial import
-
-
-def test_delete_activity_removes_it(client: TestClient, db_url: str) -> None:
-    resp = client.post("/activity/payroll/delete")
-    assert resp.status_code == 200  # followed the 303 to the index
-    assert ROPARepository(db_url).get("payroll") is None

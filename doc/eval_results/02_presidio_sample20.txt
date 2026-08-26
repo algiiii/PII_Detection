@@ -1,0 +1,49 @@
+corpus: 20 documents, 315 annotated PII occurrences
+
+=== Pattern layer (Presidio + custom regex/checksum) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.00    0.00   0.00    0    0   19
+date_of_birth      0.00    0.00   0.00    0    8   12
+email              1.00    1.00   1.00   82    0    0
+health_data        0.00    0.00   0.00    0    0    2
+iban               1.00    1.00   1.00   65    0    0
+ip_address         1.00    1.00   1.00    5    0    0
+italian_id         1.00    1.00   1.00   18    0    0
+person_name        0.00    0.00   0.00    0    0   30
+phone              0.70    0.09   0.16    7    3   70
+swiss_avs          1.00    1.00   1.00    5    0    0
+-----------------------------------------------------
+OVERALL            0.94    0.58   0.72  182   11  133
+
+=== Presidio NER (GLiNER) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.68    1.00   0.81   19    9    0
+date_of_birth      1.00    1.00   1.00   12    0    0
+email              0.20    0.01   0.02    1    4   81
+health_data        1.00    1.00   1.00    2    0    0
+iban               0.76    0.25   0.37   16    5   49
+ip_address         0.00    0.00   0.00    0    1    5
+italian_id         0.19    0.22   0.21    4   17   14
+person_name        0.21    1.00   0.35   30  111    0
+phone              0.98    0.82   0.89   63    1   14
+swiss_avs          0.00    0.00   0.00    0    0    5
+-----------------------------------------------------
+OVERALL            0.50    0.47   0.48  147  148  168
+
+=== Raw union (pattern + NER, no merge) ===
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.68    1.00   0.81   19    9    0
+date_of_birth      0.60    1.00   0.75   12    8    0
+email              0.94    1.00   0.97   82    5    0
+health_data        1.00    1.00   1.00    2    0    0
+iban               0.76    1.00   0.86   65   21    0
+ip_address         0.83    1.00   0.91    5    1    0
+italian_id         0.46    1.00   0.63   18   21    0
+person_name        0.21    1.00   0.35   30  111    0
+phone              0.95    0.91   0.93   70    4    7
+swiss_avs          1.00    1.00   1.00    5    0    0
+-----------------------------------------------------
+OVERALL            0.63    0.98   0.77  308  180    7

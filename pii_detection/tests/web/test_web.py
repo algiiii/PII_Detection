@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from pii_detection.detection.types import (
     PIIMatch,
     TextSpan,
 )
+from pii_detection.extraction.dates import DateSource, ReferenceDate
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.types import AssociationSource
 from pii_detection.ropa.repository import ROPARepository
@@ -140,3 +142,48 @@ def test_create_rule_and_apply_associates_document(client: TestClient, tmp_path:
     assert document is not None
     assert document.activity_ids == ["payroll"]
     assert document.association_source is AssociationSource.RULE
+
+
+def test_retention_page_is_empty_without_associations(client: TestClient) -> None:
+    # The fixture document is not associated with any activity, so there is no
+    # declared retention to compare it against.
+    body = client.get("/retention").text
+    assert "Nessun documento oltre il termine" in body
+
+
+def test_retention_page_lists_an_overdue_document(
+    client: TestClient, tmp_path: Path
+) -> None:
+    registry = PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}")
+    old = datetime(2015, 1, 1, tzinfo=timezone.utc)
+    registry.record_scan(
+        "Archivio/vecchio.pdf",
+        [_match(0, 10, "iban")],
+        reference_date=ReferenceDate(
+            value=old, source=DateSource.CONTENT_METADATA, field="pdf:modDate"
+        ),
+    )
+    registry.assign_activities("Archivio/vecchio.pdf", ["payroll"])
+
+    body = client.get("/retention").text
+    assert "Archivio/vecchio.pdf" in body
+    assert "metadati del file" in body  # the provenance of the date is shown
+    assert "mesi" in body
+
+
+def test_document_page_shows_the_date_provenance(
+    client: TestClient, tmp_path: Path
+) -> None:
+    registry = PIIRepository(f"sqlite:///{tmp_path / 'pii.db'}")
+    registry.record_scan(
+        "solo_mtime.txt",
+        [],
+        reference_date=ReferenceDate(
+            value=datetime(2020, 3, 1, tzinfo=timezone.utc),
+            source=DateSource.FILE_MTIME,
+            field="fs:mtime",
+        ),
+    )
+    body = client.get("/document/solo_mtime.txt").text
+    assert "01/03/2020" in body
+    assert "data del file system" in body.lower()

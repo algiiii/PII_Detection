@@ -15,6 +15,20 @@
     <label class="checks-inline">
       <input type="checkbox" name="gliner" value="true"> Usa GLiNER (NER migliore; solo container)
     </label>
+    <label class="checks-inline">Analisi AI
+      <select name="ai_rate">
+        <option value="0"{% if default_ai_rate == 0 %} selected{% endif %}>Nessuna</option>
+        <option value="10"{% if default_ai_rate == 10 %} selected{% endif %}>1 documento su 10</option>
+        <option value="50"{% if default_ai_rate == 50 %} selected{% endif %}>1 su 50</option>
+        <option value="100"{% if default_ai_rate == 100 %} selected{% endif %}>1 su 100</option>
+        <option value="1"{% if default_ai_rate == 1 %} selected{% endif %}>Tutti i documenti (lento)</option>
+      </select>
+      <span class="muted">(secondo parere del modello locale; più raro = più veloce)</span>
+    </label>
+    <label class="checks-inline">
+      <input type="checkbox" name="full" value="true"> Rianalizza tutto
+      <span class="muted">(di norma i file non modificati dall'ultima scansione non vengono riletti)</span>
+    </label>
     <div class="actions"><button type="submit">Anteprima</button></div>
   </form>
 
@@ -34,6 +48,16 @@
     </label>
     <label class="checks-inline">
       <input type="checkbox" id="upload-gliner"> Usa GLiNER (NER migliore; solo container)
+    </label>
+    <label class="checks-inline">Analisi AI
+      <select id="upload-ai-rate">
+        <option value="0"{% if default_ai_rate == 0 %} selected{% endif %}>Nessuna</option>
+        <option value="10"{% if default_ai_rate == 10 %} selected{% endif %}>1 documento su 10</option>
+        <option value="50"{% if default_ai_rate == 50 %} selected{% endif %}>1 su 50</option>
+        <option value="100"{% if default_ai_rate == 100 %} selected{% endif %}>1 su 100</option>
+        <option value="1"{% if default_ai_rate == 1 %} selected{% endif %}>Tutti i documenti (lento)</option>
+      </select>
+      <span class="muted">(secondo parere del modello locale; più raro = più veloce)</span>
     </label>
     <p id="upload-preview" class="muted">Nessun file selezionato.</p>
     <div class="actions">
@@ -87,6 +111,7 @@
       const data = new FormData();
       files.forEach(function (f) { data.append('files', f, f.webkitRelativePath || f.name); });
       data.append('gliner', document.getElementById('upload-gliner').checked ? 'true' : 'false');
+      data.append('ai_rate', document.getElementById('upload-ai-rate').value);
       submit.disabled = true;
       submit.textContent = 'Caricamento…';
       fetch('{{ url_for("scan_upload") }}', { method: 'POST', body: data })

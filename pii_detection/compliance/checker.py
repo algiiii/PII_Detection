@@ -27,10 +27,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from pii_detection.compliance.types import ComplianceReport, RetentionFlag
+from pii_detection.extraction.dates import as_utc
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.types import Document, PIIInstance
 from pii_detection.ropa.repository import ROPARepository
-from pii_detection.ropa.types import MappingState, ProcessingActivity
+from pii_detection.ropa.types import (
+    DeclaredMacroCategory,
+    MappingState,
+    ProcessingActivity,
+)
 
 #: Average length of a month in days, for the approximate document-age estimate.
 _DAYS_PER_MONTH = 30.44
@@ -49,6 +54,25 @@ class CheckResult:
     coverage: dict[int, str | None]
 
 
+def _macro_types(macro: DeclaredMacroCategory, *, include_proposed: bool) -> set[str]:
+    """Union of the ``pii_type`` ids declared under one macro-category.
+
+    The single place where the "which categories count?" rule lives, so the
+    coverage comparison and the retention check cannot disagree about it.
+
+    :param macro: the macro-category, with its categories loaded.
+    :param include_proposed: also count ``PROPOSED`` mappings; by default only
+        DPO-``CONFIRMED`` categories contribute to the authoritative verdict.
+    :returns: the set of declared ``pii_type`` ids.
+    """
+    return {
+        pii_type
+        for category in macro.categories
+        if include_proposed or category.mapping_state is MappingState.CONFIRMED
+        for pii_type in category.pii_types
+    }
+
+
 def _declared_types(activity: ProcessingActivity, *, include_proposed: bool) -> set[str]:
     """Union of ``pii_type`` ids declared by an activity's categories.
 
@@ -59,9 +83,7 @@ def _declared_types(activity: ProcessingActivity, *, include_proposed: bool) -> 
     """
     types: set[str] = set()
     for macro in activity.macro_categories:
-        for category in macro.categories:
-            if include_proposed or category.mapping_state is MappingState.CONFIRMED:
-                types.update(category.pii_types)
+        types |= _macro_types(macro, include_proposed=include_proposed)
     return types
 
 
@@ -88,12 +110,12 @@ def _approx_age_months(reference: datetime, now: datetime) -> int:
 
     Naive ``reference`` values (as SQLite may return) are read as UTC.
 
-    :param reference: the document's reference date (its file ``mtime``).
+    :param reference: the document's reference date (see
+        :func:`~pii_detection.extraction.dates.reference_date`).
     :param now: the current time.
     :returns: the whole number of months elapsed, floored at 0.
     """
-    ref = reference if reference.tzinfo is not None else reference.replace(tzinfo=timezone.utc)
-    days = (now - ref).days
+    days = (now - as_utc(reference)).days
     return max(0, int(days // _DAYS_PER_MONTH))
 
 
@@ -108,7 +130,7 @@ def build_report(
 ) -> CheckResult:
     """Compute the compliance verdict (pure, no I/O).
 
-    :param document: the document being checked (for its ``source_modified_at``).
+    :param document: the document being checked (for its ``reference_date``).
     :param activities: the resolved activities the document is associated with, in
         assignment order (an id that could not be resolved is not here).
     :param unknown_activity_ids: associated ids that the ROPA did not resolve.
@@ -153,27 +175,37 @@ def build_report(
             None,
         )
 
-    # Approximate retention: a category kept past its declared limit while some of
-    # its data is still present in the document.
+    # Approximate retention. Every declared macro-category whose data is still in
+    # the document yields one of two outcomes: a breach, when the document is older
+    # than the declared limit, or an "unverifiable" note, when the register states a
+    # criterion instead of a duration. The second does not depend on the document's
+    # date — it is a gap in the register, not in the document — which is why it is
+    # computed outside the date guard: a document whose date is unknown still has
+    # categories nobody can check.
     retention_flags: list[RetentionFlag] = []
-    if document.source_modified_at is not None:
-        age_months = _approx_age_months(document.source_modified_at, now)
-        for activity in activities:
-            for macro in activity.macro_categories:
-                if macro.retention_months is None:
-                    continue
-                macro_types = {t for category in macro.categories for t in category.pii_types}
-                present = macro_types & detected
-                if present and age_months > macro.retention_months:
-                    retention_flags.append(
-                        RetentionFlag(
-                            activity_id=activity.id,
-                            category=macro.raw_text,
-                            retention_months=macro.retention_months,
-                            age_months=age_months,
-                            pii_types=tuple(sorted(present)),
-                        )
+    retention_unresolved: list[str] = []
+    age_months = (
+        _approx_age_months(document.reference_date, now)
+        if document.reference_date is not None
+        else None
+    )
+    for activity in activities:
+        for macro in activity.macro_categories:
+            present = _macro_types(macro, include_proposed=include_proposed) & detected
+            if not present:
+                continue
+            if macro.retention_months is None:
+                retention_unresolved.append(macro.raw_text)
+            elif age_months is not None and age_months > macro.retention_months:
+                retention_flags.append(
+                    RetentionFlag(
+                        activity_id=activity.id,
+                        category=macro.raw_text,
+                        retention_months=macro.retention_months,
+                        age_months=age_months,
+                        pii_types=tuple(sorted(present)),
                     )
+                )
 
     report = ComplianceReport(
         document_id=document.document_id,
@@ -184,6 +216,7 @@ def build_report(
         missing=tuple(sorted(missing)),
         unresolved=tuple(unresolved),
         retention_flags=tuple(retention_flags),
+        retention_unresolved=tuple(retention_unresolved),
     )
     return CheckResult(report=report, coverage=coverage)
 
@@ -195,6 +228,7 @@ def check_document(
     registry: PIIRepository,
     include_proposed: bool = False,
     persist_coverage: bool = True,
+    now: datetime | None = None,
 ) -> ComplianceReport:
     """Check a document against its declared activities and persist the outcome (B7).
 
@@ -211,6 +245,9 @@ def check_document(
         only DPO-confirmed ones contribute.
     :param persist_coverage: write the per-instance coverage back to the registry;
         set ``False`` for a read-only verdict (e.g. rendering a page on a ``GET``).
+    :param now: current time, injectable so the retention outcome is deterministic
+        end-to-end and not only in :func:`build_report`; defaults to the current
+        UTC time.
     :returns: the compliance verdict.
     :raises KeyError: if the document was never recorded.
     :raises ValueError: if the document has no activity association (run B6 first).
@@ -234,7 +271,12 @@ def check_document(
 
     instances = registry.instances_for(document_id)
     result = build_report(
-        document, activities, unknown, instances, include_proposed=include_proposed
+        document,
+        activities,
+        unknown,
+        instances,
+        include_proposed=include_proposed,
+        now=now,
     )
     if persist_coverage:
         registry.apply_coverage(document_id, result.coverage)

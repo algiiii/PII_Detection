@@ -1,0 +1,544 @@
+\chapter{Implementazione}
+\label{cap:implementazione}
+
+% -- B1 --
+\section{Ingestione del ROPA - B1}
+\label{sec:impl-b1-ingestione}
+
+Il blocco B1 realizza il percorso che porta un registro dei trattamenti, così come lo compila un'organizzazione, alla rappresentazione interna descritta nell'approfondimento sul modello (§\ref{sub:impl-b1-mappatura}). La realizzazione segue il principio \emph{sottrattivo} già motivato in architettura --- del documento sorgente si conserva soltanto ciò che alimenta la verifica di conformità --- e lo traduce in una catena di tre step indipendenti (lettura, interpretazione, persistenza), seguiti da una passata separata di mappatura assistita. Ogni passo è un modulo a sé, così che un cambiamento di formato del file o di strategia di mappatura non tocchi gli altri. La Figura~\ref{fig:impl-b1-catena} riassume la catena e le due interazioni che la circondano: la passata di mappatura e le operazioni del DPO.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			block/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			ai/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			store/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+					minimum height=1.6cm, minimum width=2.8cm, align=center, fill=gray!10, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=purple!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Catena: lettura -> interpretazione (riga y=0) ---
+		\node (file)   [io]    at (-5.2, 0) {Registro ODS/XLSX\\(template CNIL)};
+		\node (reader) [block] at (0,    0) {\texttt{sheet\_reader}\\(odfpy / openpyxl)};
+		\node (norm)   [block] at (5.2,  0) {\texttt{normalizer}\\(ricerca per etichette)};
+
+		% --- Persistenza e mappatura assistita (riga y=-2.8) ---
+		\node (repo)   [block] at (5.2,  -2.8) {\texttt{ROPARepository}};
+		\node (db)     [store] at (0,    -2.8) {\texttt{ropa.db}};
+		\node (mapper) [ai]    at (-5.2, -2.8) {\texttt{CategoryMapper}\\(dizionario / LLM / ibrido)};
+		\node [font=\scriptsize\itshape, align=center, anchor=north] at (-5.2, -3.55)
+		{passata separata,\\idempotente};
+
+		% --- DPO (riga y=-5.4) ---
+		\node (dpo) [human] at (0, -5.4) {DPO\\(review \texttt{/ropa})};
+
+		% --- Catena ---
+		\draw [arrow] (file.east)   -- (reader.west);
+		\draw [arrow] (reader.east) -- node[above, font=\footnotesize]{righe} (norm.west);
+		\draw [arrow] (norm.south)  -- node[left, font=\footnotesize]{\texttt{ProcessingActivity}} (repo.north);
+		\draw [arrow] (repo.west)   -- (db.east);
+
+		% --- Mappatura: legge le categorie non risolte, scrive proposte ---
+		\draw [arrow] ([yshift=3mm]db.west) -- node[above, font=\footnotesize]{non risolte} ([yshift=3mm]mapper.east);
+		\draw [arrow] ([yshift=-3mm]mapper.east) -- node[below, font=\footnotesize]{\texttt{PROPOSED}} ([yshift=-3mm]db.west);
+
+		% --- DPO: le due sole operazioni ammesse ---
+		\draw [arrow] (dpo.north) -- node[right, font=\footnotesize]{conferma le mappature} (db.south);
+		\draw [arrow] (dpo.west) -- ++(-5.9,0) |- (file.west);
+
+	\end{tikzpicture}
+	\caption[Blocco B1: catena di ingestione del ROPA e mappatura assistita]{Blocco B1: la catena di ingestione (lettura, interpretazione, persistenza) e ciò che la circonda. La mappatura verso i \texttt{pii\_type} è una passata separata dal parsing deterministico e scrive solo proposte (\texttt{PROPOSED}); il DPO interagisce dalla review web con le due sole operazioni ammesse --- importare un registro e confermare le mappature (§\ref{sub:ropa-fonte-normativa}).}
+	\label{fig:impl-b1-catena}
+\end{figure}
+
+\subsection{Uso del template CNIL}
+\label{sub:impl-b1-formato}
+
+La fonte è il \textbf{modello di registro ufficiale della CNIL}, l'autorità francese per la protezione dei dati \cite{cnilRegistreModeleBasique}: un foglio di calcolo (ODS/XLSX) con una scheda operativa (\emph{fiche}) per ciascun trattamento, oltre a schede di servizio (tutorial, elenco dei trattamenti, un modello vuoto da replicare, liste di supporto). Basarsi su un template condiviso e testato, rende la funzionalità dimostrabile su un input che un'organizzazione userebbe davvero. Nella \emph{fiche}, l'ingestione modella \textbf{una sola sezione} --- «\texttt{Categories of personal data}», con le sue colonne \emph{categoria}, \emph{descrizione} e \emph{periodo di conservazione} --- e scarta deliberatamente tutte le altre (attori, finalità secondarie, categorie di interessati, destinatari, trasferimenti, misure di sicurezza), coerentemente con la scelta sottrattiva. È questa sezione, e solo questa, a fornire il dichiarato che B7 confronterà con il rilevato.
+
+\subsection{Lettura: un'unica forma per ODS ed Excel}
+\label{sub:impl-b1-lettura}
+
+Il primo passo (\texttt{sheet\_reader}) legge una fiche formattata in tabella, dietro un'interfaccia \textbf{indipendente dal formato} (\emph{Adapter}): l'estensione del file decide il \textit{back-end} --- \texttt{.ods} tramite \texttt{odfpy}, \texttt{.xlsx}/\texttt{.xlsm} tramite \texttt{openpyxl} --- ma entrambi restituiscono la stessa struttura, così che il passo interpretativo in seguito ignori del tutto la provenienza. Un dettaglio pratico del formato ODS ha richiesto attenzione: nel modello CNIL diverse celle portano un \textbf{commento} d'aiuto (il «triangolino rosso»), che nel documento risiede \emph{dentro} la cella come annotazione. Letto ingenuamente, quel testo verrebbe concatenato davanti al valore reale (per esempio «\texttt{Cf.\ Article~87\ldots{}Social Security Number}»); il lettore esclude perciò i paragrafi contenuti nelle annotazioni, restituendo il solo valore della cella. È una piccola scelta di robustezza, ma tocca proprio la sezione che si vuole conservare, e come tale è coperta da test sul file CNIL originale.
+
+\subsection{Interpretazione: guidata dalle etichette, non dalle posizioni}
+\label{sub:impl-b1-normalizer}
+
+Il secondo passo (\texttt{normalizer}) trasforma la tabella in un'attività di trattamento. La regola cardine è che le informazioni si cercano per \textbf{etichetta}: il nome del trattamento è il valore accanto alla cella «\texttt{Name of the processing operation}», la finalità quello accanto a «\texttt{Main purpose}», e le categorie sono le righe che seguono l'intestazione «\texttt{Categories of personal data}» fino alla prima riga vuota. Così la lettura supporta spostamenti di righe e la presenza delle numerose sezioni ignorate. La stessa regola fa da filtro naturale sulle schede da non processare: una scheda priva del nome di trattamento --- come nel template: il tutorial, le liste, il modello \emph{vuoto} --- non è un'attività e viene saltata sollevando un errore che il chiamante intercetta, sicché un intero \emph{workbook} CNIL produce esattamente un'attività per ogni \emph{fiche} compilata. Il periodo di conservazione, infine, viene reso \textbf{calcolabile}: la dicitura originale («5 years from the payment of the salary») è conservata per audit accanto a una durata in mesi estratta da essa (60), quando il testo esprime una durata fissa; resta \texttt{None} quando esprime un criterio, coerentemente con il campo del modello (§\ref{sub:impl-b1-mappatura}).
+
+\subsection{Persistenza e mappatura assistita}
+\label{sub:impl-b1-mappatura}
+
+Tre tabelle rispecchiano la gerarchia a tre livelli del registro CNIL.
+
+\paragraph*{Livello 1 - \texttt{processing\_activity}}
+\begin{description}
+	\item[\texttt{id}]: identificatore dell'attività (chiave primaria), assegnato dal chiamante.
+	\item[\texttt{name}]: nome del trattamento, per leggibilità e report al DPO.
+	\item[\texttt{purpose}]: finalità dichiarata del trattamento, elemento cardine dell'art.~30 GDPR.
+\end{description}
+
+\paragraph*{Livello 2 - \texttt{macro\_category}}
+\begin{description}
+	\item[\texttt{id}]: chiave surrogata (auto-generata).
+	\item[\texttt{activity\_id}]: chiave esterna all'attività: colloca la macro-categoria nella gerarchia.
+	\item[\texttt{raw\_text}]: dicitura originale della macro-categoria, conservata per audit.
+	\item[\texttt{retention\_text}]: dicitura originale del periodo di conservazione, conservata per audit.
+	\item[\texttt{retention\_months}]: la stessa conservazione resa \textbf{calcolabile dalla macchina} (durata in mesi), affinché il controllo di retention (B7) sia un confronto e non una lettura di prosa; vale \texttt{None} quando il registro esprime un criterio anziché una durata fissa.
+\end{description}
+
+\paragraph*{Livello 3 - \texttt{declared\_category}}
+\begin{description}
+	\item[\texttt{id}]: chiave surrogata.
+	\item[\texttt{macro\_category\_id}]: chiave esterna alla macro-categoria di appartenenza.
+	\item[\texttt{raw\_text}]: testo libero originale della categoria (es.\ «nome»), conservato per audit.
+	\item[\texttt{pii\_types}]: l'insieme di \texttt{pii\_type} del catalogo condiviso a cui la categoria è ricondotta: è l'\textbf{aggancio} che rende il confronto fra ciò che il ROPA \emph{dichiara} e ciò che il motore \emph{rileva} (B7) una semplice operazione insiemistica.
+	\item[\texttt{mapping\_state}]: stato del mapping (\texttt{PROPOSED} dall'analisi iniziale / \texttt{CONFIRMED} dal DPO)
+\end{description}
+
+Il terzo passo affida l'attività così ottenuta al \texttt{ROPARepository}, che la scrive nella base dati ROPA riutilizzando lo stesso modello di dominio come schema (\emph{Active Record}, §\ref{sec:implementazione-persistenza-tecnologia}). La risoluzione delle categorie sui \texttt{pii\_type} del catalogo condiviso con la detection --- l'aggancio verso il rilevamento --- è invece una azione separata, non parte del parsing deterministico: per ogni categoria ancora non risolta, un meccanismo allineato con il contratto \texttt{CategoryMapper} propone i \texttt{pii\_type} corrispondenti al suo testo libero. La strategia è intercambiabile --- un \textbf{dizionario} deterministico (parole chiave), un \textbf{modello generativo} (§\ref{sec:scelta-modello-llm}) o una combinazione dei due --- e la passata è \textbf{idempotente}: ciò che il mapper non sa risolvere resta invariato, così una riesecuzione mappa solo ciò che è nuovo. Il risultato è comunque una \emph{proposta}: lo stato del mapping resta \texttt{PROPOSED} finché il DPO non lo conferma, a ribadire che l'AI arricchisce ma non decide.
+
+L'interazione del DPO avviene tramite un'interfaccia web dedicata (blocco B8 \ref{sec:impl-b8}, la review montata sotto \texttt{/ropa}), da cui può confermare le mappature e \textbf{importare} un registro caricandone il file dal browser --- il file viaggia verso il servizio come \emph{byte} via \emph{multipart}, coerente con il deployment containerizzato in cui l'applicazione non accede al file system del client. L'import riusa senza modifiche la catena di ingestione appena descritta: la stessa lettura, la stessa interpretazione, lo stesso mapping.
+
+Quelle due sono le sole operazioni disponibili, ed è una scelta dettata dal requisito che tratta il registro fornito come riferimento dichiarativo autoritativo (§\ref{sub:ropa-fonte-normativa}). La copia interna è una proiezione del file dell'organizzazione, non una sua versione modificabile: se dall'interfaccia si potessero aggiungere categorie, correggere durate o cancellare trattamenti, si otterrebbero due registri divergenti --- quello che fa fede presso il titolare e quello su cui il sistema calcola --- senza che nulla dica quale dei due valga. Ciò che il sistema può fare su un registro carente resta perciò quanto il requisito prescrive: \emph{segnalarne} le lacune nel resoconto finale. L'unica scrittura ammessa riguarda le mappature verso il catalogo dei \texttt{pii\_type}, che non sono un campo del ROPA ma l'aggancio interno fra dichiarato e rilevato, e che il DPO conferma esplicitamente.
+
+% -- B2 --
+\section{Analisi struttura file system - B2}
+\label{sec:impl-b2-analisi-fs}
+Non realizzato, motivazioni nella sezione al capitolo precedente (\ref{sec:b2-analisi-struttura}) e in sviluppi futuri (\ref{cap:sviluppi-futuri}).
+
+% -- B3 --
+\section{Estrazione del testo - B3}
+\label{sec:impl-b3-estrazione}
+
+L'estrazione è realizzata da \texttt{extract\_document(path)}, che dall'estensione del file sceglie il lettore appropriato e restituisce un \texttt{NormalizedDocument} (il testo più l'identità del documento). I reader coprono i formati più diffusi in ambito \emph{consumer} ed \emph{enterprise}:
+\begin{itemize}
+	\item \texttt{.pdf} tramite PyMuPDF (testo \emph{born-digital});
+	\item \texttt{.docx} tramite python-docx;
+	\item \texttt{.txt} per lettura diretta;
+	\item i fogli \texttt{.xlsx}/\texttt{.xlsm}/\texttt{.ods} riusando il \texttt{sheet\_reader} del blocco B1 (openpyxl/odfpy), con le celle rese come testo;
+	\item il Word \emph{legacy} \texttt{.doc} tramite il binario di sistema \texttt{antiword}, presente nell'immagine container (assente in locale, il file finisce in errore e il lotto prosegue).
+\end{itemize}
+L'elenco dei formati ha un'unica fonte (\texttt{supported\_suffixes()}), così che anteprima, scansione e lettore lo ereditino. OCR, layout multi-colonna e formati come \texttt{.xls}/\texttt{.rtf} restano fuori ambito (§\ref{cap:sviluppi-futuri}).
+
+L'estrazione stima la \textbf{data di riferimento} del documento (\texttt{extraction/dates.py}), che alimenta il controllo di conservazione (B7, §\ref{sub:b7-retention}). \texttt{reference\_date(path)} interroga per primi i metadati interni del file --- \texttt{modDate}/\texttt{creationDate} del PDF, le \emph{core properties} di DOCX e XLSX --- e ricade sul \emph{mtime} del file system solo quando non trova nulla di utilizzabile, restituendo un \texttt{ReferenceDate} che porta con sé la \textbf{provenienza} (\texttt{DateSource}: \texttt{content\_metadata} oppure \texttt{file\_mtime}), sicché il verdetto di conformità può dichiarare quanto vale la stima che espone. È stato introdotto un controllo di plausibilità, scartando le date anteriori al 1990 o collocate nel futuro e passa al candidato successivo; metadati illeggibili non sollevano un'eccezione ma ricadono sul \emph{mtime}.
+
+% -- TECNOLOGIA DI PERSISTENZA --
+\section{Tecnologia di persistenza}
+\label{sec:implementazione-persistenza-tecnologia}
+
+Il modello concettuale della persistenza --- il registro delle PII rilevate (§\ref{sub:dati-registro-pii}) e la gerarchia del registro ROPA (§\ref{sub:impl-b1-mappatura}) --- è \textit{technology-agnostic}: sono state valutate più opzioni come la realizzazione. I candidati erano due:
+\begin{itemize}
+	\item una base dati \textbf{relazionale} (SQLite), che offre \textit{join} e interrogazioni relazionali «gratuite» ed è coerente col deployment locale in container senza servizi esterni;
+	\item una persistenza \textbf{su file semi-strutturati} (JSON/JSONL), più leggera ma priva di garanzie relazionali native.
+\end{itemize}
+
+La scelta è ricaduta su \textbf{SQLite}, per ragioni che discendono dalla natura del dato e dai vincoli di progetto:
+\begin{itemize}
+	\item \textbf{Il dato è intrinsecamente relazionale.} Entrambi i registri sono grafi di entità legate da chiavi esterne (documento--scansione--istanza; attività--macro-categoria--categoria) e le interrogazioni che servono ai blocchi a valle --- stato corrente di un documento, PII orfane, confronto dichiarato-vs-rilevato --- sono \textit{join} e operazioni insiemistiche che un motore relazionale risolve nativamente. Su file JSON andrebbero reimplementate a mano, riscrivendo ciò che un DBMS offre già.
+	\item \textbf{SQLite è \emph{embedded}, senza server.} È un singolo file, nessun processo o servizio esterno da gestire: coerente col deployment containerizzato e, soprattutto, con la \textbf{minimizzazione del dato} --- i dati non lasciano l'infrastruttura on-premise e nessun servizio di terzi è coinvolto.
+	\item \textbf{La porta per accedere è sempre disponibile.} SQLModel poggia su SQLAlchemy: migrare a un RDBMS in rete (ad esempio PostgreSQL), qualora si superi il singolo nodo, cambia l'URL di connessione --- letto da variabile d'ambiente (§\ref{sec:containerizzazione}) --- e non il modello dei dati.
+\end{itemize}
+
+La stessa tecnologia serve entrambi i registri, su due basi dati separate (variabili d'ambiente \texttt{ROPA\_DB\_URL} e \texttt{PII\_DB\_URL}); \emph{che cosa} vi si conserva, campo per campo, è spiegato nelle relative sezioni di ROPA \ref{sub:impl-b1-mappatura} e PII \ref{sub:dati-registro-pii}.
+
+% -- B4 --
+\section{Livello di rilevamento - B4}
+\label{sec:impl-detection}
+
+Le due scelte tecnologiche che governano questo livello --- costruire il rilevamento a pattern e NER sopra Presidio, e quale modello generativo adottare per gli impieghi selettivi --- non sono state compiute qui: sono l'esito degli studi condotti prima della progettazione (§\ref{sec:valutazione-presidio}, §\ref{sec:scelta-modello-llm}), la cui verifica sperimentale è nel Capitolo~\ref{cap:test}. Questa sezione ne descrive la realizzazione, e in particolare la proprietà che ne governa la manutenzione nel tempo. La Figura~\ref{fig:impl-b4-contratto} riassume la struttura: tre rilevatori dietro un unico contratto, fusi da un unico componente.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			block/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			ai/.style={rectangle, draw, dashed, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Configurazione dichiarativa (alimenta il livello pattern) ---
+		\node (yaml) [io] at (-4.6, 2.3) {config YAML\\(catalogo, pattern custom)};
+
+		% --- I tre rilevatori, implementazioni dello stesso contratto ---
+		\node (pattern) [block] at (-4.6, 0) {\texttt{CompositeDetector}\\(Presidio + regex custom)};
+		\node (ner)     [block] at (0,    0) {NER\\(Presidio / GLiNER)};
+		\node (llm)     [ai]    at (4.6,  0) {\texttt{LLMDetector}\\(slot opzionale \texttt{ai})};
+
+		% --- Contratto comune: il merge non distingue chi ha prodotto i candidati ---
+		\begin{scope}[on background layer]
+			\node (contract) [draw, dashed, rounded corners, inner sep=5mm,
+				fit=(pattern)(ner)(llm)] {};
+		\end{scope}
+		\node [font=\footnotesize\itshape, anchor=south west, inner sep=3pt]
+		at (contract.north west) {contratto \texttt{PIIDetector}};
+
+		% --- Fusione ---
+		\node (merge)  [block] at (0, -2.8) {\texttt{MergeEngine}};
+		\node (output) [io]    at (0, -4.8) {\texttt{PIIMatch}};
+		\node [font=\scriptsize\itshape, align=center, anchor=north] at (0, -5.35)
+		{\texttt{confidence} \(\cdot\) \texttt{confirmation\_level} \(\cdot\) \texttt{sources}};
+
+		% --- Frecce ---
+		\draw [arrow] (yaml.south) -- (pattern.north);
+		\draw [arrow] (pattern.south) |- (merge.west);
+		\draw [arrow] (ner.south) -- (merge.north);
+		\draw [arrow] (llm.south) |- (merge.east);
+		\draw [arrow] (merge.south) -- (output.north);
+
+	\end{tikzpicture}
+	\caption[Blocco B4: i tre rilevatori dietro il contratto \texttt{PIIDetector}]{La realizzazione del livello di rilevamento: tre rilevatori intercambiabili dietro lo stesso contratto \texttt{PIIDetector} --- il livello a pattern, esteso dalla configurazione dichiarativa (§\ref{sub:estensibilita-detection}); il NER; il rilevatore generativo, slot opzionale della scansione --- fusi dal \texttt{MergeEngine} in \texttt{PIIMatch}, dove la certezza del rilevamento è un insieme di campi. Il flusso concettuale della pipeline è in Figura~\ref{fig:b4-detection-pipeline}.}
+	\label{fig:impl-b4-contratto}
+\end{figure}
+
+\subsection{Estensibilità config-driven: aggiungere categorie e pattern}
+\label{sub:estensibilita-detection}
+
+Una proprietà di progetto del livello di rilevamento è che il suo vocabolario non è \emph{hard-coded} nel codice ma \textbf{dichiarato in configurazione}. Il catalogo delle categorie di PII (\texttt{categories.yaml}) e i pattern a espressioni regolari personalizzati (\texttt{custom\_patterns.yaml}) sono file validati al caricamento; aggiungere una nuova categoria o un nuovo identificatore strutturato --- un codice aziendale, un riferimento interno, un numero di settore --- è quindi una \textbf{modifica di configurazione, non di codice}. Le regole così dichiarate vengono eseguite a runtime dal detector (\texttt{RegexDetector}) e affiancate ai detector interni di Presidio tramite un \texttt{CompositeDetector}, così da presentarsi al merge come un'unica sorgente di pattern.
+
+La scelta separa \emph{ciò che} si rileva --- competenza del DPO o del manutentore, in configurazione --- da \emph{come} lo si rileva, cioè l'engine di detection. Il file dei pattern personalizzati è riservato agli identificatori che Presidio non copre nativamente (il numero AVS svizzero ne è il primo esempio), per non duplicare ciò che l'engine già fornisce. La validazione al caricamento --- il pattern deve compilare, ogni \texttt{pii\_type} deve esistere nel catalogo --- fa fallire subito una configurazione errata, invece di peggiorare il rilevamento senza warning o errori.
+
+\subsection{Presidio come engine}
+\label{sub:impl-presidio}
+
+Il rilevamento a pattern e a NER poggia su un unico engine, l'\texttt{AnalyzerEngine} di Presidio~\cite{HomeMicrosoftPresidio}, che è la dipendenza portante del livello: il sistema non riscrive i detector, li gestisce. Presidio è usato come \textbf{black box} --- riceve il testo e restituisce i riscontri (tipo di entità, intervallo di caratteri, punteggio): non gli vengono fornite \emph{quali} PII cercare; l'engine riporta tutte le entità che i suoi detector conoscono, ed è il sistema a \textbf{filtrarle e ricondurle} al proprio catalogo.
+
+L'incrocio fra le entità di Presidio e il vocabolario dei \texttt{pii\_type} del sistema è \textbf{dichiarato in configurazione} (\texttt{presidio\_entities.yaml}): un'entità mappata diventa un candidato del tipo corrispondente, \textbf{un'entità non mappata viene scartata}. Quando la NER è affidata a GLiNER~\cite{zaratianaGLiNERGeneralistModel2024} (§\ref{sec:scelta-modello-llm}) si aggiunge un secondo passaggio dichiarativo --- dalle etichette \emph{zero-shot} di GLiNER alle entità di Presidio --- così che il risultato ottenuto venga comunque convogliato verso l'insieme di PII supportate.
+
+Una sottigliezza realizzativa merita di essere detta, perché è ciò che tiene \emph{indipendenti} le due sorgenti che il merge poi confronta (§\ref{sub:b4-merge}). Presidio mescola in un solo engine i detector a pattern e quelli a NER; da quello stesso analyzer il sistema costruisce due detector distinti filtrandone l'output: ogni riscontro che Presidio restituisce porta con sé il nome del detector che l'ha prodotto, e i due detector si spartiscono i risultati in base a quel nome --- uno trattiene i pattern, l'altro il NER. Presidio non viene modificato: la separazione avviene sui suoi risultati, non nel suo engine di detection. Senza questa separazione le due tecniche sarebbero un'unica sorgente e non potrebbero né essere distinte né \emph{concordare} sui rilevamenti: non esisterebbe la doppia conferma. Gli identificatori che Presidio non copre nativamente --- il numero AVS svizzero --- sono infine aggiunti dal \texttt{RegexDetector} guidato da configurazione e composti coi detector di Presidio in un'unica sorgente di pattern (\texttt{CompositeDetector}, §\ref{sub:estensibilita-detection}).
+
+\subsection{Il detector generativo}
+\label{sub:impl-ai-detector}
+
+Il terzo rilevatore --- il ramo generativo (§\ref{sub:b4-ai-previsto}) --- è realizzato dietro lo stesso contratto \texttt{PIIDetector} degli altri (\texttt{LLMDetector}), così da entrare nel merge senza codice speciale. Al modello locale si chiedono i \emph{valori} delle PII, non i loro offset --- che un modello linguistico non sa contare in modo affidabile --- e ciascun valore è poi \textbf{rilocalizzato} cercandone le occorrenze nel testo: un valore inventato che nel documento non compare non viene trovato, ed è la prima difesa contro le allucinazioni; la seconda è il catalogo chiuso nel prompt, contro cui ogni tipo proposto è validato.
+
+Il modello è scelto da una variabile d'ambiente dedicata, \texttt{PII\_LLM\_MODEL}, \textbf{distinta} da quella del mapper del ROPA (\texttt{ROPA\_LLM\_MODEL}): le due funzionalità AI possono così adottare pesi diversi, pur puntando per default allo \emph{stesso} modello già presente nell'immagine container --- \texttt{phi4-mini}~\cite{abouelenin2025phi4mini} --- scelto per leggerezza e per non introdurre dipendenze. Di questa scelta va detto anche il limite: un modello piccolo e a inferenza rapida non è l'ideale per \emph{leggere} documenti di molte pagine, dove un modello più capace renderebbe di più. Lo scopo dell'impostazione è che sostituirlo costa una sola variabile d'ambiente --- il \emph{runtime} (Ollama) fornisce il nuovo modello senza altri interventi --- ed è per questo che la scelta del modello è congrua con il peso del compito da svolgere (§\ref{cap:risultati}). \emph{Quali} documenti ricevano il secondo parere è deciso, fuori dal detector, dalla policy di campionamento descritta in architettura (§\ref{sub:b4-ai-previsto}); i riscontri, comunque prodotti, portano con sé la provenienza generativa che il registro conserva (§\ref{sub:dati-registro-pii}), ed è quella provenienza --- \emph{quale} detector ha trovato \emph{che cosa} --- ad abilitare i gradi di certezza del merge.
+
+Tre accorgimenti ne fanno un rilevatore \textbf{robusto} in esercizio. Il testo è suddiviso in \emph{chunk} prima di essere sottoposto al modello, perché un documento lungo eccede la finestra di contesto utile. L'output atteso è una breve lista JSON di valori, e un \textbf{tetto ai token generati} (\texttt{num\_predict}, risolto da \texttt{resolve\_num\_predict} con un default e override via \texttt{PII\_LLM\_NUM\_PREDICT}) impedisce che un modello divaghi all'infinito --- patologia reale dei modelli \emph{reasoning} su questo compito. Soprattutto, il detector non solleva mai esplicitamente errore: se il runtime è irraggiungibile o la risposta non è JSON valido, il \emph{chunk} viene saltato e si restituisce un insieme vuoto, così un'AI indisponibile non fa fallire una scansione ma la priva soltanto del secondo parere.
+
+\subsection{Il merge: realizzazione}
+\label{sub:impl-merge}
+
+Il merge (§\ref{sub:b4-merge}) è realizzato da un unico componente (\texttt{MergeEngine}) che collassa i candidati delle sorgenti direttamente in \texttt{PIIMatch}, il tipo con cui le PII proseguono verso il registro. Non esistono tipi intermedi: la certezza di una rilevazione \emph{è} un insieme di campi del \texttt{PIIMatch} --- \texttt{confidence}, \texttt{confirmation\_level}, \texttt{sources}. Il merge incrocia i candidati per \textbf{sovrapposizione degli intervalli nel testo}: quelli che si sovrappongono e concordano sul tipo si fondono in una doppia (o tripla) conferma con confidenza maggiorata; quelli che si sovrappongono ma discordano restano \textbf{entrambi}, marcati come in conflitto, senza che il merge arbitri. Il candidato generativo entra per ultimo, nel doppio ruolo --- conferma o scoperta --- descritto in architettura. Il tutto secondo l'impostazione \textbf{recall-oriented}: nessun candidato viene scartato, al massimo segnalato come meno certo.
+
+\subsection{La politica di campionamento}
+\label{sub:impl-ai-policy}
+
+La decisione su \emph{quali} documenti ricevano il secondo parere è tenuta \textbf{fuori} dal rilevatore, in una politica a sé e senza stato (\texttt{AITriggerPolicy}). Il rilevatore generativo non è fisso nella pipeline ma occupa uno \textbf{slot opzionale} (\texttt{ai}): assente lo slot, la scansione è puramente tradizionale. La selezione del campione avviene per \textbf{hash del percorso} (\texttt{blake2b}, non l'hash di processo), così il sottoinsieme è \emph{casuale ma riproducibile} e sparso nell'albero delle cartelle, non concentrato sui primi file di ogni blocco.
+
+\subsection{Il benchmark multi-modello}
+\label{sub:impl-ai-benchmark}
+
+Poiché chiedersi se l'AI vale il suo costo è nello scope di questo lavoro, la realizzazione include l'apparato per rispondervi: un benchmark (\texttt{run\_ai\_benchmark}) che misura, sullo stesso corpus e con lo stesso metro delle sorgenti tradizionali, tre configurazioni --- la sola baseline tradizionale, l'AI da sola (\texttt{ai:}\emph{modello}) e la loro unione (\texttt{union:}\emph{modello}) --- su più modelli raggruppati in tre fasce di taglia. Per ciascuna riporta qualità (precision, recall, F1, anche \textbf{per categoria}) e costo (secondi per documento ed energia stimata per documento, quest'ultima come confronto via \emph{codecarbon}). Alcune cautele nascono dall'esecuzione reale su CPU: il tetto \texttt{num\_predict} che rende ogni modello \emph{bounded}, e il vincolo di un solo modello residente in memoria (\texttt{OLLAMA\_MAX\_LOADED\_MODELS}) per non esaurire la RAM caricandone cinque in fila. I numeri che ne risultano sono l'oggetto del Capitolo~\ref{cap:test} e del Capitolo~\ref{cap:risultati}; qui rileva che la misura è \textbf{riproducibile}.
+
+% -- B5 --
+\section{Registro PII rilevate - B5}
+\label{sec:impl-b5}
+\label{sub:dati-registro-pii}
+
+Queste tabelle sono lo schema del registro-snapshot descritto in architettura (§\ref{sec:b5-DB-PII}): conservano lo stato corrente delle PII per documento --- non la loro storia nel tempo, semplificazione motivata fra gli sviluppi futuri (§\ref{sec:sf-tracciamento-temporale}) --- e mai il valore del dato (minimizzazione, §\ref{sub:minimizzazione}), come si vede campo per campo qui sotto.
+
+Tre tabelle realizzano il registro delle PII rilevate: il documento, la scansione e la singola istanza rilevata, che ne è lo \textbf{stato corrente}. Una quarta tabella, \texttt{registry\_folder\_rule}, risiede nella stessa base dati ma appartiene al blocco di associazione ed è perciò descritta con esso (B6, §\ref{sub:b6-associazione}). È nella tabella delle istanze che la minimizzazione si vede nel dettaglio.
+
+\paragraph*{Il documento analizzato - \texttt{registry\_document}}
+\begin{description}
+	\item[\texttt{document\_id}]: identificatore del documento (chiave primaria), coerente con il \texttt{document\_id} prodotto da B3; nella scansione ricorsiva di una cartella è il \textbf{percorso relativo} (POSIX) alla radice, ciò che consente alle regole cartella→trattamento di combaciare per prefisso (§\ref{sub:b6-associazione}).
+	\item[\texttt{path}]: percorso originale del file, come riferimento; opzionale.
+	\item[\texttt{first\_seen}]: istante di prima registrazione del documento.
+	\item[\texttt{activity\_ids}]: gli identificatori dei trattamenti dichiarati a cui il documento è associato (B6): è una \textbf{lista} (cardinalità N:N, §\ref{sub:b6-associazione}) e i suoi valori riferiscono \texttt{ProcessingActivity} nell'altra base dati, come collegamento \emph{logico} senza chiave esterna fisica.
+	\item[\texttt{association\_source}]: la \textbf{provenienza} dell'associazione --- \texttt{MANUAL} (impostata dal DPO) oppure \texttt{RULE} (derivata da una regola cartella→trattamento) --- oppure \texttt{None} se il documento non è ancora associato. È il campo che permette di dare priorità alla regole manuale.
+	\item[\texttt{reference\_date}]: la data cui il documento si assume risalga, letta dai metadati interni del file quando li possiede e dal file system altrimenti, usata come età del contenuto per il controllo \emph{approssimato} di conservazione (B7, §\ref{sub:b7-retention}); è un \emph{riferimento}, non un valore di PII. Vale \texttt{None} se ignota.
+	\item[\texttt{reference\_date\_source}]: la provenienza della data nel campo precedente.
+	\item[\texttt{source\_mtime}, \texttt{source\_size}]: l'impronta \emph{tecnica} del file osservata all'ultima analisi: serve unicamente a stabilire se il file sia cambiato e vada quindi rianalizzato.
+	\item[\texttt{last\_scanned\_at}]: il momento dell'ultima analisi effettiva del documento; una scansione in cui esso venga omesso perché invariato non lo aggiorna.
+	\item[\texttt{detector\_signature}]: l'impronta della configurazione di rilevamento con cui le istanze correnti sono state prodotte: se cambia, il documento va rianalizzato anche a file immutato.
+\end{description}
+Il vocabolario di \texttt{association\_source} è un enum (\texttt{AssociationSource}: \texttt{MANUAL}/\texttt{RULE}), come per gli altri campi a dominio fissato del modello.
+
+Due campi temporali del documento rispondono a domande distinte e non vanno confusi. La \texttt{reference\_date} è una grandezza \textbf{semantica}: dice quanto è vecchio il \emph{contenuto}, può provenire dall'interno del file ed è ciò su cui lavora il controllo di conservazione. La coppia \texttt{source\_mtime}/\texttt{source\_size} è invece un dato \textbf{tecnico}: descrive lo stato del file su disco all'ultima analisi e serve a stabilire se valga la pena rileggerlo. Impiegare la prima anche per la seconda domanda produrrebbe un errore difficilmente rilevabile, perché la data di modifica interna di un PDF resta spesso invariata quando il file viene riscritto: un documento effettivamente modificato apparirebbe intatto e verrebbe saltato indefinitamente. Per questa seconda domanda bastano \texttt{mtime} e dimensione: non si calcola un \emph{hash} del contenuto, che richiederebbe di leggere ogni byte di ogni file --- proprio il lavoro che la rilettura selettiva serve a evitare. Entrambi i campi, come la \texttt{reference\_date}, si riscrivono solo quando la scansione ha effettivamente letto il file: la riconciliazione dei documenti spariti dal disco non ne legge alcuno, e non deve perciò sovrascrivere quanto registrato dall'ultima lettura reale.
+
+\paragraph*{Singola analisi - \texttt{registry\_scan}}
+\begin{description}
+	\item[\texttt{id}]: chiave surrogata.
+	\item[\texttt{document\_id}]: chiave esterna al documento analizzato.
+	\item[\texttt{created\_at}]: istante in cui la scansione è stata eseguita.
+\end{description}
+
+\paragraph*{Singola PII in un certo momento - \texttt{registry\_pii\_instance}}
+Nessuna colonna di questa tabella contiene il \emph{valore} della PII: è il punto in cui la minimizzazione diventa concreta.
+\begin{description}
+	\item[\texttt{id}]: chiave surrogata.
+	\item[\texttt{document\_id}]: chiave esterna al documento che la contiene.
+	\item[\texttt{pii\_type}]: la categoria del catalogo condiviso (es.\ \texttt{iban}) --- \emph{non} il valore.
+	\item[\texttt{start}, \texttt{end}]: la \textbf{posizione} come intervallo di caratteri nel testo normalizzato: un riferimento a \emph{dove} si trova la PII, non al suo contenuto.
+	\item[\texttt{confidence}]: confidenza aggregata dal merge, per consentire al DPO ordinamento e soglie.
+	\item[\texttt{confirmation\_level}]: esito del merge (\texttt{single\_source} / \texttt{double\_confirmed} / \texttt{conflicting} / \texttt{ai\_discovered}): traccia \emph{quanto} è certo il rilevamento.
+	\item[\texttt{sources}]: gli identificatori dei detector che l'hanno trovata: traccia \emph{chi} l'ha rilevata (tracciabilità, §2.7.3).
+	\item[\texttt{processing\_activity\_id}]: l'attività dichiarata a cui la PII corrisponde, oppure \texttt{None} se la PII è \textbf{orfana} (non riconducibile ad alcun trattamento); popolata dal blocco di associazione (B6), senza chiave esterna fisica finché i due database restano distinti.
+	\item[\texttt{last\_scan\_id}]: chiave esterna alla scansione che ha registrato l'istanza.
+\end{description}
+
+Ogni scansione \textbf{sostituisce} le istanze del documento con ciò che vi trova ora: la tabella descrive lo \textbf{stato corrente} delle PII del documento, non la loro storia nel tempo.
+L'\textbf{assenza} di un campo \texttt{value}/\texttt{text} è una scelta di progetto, non una dimenticanza: garantisce che un registro di conformità non si trasformi a sua volta in un archivio di dati personali.
+
+In sintesi: il registro ROPA conserva il dichiarato (con il testo originale accanto alla forma strutturata, per audit), mentre il registro delle PII conserva soltanto \emph{riferimenti} a ciò che è stato rilevato --- mai i valori. I due Database restano separati; i campi \texttt{Document.activity\_ids} (associazione N:N, B6) e \texttt{PIIInstance.processing\_activity\_id} (trattamento giustificante per singola PII, popolato da B7) sono i punti in cui le due macro categorie di dati del sistema si collegano \emph{logicamente}, sull'identificatore-stringa del trattamento.
+
+\subsection{Scansione incrementale}
+\label{sub:impl-b5-incrementale}
+
+Rileggere ogni documento a ogni esecuzione è il costo dominante di una scansione periodica, e su un albero aziendale è quasi tutto lavoro inutile: fra una passata e l'altra la maggior parte dei file non cambia (requisito §\ref{sub:rianalisi-incrementale}). Prima di estrarre il testo, la scansione confronta perciò \texttt{mtime} e dimensione correnti con quelli registrati all'ultima analisi (\texttt{FileStamp} e \texttt{needs\_rescan} in \texttt{registry/freshness.py}); se coincidono e la \texttt{detector\_signature} non è cambiata, il documento non viene riletto.
+
+Il confronto è per \textbf{differenza}. Un file ripristinato da un backup a una versione precedente ha un \texttt{mtime} più vecchio di quello registrato, ma il suo contenuto è cambiato quanto quello di un file modificato: un criterio del tipo «più recente di» lo escluderebbe da ogni analisi successiva. Una tolleranza di un secondo (\texttt{tolerance\_seconds}) assorbe le diverse granularità dei timestamp fra filesystem, che altrimenti farebbero risultare modificato ogni documento.
+
+Saltare un file ha però un effetto collaterale da evitare. A fine scansione il registro viene allineato al disco: i documenti che la scansione non ha trovato sono considerati spariti e le loro PII vengono cancellate. Un file saltato perché invariato è comunque presente sul disco, e deve quindi essere contato fra quelli trovati (\texttt{seen}); in caso contrario la seconda scansione cancellerebbe le PII di tutti i file che non sono cambiati. Lo stesso valeva per un file che non si riesce a leggere: veniva escluso da quel conteggio, e le sue PII sparivano dal registro benché il file fosse al suo posto. Un documento mai analizzato con successo, infine, non viene mai considerato invariato: si ritenta a ogni esecuzione.
+
+Due casi restano fuori dall'ottimizzazione. Il primo è l'anteprima della scansione, che dichiara in anticipo quanti file verranno saltati: per non dire il falso applica lo stesso criterio della scansione vera (\texttt{count\_unchanged}). Il secondo sono i file caricati dal browser, sempre riletti per intero: vengono scritti sul server al momento dell'upload, quindi il loro \texttt{mtime} è quello del caricamento e non dice nulla sul contenuto. In ogni caso l'opzione \texttt{-{}-full} forza la rilettura completa.
+
+% -- B6 --
+\section{Associazione documento-trattamento - B6}
+\label{sec:impl-b6}
+\label{sub:b6-associazione}
+
+Il concetto dell'associazione documento--trattamento --- e la gerarchia fra le sue modalità --- è in architettura (§\ref{sec:b6-documento-trattamento}); qui se ne descrive la realizzazione. L'associazione vive \textbf{nel registro delle PII}, come attributo del documento: il campo \texttt{Document.activity\_ids} (§\ref{sub:dati-registro-pii}) è la lista dei trattamenti a cui il documento appartiene (cardinalità N:N). Il blocco offre due strade per popolarlo, entrambe a discrezione del DPO, e un meccanismo che le tiene coerenti nel tempo (Figura~\ref{fig:impl-b6-crossdb}).
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			block/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=purple!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Le due strade che popolano l'associazione ---
+		\node (dpo)  [human] at (-2.9, 2.9) {DPO\\(associazione diretta)};
+		\node (rule) [block] at (2.9,  2.9) {\texttt{FolderRule}\\(prefisso di cartella)};
+		\node [font=\scriptsize\itshape, align=center] at (0, 2.9) {il manuale\\vince};
+
+		% --- I due registri, basi dati distinte ---
+		\node (doc) [block] at (0, 0)    {\texttt{Document}\\(\texttt{activity\_ids})};
+		\node (pa)  [block] at (0, -3.2) {\texttt{ProcessingActivity}};
+
+		\begin{scope}[on background layer]
+			\node (piidb)  [draw, dashed, rounded corners, fill=gray!10, inner sep=4mm, fit=(doc)] {};
+			\node (ropadb) [draw, dashed, rounded corners, fill=gray!10, inner sep=4mm, fit=(pa)]  {};
+		\end{scope}
+		\node [font=\footnotesize\itshape, anchor=south west, inner sep=2pt]
+		at (piidb.north west) {\texttt{pii.db}};
+		\node [font=\footnotesize\itshape, anchor=south west, inner sep=2pt]
+		at (ropadb.north west) {\texttt{ropa.db}};
+
+		% --- Scritture dell'associazione, con provenienza ---
+		\draw [arrow] (dpo.south) -- ++(0,-0.8) -| ([xshift=-7mm]doc.north);
+		\draw [arrow] (rule.south) -- ++(0,-0.8) -| ([xshift=7mm]doc.north);
+		\node [font=\footnotesize, anchor=east, inner sep=2pt] at (-0.75, 1.55) {\texttt{MANUAL}};
+		\node [font=\footnotesize, anchor=west, inner sep=2pt] at (0.75, 1.55) {\texttt{RULE}};
+
+		% --- Legame cross-database: logico, senza FK ---
+		\draw [thick, dashed, -{Latex[length=2mm]}] (doc.south) --
+		node[right, align=left, font=\footnotesize]{legame logico su id-stringa\\(nessuna chiave esterna)} (pa.north);
+
+	\end{tikzpicture}
+	\caption[Blocco B6: associazione documento--trattamento e legame fra i due registri]{L'associazione documento--trattamento: le due strade che scrivono \texttt{Document.activity\_ids} --- diretta (\texttt{MANUAL}) e per regola di cartella (\texttt{RULE}, riconciliata a fine scansione) --- con la precedenza del manuale, e il legame fra i due registri: gli identificatori riferiscono \texttt{ProcessingActivity} nell'altra base dati, senza chiave esterna fisica (§\ref{sub:impl-b6-crossdb}).}
+	\label{fig:impl-b6-crossdb}
+\end{figure}
+
+\subsection{Associazione diretta e regole cartella}
+\label{sub:impl-b6-regole}
+
+L'associazione \textbf{diretta} scrive gli identificatori dei trattamenti sul singolo documento. L'associazione \textbf{per cartella} li deriva invece da una regola: una \texttt{FolderRule} mappa un \emph{prefisso di percorso} a uno o più trattamenti, e ogni documento il cui \texttt{document\_id} --- il percorso relativo POSIX prodotto dalla scansione ricorsiva (§\ref{sub:dati-registro-pii}) --- cade sotto quel prefisso eredita l'associazione, file nuovi inclusi. La logica di match è una funzione singola (\texttt{match\_activities} in \texttt{registry/folder\_rules.py}): dato un percorso, restituisce l'\textbf{unione ordinata} dei trattamenti di tutte le regole che lo coprono --- lo stesso criterio insiemistico con cui la verifica (B7) legge il dichiarato. Il prefisso è normalizzato (POSIX, senza slash finale; la stringa vuota è la radice e combacia con ogni documento), sicché il match resta un confronto testuale, senza glob né espressioni regolari.
+
+\subsection{Riconciliazione e precedenza del manuale}
+\label{sub:impl-b6-riconciliazione}
+
+Ogni documento salva la \textbf{provenienza} della propria associazione (\texttt{association\_source}: \texttt{MANUAL} o \texttt{RULE}, §\ref{sub:dati-registro-pii}), ed è questo campo a fissare la gerarchia fra le due strade: \textbf{il manuale vince}. Sono previsti tre casi possibili di riconciliazione delle regole:
+\begin{itemize}
+	\item i documenti che una regola copre vengono associati con provenienza \texttt{RULE};
+	\item i documenti a provenienza \texttt{MANUAL} sono \textbf{saltati} e restano intatti;
+	\item quelli mai associati non si toccano.
+\end{itemize}
+
+Essendo una riconciliazione completa, l'operazione è \textbf{idempotente}. Ne discende il comportamento della cancellazione: \texttt{delete\_rule} rimuove la riga-regola \emph{e poi riconcilia} (restituendo un \texttt{ApplyRulesResult} con il conteggio delle associazioni azzerate), così che l'effetto della regola sparisca subito e non alla scansione successiva.
+
+\subsection{Applicazione automatica a fine scansione}
+\label{sub:impl-b6-autoapply}
+
+Le regole si applicano come \textbf{passo separato dopo} la scansione, non durante: la scansione resta pura (rileva e registra), poi un auto-apply riconcilia il registro. Questo vale sia per il job della dashboard sia per la CLI \texttt{scan\_folder} (con \texttt{-{}-no-apply-rules} per disattivarlo). È ciò che rende l'associazione \textbf{autonoma}: una scansione associa da sola i file nuovi che ricadono sotto una regola già definita, senza intervento del DPO. L'utilizzo di \texttt{ActivityAssigner} --- con l'unica implementazione odierna, \texttt{ExplicitAssigner} --- lascia lo spazio a un proponente futuro (per contenuto o assistito dall'AI) che suggerisca l'associazione lasciando al DPO la conferma, con lo stesso schema \emph{human-in-the-loop} del mapping del ROPA (§\ref{sub:impl-b1-mappatura}).
+
+\subsection{Il collegamento fra i due database}
+\label{sub:impl-b6-crossdb}
+
+L'associazione è il punto in cui i due registri --- ROPA e PII --- si confrontano, pur restando \textbf{basi dati distinte} (§\ref{sec:implementazione-persistenza-tecnologia}). Sia \texttt{Document.activity\_ids} sia \texttt{FolderRule.activity\_ids} contengono identificatori di \texttt{ProcessingActivity}, che vivono però \emph{nell'altra} base dati: il legame è perciò \textbf{logico}, sull'identificatore-stringa del trattamento, e non una chiave esterna fisica. La separazione è ponderata e ha un costo accettabile: il join fra dichiarato e rilevato è risolto \textbf{a livello applicativo} (B7), non dal motore relazionale.
+
+\paragraph*{\texttt{registry\_folder\_rule} --- la regola cartella→trattamento}
+Fisicamente nella stessa base dati del registro delle PII, ma logicamente parte di questo blocco: mappa un prefisso di percorso ai trattamenti che i documenti sotto di esso ereditano.
+\begin{description}
+	\item[\texttt{prefix}]: il prefisso di percorso (POSIX, normalizzato senza slash finale; \texttt{""} è la radice e combacia con ogni documento). Chiave primaria.
+	\item[\texttt{activity\_ids}]: i trattamenti con cui associare i documenti che cadono sotto \texttt{prefix}; riferiscono \texttt{ProcessingActivity} nell'altra base dati (nessuna chiave esterna fisica), come \texttt{Document.activity\_ids}.
+	\item[\texttt{created\_at}]: istante di creazione della regola.
+\end{description}
+
+% -- B7 --
+\section{Verifica di conformità - B7}
+\label{sec:impl-b7-conformita}
+
+Il cuore della verifica è un confronto insiemistico, realizzato come funzione (\texttt{build\_report}) affiancata da un sottile strato di I/O (\texttt{check\_document}) che le procura gli insiemi e ne persiste l'esito. Da un lato l'insieme \textbf{dichiarato}: l'unione dei \texttt{pii\_type} di tutte le \texttt{DeclaredCategory} dei trattamenti associati al documento (§\ref{sub:b6-associazione}). Dall'altro l'insieme \textbf{rilevato}: i \texttt{pii\_type} che il registro riporta per quel documento. Il confronto assegna a ogni tipo una delle quattro voci del vocabolario chiuso descritto in architettura --- coperta, orfana, mancante, non risolvibile (§\ref{sec:b7-verifica-compliance-PII}); la Figura~\ref{fig:impl-b7-verifica} ne riassume ingressi ed esito.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			block/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.6cm,
+					minimum height=1cm, align=center, fill=green!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- I tre ingressi del confronto ---
+		\node (declared) [io] at (-5.0, 0) {Dichiarato\\(categorie \texttt{CONFIRMED})};
+		\node (retention) [io] at (0,   0) {Termine vs età\\(\texttt{retention\_months}, \texttt{reference\_date})};
+		\node (detected) [io] at (5.0,  0) {Rilevato\\(istanze del registro)};
+		\node [font=\scriptsize\itshape, align=center, anchor=south] at (-5.0, 0.6)
+		{dal ROPA, via le\\associazioni (B6)};
+		\node [font=\scriptsize\itshape, align=center, anchor=south] at (5.0, 0.6)
+		{solo \texttt{pii\_type},\\mai valori};
+
+		% --- Il confronto, funzione pura ---
+		\node (build) [block] at (0, -2.4) {\texttt{build\_report}\\(confronto insiemistico)};
+
+		% --- L'esito ---
+		\node (report) [io] at (0, -4.5) {\texttt{ComplianceReport}};
+		\node [font=\scriptsize\itshape, align=center, anchor=north] at (0, -5.05)
+		{coperte \(\cdot\) orfane \(\cdot\) mancanti \(\cdot\) non risolvibili \(\cdot\) retention};
+
+		% --- Frecce ---
+		\draw [arrow] (declared.south) |- (build.west);
+		\draw [arrow] (retention.south) -- (build.north);
+		\draw [arrow] (detected.south) |- (build.east);
+		\draw [arrow] (build.south) -- (report.north);
+
+	\end{tikzpicture}
+	\caption[Blocco B7: il confronto fra dichiarato e rilevato]{La verifica di conformità: \texttt{build\_report} confronta l'insieme dichiarato dal ROPA con quello rilevato nel registro --- sullo stesso terreno entra il controllo di conservazione (§\ref{sub:impl-b7-retention}) --- e produce un \texttt{ComplianceReport} di sola lettura, che trasporta tipi e conteggi, mai i valori delle PII. Lo strato di I/O (\texttt{check\_document}) procura gli insiemi e, solo su azione esplicita, ne persiste la copertura.}
+	\label{fig:impl-b7-verifica}
+\end{figure}
+
+Quali mappature entrino nell'insieme dichiarato è un \textbf{parametro esplicito} del confronto: si considerano le sole \texttt{DeclaredCategory} in stato \texttt{CONFIRMED}, mentre la consultazione interattiva conta anche quelle \texttt{PROPOSED}. Perché uno stesso documento non risulti orfano per una metà del verdetto e coperto per l'altra, la regola su «quali categorie contano» è definita in un \textbf{unico punto} (\texttt{\_macro\_types}) e riusata identica dal confronto delle categorie e dal controllo di conservazione (§\ref{sub:impl-b7-retention}).
+
+Il confronto non produce solo il verdetto aggregato: a ogni singola PII rilevata assegna il \textbf{primo trattamento associato che ne dichiara il tipo} come trattamento giustificante, scrivendolo in \texttt{PIIInstance.processing\_activity\_id} (§\ref{sub:dati-registro-pii}), oppure \texttt{None} se la PII è orfana. È il momento in cui il riferimento cross-database lasciato vuoto dal registro viene popolato, sull'identificatore-stringa del trattamento (§\ref{sub:impl-b6-crossdb}). Coerentemente con la minimizzazione, il report trasporta soltanto \textbf{tipi e conteggi}, mai i valori delle PII: è un valore di sola lettura (\texttt{ComplianceReport}) consegnato al blocco di restituzione (B8), che decide se limitarsi a mostrarlo oppure persisterne la copertura (§\ref{sec:impl-b8}).
+
+\subsection{Il controllo di conservazione}
+\label{sub:impl-b7-retention}
+
+Il concetto del controllo di conservazione è in architettura (§\ref{sub:b7-retention}); qui se ne descrive la realizzazione. Il verdetto confronta la durata dichiarata dal ROPA --- \texttt{retention\_months} della macro-categoria (§\ref{sub:impl-b1-mappatura}) --- con l'\textbf{età del documento}, cioè la sua \texttt{reference\_date} con la relativa provenienza (\texttt{DateSource}), stimata dall'estrazione (§\ref{sec:impl-b3-estrazione}): una categoria è in \emph{violazione} quando un suo dato è ancora presente e la data del documento supera il termine dichiarato.
+
+Il caso più insidioso non è la violazione ma la \textbf{mancata verifica}. Quando la macro-categoria non esprime una durata fissa ma un criterio (\texttt{retention\_months} vale \texttt{None}, per esempio «per la durata del rapporto»), il primo prototipo saltava il controllo e il documento risultava \emph{conforme} pur non essendo mai stato controllato. Ora quel caso produce l'esito esplicito \texttt{retention\_unresolved}, così da distinguerlo dalla conformità effettiva. Il controllo applica inoltre la stessa regola su quali mappature contino già descritta per il confronto delle categorie.
+
+Il parsing del periodo di conservazione riconosce anche le \textbf{unità francesi} (\texttt{an}/\texttt{ans}/\texttt{mois}): il template è quello CNIL e una dicitura come «5 ans» non riconosciuta disattiverebbe di fatto il controllo. Il resoconto per singolo documento permette di sapere se un determinato file sia in regola, ma non è sufficiente per il DPO, che sarebbe costretto a scorrere centinaia di file singolarmente. La stessa lettura è perciò disponibile anche come \textbf{vista di corpus} (\texttt{compliance retention} da CLI, pagina \texttt{/retention} nella dashboard): riusa lo stesso calcolo su tutto il registro --- così le due schermate non possono divergere --- legge il ROPA \textbf{una sola volta}, non scrive nulla e ordina i documenti per mesi di sforamento, mettendo per primi i casi più gravi. I documenti non associati ad alcun trattamento sono esclusi, perché senza un termine dichiarato non c'è nulla da confrontare; l'esclusione è dichiarata nella pagina.
+
+% -- B8 --
+\section{Dashboard DPO - B8}
+\label{sec:impl-b8}
+
+Il blocco B8 chiude la catena e ne è l'unica \textbf{superficie d'accesso ordinaria}: rende consultabile ciò che i blocchi precedenti hanno prodotto (§\ref{sec:b8-dashboard}). È realizzato come un'\textbf{unica applicazione web} (\texttt{pii\_detection/web/}, FastAPI e template Jinja2), servita su una sola porta; le interfacce a riga di comando restano strumenti di servizio, non la via d'accesso del DPO.
+
+\subsection{Un'unica applicazione su una porta}
+\label{sub:impl-b8-app}
+
+La revisione del ROPA (B1) e la dashboard di conformità nascono come applicazioni distinte, ma la prima è \textbf{montata} nella seconda sotto il prefisso \texttt{/ropa}: non è stata trasformata in un semplice \emph{router} --- così i suoi test restano validi senza modifiche --- e per funzionare sotto prefisso i suoi collegamenti interni sono generati con \texttt{url\_for}, che incorpora il \texttt{root\_path} del punto di montaggio. Il risultato è un unico servizio da avviare e configurare (comando container \texttt{python -m pii\_detection.web}), coerente con il requisito di semplicità d'installazione (§\ref{sub:facilita-installazione}).
+
+Un vincolo governa la sola consultazione: aprire una pagina \textbf{non deve} produrre effetti sullo stato. Il verdetto mostrato in lettura è perciò calcolato in modalità \textbf{non persistente} (\texttt{check\_document} con \texttt{persist\_coverage} disattivato), mentre la scrittura degli esiti per singola PII avviene solo in risposta a un'azione esplicita --- tipicamente l'associazione di un documento a un trattamento --- gestita con il pattern \textbf{Post/Redirect/Get}, che evita re-invii accidentali e separa nettamente ciò che informa da ciò che registra.
+
+\subsection{Dati mostrati sempre per riferimento}
+\label{sub:impl-b8-viste}
+
+La minimizzazione (§\ref{sub:minimizzazione}) non governa solo la persistenza ma anche la restituzione: in nessuna schermata compare il \emph{valore} di una PII: sono mostrati soltanto \textbf{riferimenti} --- categoria, posizione, provenienza del rilevamento, stato di conformità. La restituzione è su due livelli: la vista \textbf{per documento} (la scheda, che riunisce PII rilevate, associazione e verdetto in un luogo) e le viste \textbf{per corpus} --- la dashboard dei documenti, la pagina \texttt{/retention} (conservazione oltre il termine, per gravità, §\ref{sub:impl-b7-retention}), la pagina \texttt{/rules} (regole cartella, §\ref{sub:impl-b6-autoapply}) --- che rispondono alle domande poste su un intero archivio e rendono lo strumento praticabile a scala.
+
+\subsection{La scansione asincrona e l'analisi AI}
+\label{sub:impl-b8-scan}
+
+L'avvio della scansione dalla UI pone un problema di durata: analizzare una cartella su CPU dura da minuti a molto più, e non deve bloccare la pagina. Le scansioni sono perciò \textbf{job in background} (\texttt{ScanJob}: un registro in memoria protetto da \emph{lock}, eseguito su un \texttt{Thread}), con la pagina che ne segue l'avanzamento per \emph{polling}; l'assunzione è un \textbf{singolo worker} applicativo, adeguata a un uso occasionale e interno.
+
+L'intera esperienza è costruita attorno alla lentezza dell'AI. La scansione procede in \textbf{due fasi}: prima i soli rilevatori tradizionali su tutti i documenti (\texttt{ingest\_folder} senza AI) --- veloci, così la dashboard si popola subito --- poi una \textbf{fase 2} in background (\texttt{\_run\_ai\_phase}) che ripassa con l'AI il solo sottoinsieme campionato, \emph{arricchendo} il registro invece di riscriverlo (grazie al \emph{replace-on-scan} del blocco B5). La quota di AI è scelta dall'operatore da un menu (\texttt{ai\_rate}: nessuna analisi, tutti i documenti, oppure uno ogni $N$), e la stessa analisi è innescabile \textbf{su un singolo documento} con un trigger asincrono che riusa lo stesso \texttt{ScanJob}. Perché l'operatore non resti mai al buio davanti a un job lungo, un \textbf{indicatore di scansione attiva} (funzione \texttt{active\_jobs} esposta come globale ai template in \texttt{base.html}) è presente in ogni pagina.
+
+Come la review del ROPA, la web app resta \textbf{fuori} dalla reference tecnica generata (Sphinx documenta la libreria, non l'interfaccia); la sua correttezza è coperta dai test funzionali (\texttt{TestClient}).
+
+\section{Deployment containerizzato e portabilità}
+\label{sec:containerizzazione}
+
+La containerizzazione non è un \textbf{requisito di progetto}: i componenti sono concepiti come \textbf{servizi raggiungibili su porta e configurati da variabili d'ambiente}, con l'applicazione nel ruolo di interfaccia leggera. È inoltre funzionale alla \textbf{minimizzazione del dato}: tutti i servizi risiedono nella rete privata dell'orchestrazione e i dati trattati non lasciano l'infrastruttura on-premise. Questa sezione fissa l'approccio di deployment adottato e ne descrive la realizzazione.
+
+\subsection{Portabilità e isolamento delle dipendenze}
+\label{sub:container-portabilita}
+
+L'obiettivo operativo è una build \textbf{riproducibile su qualsiasi piattaforma}: la stessa immagine deve girare identica in sviluppo e in produzione, indipendentemente dall'architettura dell'host. L'argomento più forte a favore emerge da un problema concreto incontrato nello sviluppo. Il livello di rilevamento NER poggia su uno \textit{stack} di apprendimento automatico pesante e fragile (PyTorch e il modello NER GLiNER); sulla macchina di sviluppo --- un interprete Python \texttt{x86\_64} in emulazione su hardware ARM --- la versione di PyTorch disponibile risultava troppo datata per la restante toolchain (NumPy, transformers), rendendo il livello NER \textbf{non costruibile in locale}. Un container Linux, con dipendenze moderne, risolve il problema alla radice e --- punto generale --- \textbf{disaccoppia la build dall'architettura dell'host}: ciò che in locale è un vicolo cieco diventa, nel container, l'ambiente di riferimento in cui la stessa immagine è riproducibile ovunque.
+
+\subsection{Architettura di deployment}
+\label{sub:container-architettura}
+
+Il sistema è orchestrato come un insieme di servizi. Il \textbf{servizio applicativo} racchiude il nucleo --- ingestione ROPA, motore di detection con i livelli regex/checksum e NER, verifica di conformità, interfaccia per il DPO --- insieme alle relative dipendenze, comprese quelle di apprendimento automatico più onerose (Presidio, spaCy, GLiNER). Il \textbf{runtime del modello generativo} --- un servizio \textbf{Ollama} (basato su \texttt{llama.cpp}) che serve lo SLM scelto (§\ref{sec:scelta-modello-llm}) su porta, con host e nome del modello letti da variabili d'ambiente (\texttt{OLLAMA\_HOST}, \texttt{ROPA\_LLM\_MODEL}) --- è un container separato, coerente con l'uso selettivo e non ricorrente dell'AI. La \textbf{base dati} è, allo stato attuale, un file SQLite su volume persistente (§\ref{sec:implementazione-persistenza-tecnologia}). Tutta la configurazione --- URL della base dati, host e nome del modello --- è letta da \textbf{variabili d'ambiente}, così la stessa immagine gira in locale e in container cambiando solo la configurazione; i pesi dei modelli e lo stato della base dati vivono su \textbf{volumi} dedicati, per non essere riscaricati o persi tra un'esecuzione e l'altra. Coerentemente col profilo hardware del progetto (§\ref{sec:valutazione-presidio}), tutti i servizi operano su \textbf{CPU}. La Figura~\ref{fig:impl-deployment} riassume la suddivisione.
+
+\begin{figure}[htbp]
+	\centering
+	\begin{tikzpicture}[
+			block/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=blue!8, font=\small},
+			ai/.style={rectangle, draw, rounded corners, minimum width=3.4cm,
+					minimum height=1cm, align=center, fill=orange!10, font=\small},
+			io/.style={rectangle, draw, rounded corners, minimum width=3.2cm,
+					minimum height=0.9cm, align=center, fill=green!8, font=\small},
+			store/.style={cylinder, draw, shape border rotate=90, aspect=0.25,
+					minimum height=1.6cm, minimum width=2.8cm, align=center, fill=gray!10, font=\small},
+			human/.style={rectangle, draw, rounded corners, minimum width=2.6cm,
+					minimum height=1cm, align=center, fill=purple!8, font=\small},
+			arrow/.style={thick, -{Latex[length=2mm]}},
+		]
+
+		% --- Configurazione iniettata dall'esterno ---
+		\node (env) [io] at (1.1, 2.6) {variabili d'ambiente\\(\texttt{OLLAMA\_HOST}, \texttt{*\_DB\_URL}, modello)};
+
+		% --- I due servizi (riga y=0) ---
+		\node (app)    [block] at (-1.4, 0) {servizio \texttt{app}\\(UI + detection + verifica)};
+		\node (ollama) [ai]    at (3.6,  0) {servizio \texttt{ollama}\\(runtime SLM)};
+
+		% --- Volumi persistenti (riga y=-2.7) ---
+		\node (voldata)   [store] at (-1.4, -2.7) {volume \texttt{data/}\\(SQLite)};
+		\node (volmodels) [store] at (3.6,  -2.7) {volume modelli\\(SLM)};
+
+		% --- La rete privata dell'orchestrazione ---
+		\begin{scope}[on background layer]
+			\node (compose) [draw, dashed, rounded corners, inner sep=5mm,
+				fit=(app)(ollama)(voldata)(volmodels)] {};
+		\end{scope}
+		\node [font=\footnotesize\itshape, anchor=south west, inner sep=3pt]
+		at (compose.south west) {\texttt{docker compose} --- rete privata, solo CPU};
+
+		% --- Accesso del DPO: l'app è l'unica superficie esposta ---
+		\node (dpo) [human] at (-6.3, 0) {DPO\\(browser)};
+
+		% --- Frecce ---
+		\draw [arrow] (dpo.east) -- node[above, font=\footnotesize]{porta} (app.west);
+		\draw [arrow] (app.east) -- node[above, font=\footnotesize]{su porta} (ollama.west);
+		\draw [arrow] (app.south) -- (voldata.north);
+		\draw [arrow] (ollama.south) -- (volmodels.north);
+		\draw [arrow] (env.south) -| ([xshift=8mm]app.north);
+		\draw [arrow] (env.south) -| (ollama.north);
+
+	\end{tikzpicture}
+	\caption[Deployment containerizzato: servizi, volumi e configurazione]{L'architettura di deployment: due servizi su porta nella rete privata dell'orchestrazione --- l'applicazione (nucleo e interfaccia) e il runtime del modello generativo --- con lo stato su volumi dedicati (base dati e pesi dei modelli) e tutta la configurazione iniettata da variabili d'ambiente: la stessa immagine gira ovunque cambiando solo la configurazione. L'applicazione è l'unica superficie esposta al DPO; i dati trattati non lasciano la rete privata (minimizzazione, §\ref{sub:minimizzazione}).}
+	\label{fig:impl-deployment}
+\end{figure}
+
+\subsection{Contratti e direzione}
+\label{sub:container-direzione}
+
+Il disaccoppiamento è garantito dai contratti già introdotti nell'architettura: \texttt{PIIDetector} per i rilevatori, \texttt{CategoryMapper} per la normalizzazione del ROPA, un client astratto per il modello generativo. Poiché ogni funzionalità dipende solo dalla \textit{forma} del contratto e non dalla sua collocazione, \textbf{spostare una funzionalità in un sotto-container dedicato ha un costo quasi nullo}. La direzione è quindi l'articolazione progressiva in \textbf{sotto-container per funzionalità}: il runtime generativo è già un servizio a sé; il livello NER, oggi in-process, è scorporabile in un servizio dedicato qualora se ne debba scalare il carico; la persistenza migrerà da SQLite a una base dati relazionale in rete (ad esempio PostgreSQL) quando si superi il singolo nodo. Rimane come sviluppo la pubblicazione di immagini \textbf{multi-architettura} (amd64/arm64). Il container costituisce la via canonica per eseguire il sistema completo, dipendenze di apprendimento automatico incluse, mentre il nucleo leggero resta eseguibile nativamente per l'iterazione rapida di sviluppo.

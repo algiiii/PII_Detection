@@ -1,0 +1,19 @@
+{# Shared snippets. Imported, not inherited: {% from "macros.html" import ... %} #}
+
+{% macro date_source_badge(source) -%}
+  {%- if source == "content_metadata" -%}
+    <span class="badge info" title="Letta dai metadati interni del file: sopravvive a copie e ripristini.">metadati del file</span>
+  {%- elif source == "file_mtime" -%}
+    <span class="badge warn" title="Ultima modifica sul file system: una copia massiva o un ripristino da backup la azzerano. Stima debole.">data del file system</span>
+  {%- else -%}
+    <span class="muted">provenienza ignota</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro reference_date(document) -%}
+  {%- if document.reference_date -%}
+    {{ document.reference_date.strftime("%d/%m/%Y") }} {{ date_source_badge(document.reference_date_source) }}
+  {%- else -%}
+    <span class="muted">sconosciuta</span>
+  {%- endif -%}
+{%- endmacro %}

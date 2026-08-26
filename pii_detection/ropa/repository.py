@@ -110,22 +110,6 @@ class ROPARepository:
         with Session(self.engine, expire_on_commit=False) as s:
             return s.get(ProcessingActivity, activity_id)
 
-    def delete_activity(self, activity_id: str) -> None:
-        """Delete a single processing activity and its subtree (block B1).
-
-        Removes one activity through the session so the relationship cascade
-        (``all, delete-orphan``) also drops its macro categories and declared
-        categories; a ``clear()`` in the small, per-activity form. Deleting an id
-        that does not exist is a no-op.
-
-        :param activity_id: identifier of the activity to delete.
-        """
-        with Session(self.engine) as s:
-            activity = s.get(ProcessingActivity, activity_id)
-            if activity is not None:
-                s.delete(activity)
-                s.commit()
-
     def catalog_ids(self) -> list[str]:
         """List the declared ``pii_type`` ids, in catalog order.
 

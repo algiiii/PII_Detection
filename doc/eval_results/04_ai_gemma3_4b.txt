@@ -1,0 +1,146 @@
+corpus: 20 documents, 315 annotated PII occurrences
+onnxruntime cpuid_info warning: Unknown CPU vendor. cpuinfo_vendor value: 0
+/usr/local/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py:189: UserWarning: The `resume_download` argument is deprecated and ignored in `snapshot_download`. Downloads always resume whenever possible.
+  warnings.warn(
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files: 100%|██████████| 4/4 [00:00<00:00, 849.57it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[codecarbon INFO @ 23:28:19] offline tracker init
+[codecarbon WARNING @ 23:28:19] Multiple instances of codecarbon are allowed to run at the same time.
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 226, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 226, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 226, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 226, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
+AI detector chunk failed, skipping
+Traceback (most recent call last):
+  File "/app/pii_detection/detection/ai_detector.py", line 226, in detect
+    self._client.complete(self._prompt(chunk), system=_AI_SYSTEM_PROMPT)
+  File "/app/pii_detection/llm/client.py", line 108, in complete
+    response = self._backend.chat(model=self.model, messages=messages, options=self._options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 387, in chat
+    return self._request(
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 199, in _request
+    return cls(**self._request_raw(*args, **kwargs).json())
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/ollama/_client.py", line 143, in _request_raw
+    raise ResponseError(e.response.text, e.response.status_code) from None
+ollama._types.ResponseError: model runner has unexpectedly stopped, this may be due to resource limitations or an internal error, check ollama server logs for details (status code: 500)
+row                            P     R    F1    s/doc     Wh/doc
+----------------------------------------------------------------
+presidio (pattern+ner)      0.66  0.99  0.79   11.819     0.0655
+ai:gemma3:4b                0.84  0.85  0.85   79.135     0.7625
+union:gemma3:4b             0.61  1.00  0.76   82.717     0.7592
+
+=== presidio (pattern+ner) ===
+
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.68    1.00   0.81   19    9    0
+date_of_birth      0.60    1.00   0.75   12    8    0
+email              0.98    1.00   0.99   82    2    0
+health_data        1.00    1.00   1.00    2    0    0
+iban               0.93    1.00   0.96   65    5    0
+ip_address         0.83    1.00   0.91    5    1    0
+italian_id         0.47    1.00   0.64   18   20    0
+person_name        0.21    1.00   0.35   30  110    0
+phone              0.95    0.95   0.95   73    4    4
+swiss_avs          1.00    1.00   1.00    5    0    0
+-----------------------------------------------------
+OVERALL            0.66    0.99   0.79  311  159    4
+
+=== ai:gemma3:4b ===
+
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.89    0.84   0.86   16    2    3
+credit_card        0.00    0.00   0.00    0    2    0
+date_of_birth      0.69    0.75   0.72    9    4    3
+email              0.92    0.85   0.89   70    6   12
+health_data        0.00    0.00   0.00    0    0    2
+iban               1.00    0.92   0.96   60    0    5
+ip_address         1.00    1.00   1.00    5    0    0
+italian_id         0.71    0.94   0.81   17    7    1
+person_name        0.41    0.70   0.52   21   30    9
+phone              1.00    0.86   0.92   66    0   11
+swiss_avs          1.00    1.00   1.00    5    0    0
+-----------------------------------------------------
+OVERALL            0.84    0.85   0.85  269   51   46
+
+=== union:gemma3:4b ===
+
+category           prec  recall     f1   tp   fp   fn
+-----------------------------------------------------
+address            0.63    1.00   0.78   19   11    0
+credit_card        0.00    0.00   0.00    0    2    0
+date_of_birth      0.60    1.00   0.75   12    8    0
+email              0.94    1.00   0.97   82    5    0
+health_data        1.00    1.00   1.00    2    0    0
+iban               0.93    1.00   0.96   65    5    0
+ip_address         0.83    1.00   0.91    5    1    0
+italian_id         0.43    1.00   0.60   18   24    0
+person_name        0.18    1.00   0.30   30  139    0
+phone              0.95    1.00   0.97   77    4    0
+swiss_avs          1.00    1.00   1.00    5    0    0
+-----------------------------------------------------
+OVERALL            0.61    1.00   0.76  315  199    0

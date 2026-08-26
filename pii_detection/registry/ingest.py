@@ -5,23 +5,22 @@ Composes the pieces that already exist — B3 extraction and B4 detection via
 detected-PII registry (B5). It is the operational path that **populates the
 database from a real document**::
 
-    python -m pii_detection.registry.ingest path/to/document.pdf [--gliner] [--replace]
+    python -m pii_detection.registry.ingest path/to/document.pdf [--gliner]
 
-``--gliner`` swaps spaCy for GLiNER (heavy, container only); ``--replace`` drops
-the document's existing instances first (Step-1 way to avoid duplicates on a
-re-scan, until the Step-2 delta lands).
+``--gliner`` swaps spaCy for GLiNER (heavy, container only). Each ingestion fully
+replaces the document's recorded instances with what is found now.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 from collections import Counter
-from datetime import datetime, timezone
 from pathlib import Path
 
 from pii_detection.detection.pipeline import MergeEngine
 from pii_detection.detection.protocol import PIIDetector
+from pii_detection.extraction.dates import reference_date
+from pii_detection.registry.freshness import stamp_for
 from pii_detection.registry.repository import PIIRepository
 from pii_detection.registry.types import Scan
 from pii_detection.scan import scan_document
@@ -33,7 +32,8 @@ def ingest_document(
     ner: PIIDetector,
     *,
     document_id: str | None = None,
-    replace: bool = False,
+    detector_signature: str | None = None,
+    ai: PIIDetector | None = None,
     repository: PIIRepository | None = None,
     merge: MergeEngine | None = None,
 ) -> Scan:
@@ -45,20 +45,23 @@ def ingest_document(
     :param document_id: identifier to record the document under; defaults to the
         file stem. A batch scan passes the path relative to its root, so documents
         with the same name in different folders do not collide.
-    :param replace: drop the document's existing instances first.
+    :param detector_signature: fingerprint of the detection engine in use, stored
+        with the document so a later scan can tell the engine changed.
+    :param ai: optional generative-AI detector run as a second opinion; forwarded
+        to :func:`~pii_detection.scan.scan_document`. When ``None`` no AI pass runs.
     :param repository: registry to write to; a default one is built when omitted.
     :param merge: merge engine to use; a default one is built when omitted.
     :returns: the created scan.
     """
     repository = repository if repository is not None else PIIRepository()
-    matches = scan_document(path, pattern, ner, merge=merge)
-    modified_at = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+    matches = scan_document(path, pattern, ner, ai, merge=merge)
     return repository.record_scan(
         document_id if document_id is not None else Path(path).stem,
         matches,
         path=str(path),
-        source_modified_at=modified_at,
-        replace=replace,
+        reference_date=reference_date(path),
+        stamp=stamp_for(path),
+        detector_signature=detector_signature,
     )
 
 
@@ -77,17 +80,22 @@ def main(argv: list[str] | None = None) -> None:
         help="use GLiNER for the NER instead of spaCy (heavy; container only)",
     )
     parser.add_argument(
-        "--replace",
+        "--ai",
         action="store_true",
-        help="drop the document's existing instances before recording this scan",
+        help="add the local LLM as a second-opinion detector (needs Ollama)",
     )
     args = parser.parse_args(argv)
     # Lazy import: pulls Presidio only when actually running the CLI.
     from pii_detection.detection.presidio_detector import build_default_detectors
 
     pattern, ner = build_default_detectors(use_gliner=args.gliner)
+    ai = None
+    if args.ai:
+        from pii_detection.detection.ai_detector import build_ai_detector
+
+        ai = build_ai_detector()
     repository = PIIRepository()
-    ingest_document(args.path, pattern, ner, replace=args.replace, repository=repository)
+    ingest_document(args.path, pattern, ner, ai=ai, repository=repository)
 
     instances = repository.instances_for(args.path.stem)
     counts = Counter(instance.pii_type for instance in instances)

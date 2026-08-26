@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "macros.html" import reference_date %}
 {% block title %}{{ document.document_id }}{% endblock %}
 {% block content %}
   <p><a href="{{ url_for('documents') }}">← Tutti i documenti</a></p>
   <h1>{{ document.document_id }}</h1>
   <p class="muted">{{ document.path or "—" }}</p>
+  <p style="margin:.2rem 0 0">
+    <span class="muted">Data del documento:</span> {{ reference_date(document) }}
+  </p>
 
   <h2>Verdetto di conformità</h2>
   {% if report %}
@@ -34,10 +38,16 @@
         <p style="margin:.6rem 0 .2rem"><strong>Conservazione superata</strong></p>
         {% for f in report.retention_flags %}
           <p class="muted" style="margin:.1rem 0">
+            <span class="badge bad">+{{ f.overdue_months }} mesi</span>
             «{{ f.category }}» [{{ f.activity_id }}]: {{ f.pii_types|join(", ") }} —
             età ~{{ f.age_months }} mesi &gt; limite {{ f.retention_months }} mesi
           </p>
         {% endfor %}
+      {% endif %}
+      {% if report.retention_unresolved %}
+        <p style="margin:.6rem 0 .2rem"><strong>Conservazione non verificabile</strong>
+          <span class="muted">(il registro dichiara un criterio, non una durata)</span></p>
+        <div>{% for c in report.retention_unresolved %}<span class="badge warn">{{ c }}</span> {% endfor %}</div>
       {% endif %}
     </div>
     <p class="muted">Il verdetto considera sia le mappature confermate dal DPO sia quelle proposte.</p>
@@ -64,6 +74,22 @@
 
   <h2>PII rilevate <span class="muted">({{ instances|length }})</span></h2>
   <p class="muted">Il registro conserva solo riferimenti (tipo, posizione, provenienza), mai il valore della PII.</p>
+  {% if scan_ai_error %}
+  <p class="badge bad" style="display:block;margin:.2rem 0 .6rem">{{ scan_ai_error }}</p>
+  {% endif %}
+  {% if source_available %}
+  <form method="post" action="{{ url_for('scan_document_ai', document_id=document.document_id) }}" style="margin:.2rem 0 .6rem">
+    <button type="submit">Analizza con l'AI</button>
+    <span class="muted">Rilegge questo documento col modello locale come secondo parere; gira in
+      background — potrai continuare a usare il sistema mentre lavora.</span>
+  </form>
+  {% else %}
+  <p class="muted" style="margin:.2rem 0 .6rem">
+    Analisi AI on-demand non disponibile: il file sorgente non è più sul disco (i documenti
+    caricati dal browser vengono rimossi dopo la scansione, per minimizzazione). Per rianalizzarlo
+    ri-caricalo, oppure scansiona da un percorso lato server scegliendo l'analisi AI.
+  </p>
+  {% endif %}
   <p class="muted" style="margin:.2rem 0 .6rem">
     Stato di conformità di ogni PII:
     <span class="badge ok">coperta</span> rilevata <em>e</em> dichiarata dai trattamenti associati ·

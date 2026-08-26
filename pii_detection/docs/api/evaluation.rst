@@ -107,3 +107,10 @@ Registry check (``enterprise.verify``)
 .. automodule:: pii_detection.evaluation.enterprise.verify
    :members:
    :member-order: bysource
+
+Multi-model AI benchmark (``run_ai_benchmark``)
+-----------------------------------------------
+
+.. automodule:: pii_detection.evaluation.run_ai_benchmark
+   :members:
+   :member-order: bysource
